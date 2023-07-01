@@ -1,8 +1,10 @@
 from utils import History
 
+
 class Agent:
     def act(self, observation):
         raise NotImplementedError
+
 
 class Trader:
     def __init__(self):

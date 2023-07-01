@@ -1,5 +1,3 @@
-import pandas as pd
-pd.options.mode.chained_assignment = None
 from enum import Enum
 
 class Action(Enum):
