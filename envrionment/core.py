@@ -23,9 +23,9 @@ class Environment:
         self.idx = self.observeRange - 2
 
     def observable(self):
-        return (len(self.Data) - 1 > self.idx)
+        return len(self.data) - 1 > self.idx
 
     def observe(self):
-        if self.Observable():
+        if self.observable():
             self.idx = self.idx + 1
-            return TimeSeries(df=self.Data[(self.idx - self.ObserveLength + 1):(self.idx + 1)])
+            return self.data[(self.idx - self.observeRange + 1):(self.idx + 1)]

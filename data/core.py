@@ -1,84 +1,112 @@
-import os
-from binance.client import Client
 import pandas as pd
-import time
-from datetime import datetime
+import numpy as np
+import pymysql
 
 
-class getDATA:
+class Candle:
+    def __init__(self, df):
+        self.__VALID_COLUMNS = ['Open', 'High', 'Low', 'Close', 'Volume']
+        self.data = df[self.__VALID_COLUMNS]
 
-    def __init__(self, symbol, interval, start_str, limit):  # Client 설정에 필요한 변수들
-        self.symbol = symbol
-        self.interval = interval
-        self.start_str = start_str
-        self.limit = limit
-        self.api_key = os.getenv('Binance_API_KEY')
-        self.secret_key = os.getenv('Binance_SECRET_KEY')
+    def __getattr__(self, item):
+        if isinstance(item, slice) or item in self.__VALID_COLUMNS:
+            return self.data[item].to_numpy()
+        elif item == 'index':
+            return self.data.index
+        else:
+            raise IndexError
 
-    def get_candle_dataframe(self, num):
+    def ma(self, window):
+        ma = self.data['Close'].rolling(window=window).mean()
+        ma_return = ma.to_list()
+        return ma_return
 
-        client = Client(self.api_key, self.secret_key)
+    def ema(self, window):
+        list_close = self.data['Close'].to_list()
+        ema_0 = list_close[0]
+        ema_return = [ema_0]
+        for i in range(1, len(list_close)):
+            ema_return.append(list_close[i] * (2 / (1 + window)) + (ema_return[i - 1] * (1 - 2 / (1 + window))))
+        return ema_return
 
-        interval_timestamp = {'1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000,
-                              '1w': 604800000}
+    def __get_rsi(self, series):
+        AU = series.loc[lambda x: x >= 0].sum()
+        AD = -series.loc[lambda x: x < 0].sum()
+        RS = AU / AD
+        return RS / (1 + RS)
 
-        now_timestamp = int(time.mktime(datetime.now())) * 1000
-        need_timestamp = int(
-            now_timestamp - now_timestamp % interval_timestamp[self.interval] - interval_timestamp[self.interval] * (
-                        num - 1))
+    def rsi(self, window):
+        rsi_ori = self.data['Close']
+        rsi_sub = rsi_ori.shift(periods=1, fill_value=0) - rsi_ori
+        rsi = rsi_sub.rolling(window=window).apply(self.__get_rsi)
+        rsi_return = rsi.to_list()
+        return rsi_return
 
-        day = client.get_historical_klines(
-            symbol=self.symbol,
-            interval=self.interval,
-            start_str=need_timestamp,
-            limit=self.limit
-        )
+    def __get_sto_FK(self, series):
+        Fast_K = (series.iloc[-1] - series.min()) / (series.max() - series.min()) * 100
+        return Fast_K
 
-        columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades',
-                      'Taker buy 1', 'Taker buy 2', 'Ignore']
-        index_df = []
+    def __get_sto_FD_SK(self, series, m):
+        Fast_D_Slow_K = series.rolling(window=m).mean()
+        return Fast_D_Slow_K
 
-        for a in day:
-            index_df.append(a[0])
+    def __get_sto_SD(self, series, l):
+        Slow_D = series.rolling(window=l).mean()
+        return Slow_D
 
-        df_data = pd.DataFrame(day, columns=columns_df, index=index_df)
+    def stch(self, n, m, l):
+        fast_K = self.data['Close'].rolling(window=n).apply(self.__get_sto_FK)
+        fast_D = self.__get_sto_FD_SK(fast_K, m)
+        slow_K = fast_D
+        slow_D = self.__get_sto_SD(slow_K, l)
 
-        return df_data
+        data_df = pd.concat([fast_K, fast_D, slow_K, slow_D], axis=1)
+        data_list = []
+        for i in range(4) :
+            data_list.append(data_df.iloc[:,i].to_list())
+        return data_list
 
-    def update_candle_csv(self, filename_pass):
+    def __get_ashi(self, ha, df):
+        ha_open = (ha[0] + ha[1]) / 2
+        ha_close = (np.mean(df))
+        ha_high = np.max(ha_open, ha_close, df[2])
+        ha_low = np.min(ha_open, ha_close, df[3])
 
-        interval_timestamp = {'1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000,
-                              '1w': 604800000}
+        return [ha_open, ha_close, ha_high, ha_low]
 
-        data_origin = pd.read_csv(filename_pass)
-        remove_column = data_origin.columns.to_list
-        last_timestamp = data_origin.index.to_list[-1]
+    def ashi(self):
+        df = self.data[['Open', 'Close', 'High', 'Low']].to_list()
+        ha = [df[0]]
+        for i in range(1, len(df)):
+            ha.append(self.___get_ashi(ha[i - 1], df[i]))
 
-        new_start = last_timestamp + interval_timestamp[self.interval]
+        return ha
 
-        api_key = os.getenv('Binance_API_KEY')
-        secret_key = os.getenv('Binance_SECRET_KEY')
 
-        client = Client(api_key, secret_key)
+class Mysql:
+    def __init__(self, host, user, password, db):
+        #데이터베이스에 접속
+        self.__host = host
+        self.__user = user
+        self.__password = password
+        self.__db = db
 
-        day = client.get_historical_klines(
-            symbol=self.symbol,
-            interval=self.interval,
-            start_str=new_start,
-            limit=self.limit
-        )
+    def _connectDB(self):
+        self._conn = pymysql.connect(host=self.__host,
+                                     user=self.__user,
+                                     password=self.__password,
+                                     db=self.__db,
+                                     charset='utf8')
 
-        columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades',
-                      'Taker buy 1', 'Taker buy 2', 'Ignore']
-        index_df = []
+    def _disconnectDB(self):
+        self._conn.commit()
+        self._conn.close()
 
-        for a in day:
-            index_df.append(a[0])
+    def excute(self):
+        self._connectDB()
+        out = self._method()
+        self._disconnectDB()
+        return out
 
-        data_get = pd.DataFrame(day, columns=columns_df, index=index_df)
-
-        data_plus = data_get.drop(remove_column, axis='columns')
-
-        data_new = pd.concat([data_origin, data_plus], axis=0, ignore_index=False)
-
-        data_new.to_csv(filename_pass)
+    def _method(self):
+        raise NotImplementedError
