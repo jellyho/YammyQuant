@@ -5,7 +5,6 @@ class Environment:
         self.taxRate = 0
         self.data = None
         self.idx = 0
-        self.reset()
 
     def getTradeFee(self):  #
         return 0
@@ -14,7 +13,7 @@ class Environment:
         return 0
 
     def getData(self):  #
-        return None
+        raise NotImplementedError
 
     def reset(self):
         self.tradeFee = self.getTradeFee()

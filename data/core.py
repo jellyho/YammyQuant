@@ -4,17 +4,31 @@ import pymysql
 
 
 class Candle:
-    def __init__(self, df):
+    def __init__(self, ticker, df):
         self.__VALID_COLUMNS = ['Open', 'High', 'Low', 'Close', 'Volume']
+        self.ticker = ticker
         self.data = df[self.__VALID_COLUMNS]
 
     def __getattr__(self, item):
-        if isinstance(item, slice) or item in self.__VALID_COLUMNS:
-            return self.data[item].to_numpy()
+        if item in self.__VALID_COLUMNS:
+            try:
+                return self.data[item].to_numpy()
+            except:
+                return self.data[item]
         elif item == 'index':
             return self.data.index
         else:
             raise IndexError
+
+    def __getitem__(self, item):
+        if isinstance(item, slice) or type(item) is int:
+            return Candle(self.ticker, self.data.iloc[item, :])
+
+    def __str__(self):
+        return f'{self.ticker}-Candle\n'+str(self.data)
+
+    def __len__(self):
+        return len(self.data)
 
     def ma(self, window):
         ma = self.data['Close'].rolling(window=window).mean()

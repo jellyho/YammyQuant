@@ -1,5 +1,4 @@
-from utils import History
-
+from trade.utils import History, Action
 
 class Agent:
     def act(self, observation):
@@ -10,7 +9,7 @@ class Trader:
     def __init__(self):
         self._env = None
         self._agent = None
-        self._history = History
+        self._history = History()
 
     def setEnv(self, env):
         self._env = env
@@ -23,11 +22,12 @@ class Trader:
         :param order: Order Class instance
         :return: True if trade go well, False if trade not happen.
         """
-        raise NotImplementedError
+        return True
 
     def trade(self):
-        while self._env.Observable():
-            data = self._env.Observe()
+        self._env.reset()
+        while self._env.observable():
+            data = self._env.observe()
             acts = self._agent.act(data)
             for act in acts:
                 result = self._trade_method(act)

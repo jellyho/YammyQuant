@@ -36,7 +36,7 @@ class History:
         if type(order) is not Order:
             raise TypeError
         else:
-            self.__orders.append(Order)
+            self.__orders.append(order)
 
     def __str__(self):
         s = "History\n"

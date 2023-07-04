@@ -1,14 +1,23 @@
-from core import Agent
-from utils import Action as a
-from utils import Order
+from trade.core import Agent
+from trade.utils import Action as a
+from trade.utils import Order
 
 
-class VolatilityBreakoutAgent(Agent):
+class MACrossAgent(Agent):
     """
-    VolatilityBreakout by Larry Williams
+    MACross Implementation
     """
-    def __init__(self, k):
-        self.k = k
+    def __init__(self, first=5, second=20):
+        self.first = first
+        self.second = second
 
-    def act(self, observation):
-        return Order()
+    def act(self, obs):
+        maf = obs.ma(self.first)
+        mas = obs.ma(self.second)
+
+        if maf[-1] > mas[-1] and maf[-2] < mas[-2]:
+            return [Order(time=obs.index[-1], action=a.BUY, price=obs[-1].Close)]
+        elif maf[-1] < mas[-1] and maf[-2] > mas[-2]:
+            return [Order(time=obs.index[-1], action=a.SELL, price=obs[-1].Close)]
+        else:
+            return [Order(time=obs.index[-1], action=a.HOLD)]
