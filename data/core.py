@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import pymysql
 
+intervalList = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w', '1M']
 
 class Candle:
     def __init__(self, ticker, df):
@@ -103,13 +104,13 @@ class Mysql:
         self.__host = host
         self.__user = user
         self.__password = password
-        self.__db = db
+        self._db = db
 
     def _connectDB(self):
         self._conn = pymysql.connect(host=self.__host,
                                      user=self.__user,
                                      password=self.__password,
-                                     db=self.__db,
+                                     db=self._db,
                                      charset='utf8')
 
     def _disconnectDB(self):

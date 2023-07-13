@@ -9,11 +9,9 @@ env = SimpleBacktestingEnvironment(reader=reader)
 env.observeRange = 25
 agent = MACrossAgent(5, 20)
 
-trader = Trader()
-trader.setEnv(env)
-trader.setAgent(agent)
+trader = Trader(env, agent)
 trader.trade()
-print(trader._history)
+print(trader.history)
 
 candle = reader.read()
 plt.plot(candle.index, candle.ma(5))

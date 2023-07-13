@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Action(Enum):
     HOLD = 0
     BUY = 1
@@ -8,6 +9,7 @@ class Action(Enum):
     CLOSE_LONG = 4
     SHORT = 5
     CLOSE_SHORT = 6
+
 
 class Order:
     def __init__(self, time=None, action=None, ticker=None, amount=None, price=None):

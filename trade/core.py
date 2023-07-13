@@ -7,10 +7,10 @@ class Agent:
 
 
 class Trader:
-    def __init__(self):
-        self._env = None
-        self._agent = None
-        self._history = History()
+    def __init__(self, env=None, agent=None):
+        self._env = env
+        self._agent = agent
+        self.history = History()
 
     def setEnv(self, env):
         self._env = env
@@ -33,4 +33,4 @@ class Trader:
             for act in acts:
                 result = self._trade_method(act)
                 if result is not None:
-                    self._history.add(act)
+                    self.history.add(act)
