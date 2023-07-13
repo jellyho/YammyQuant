@@ -1,8 +1,9 @@
-import os, time
+import os
 from binance.client import Client
 import pandas as pd
 from datetime import datetime
-from data.core import Candle
+from data.core import Candle, Mysql
+import pandas as pd
 
 
 class BinanceReader:
@@ -26,3 +27,25 @@ class BinanceReader:
         df_data = pd.DataFrame(day, columns=columns_df, index=pd.to_datetime([a[0] for a in day], unit='ms'), dtype=float)
 
         return Candle(self.symbol, df_data)
+
+
+class SQLReader(Mysql):
+    def setTable(self, ticker, interval):
+        self.ticker = ticker
+        self.interval = interval
+
+    def setDate(self, start, end):
+        self.startTimestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S').timestamp() * 1000
+        self.endTimestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S').timestamp() * 1000
+    def _method(self):
+        with self._conn.cursor() as curs:
+            query = f'SELECT * FROM {self.ticker}_{self.interval} WHERE Timestamp >= {self.startTimestamp} AND Timestamp <= {self.endTimestamp}'
+            curs.execute(query)
+            result = curs.fetchall()
+            df = pd.DataFrame(result, columns=['index', 'Open', 'High', 'Low', 'Close', 'Volume', 'N of trades'], dtype=float)
+            df.index = pd.to_datetime(df['index'], unit='ms')
+            return Candle(self.ticker, df)
+
+    def read(self):
+        return self.excute()
+

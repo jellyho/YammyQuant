@@ -1,5 +1,6 @@
 from trade.utils import History, Action
 
+
 class Agent:
     def act(self, observation):
         raise NotImplementedError
