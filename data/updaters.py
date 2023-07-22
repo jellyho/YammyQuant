@@ -12,6 +12,7 @@ class SQLUpdater(Mysql):
         self.__maxRows = 1000
 
     def _method(self):
+        self._disconnectDB()
         if self._db == 'binance':
             from binance.client import Client
             self.api_key = os.getenv('Binance_API_KEY')
@@ -45,17 +46,23 @@ class SQLUpdater(Mysql):
                 columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades', 'Taker buy 1', 'Taker buy 2', 'Ignore']
                 df = pd.DataFrame(data, columns=columns_df, index=pd.to_datetime([a[0] for a in data], unit='ms'), dtype=float)
 
-                idx = len(df)
+                idx = 0
 
-                self._connectDB()
-                with self._conn.cursor() as curs:
-                    sql = f"REPLACE INTO {self.ticker}_{interval} (date, open, high, low, close, volume) VALUES "
-                    for r in df.itertuples():
-                        sql += f"('{r.Index}', {r.Open}, {r.High}, {r.Low}, {r.Close}, {r.Volume}), "
-                    sql = sql[:-2]
-                    curs.execute(sql)
-                self._disconnectDB()
+                while idx < len(df):
+                    if idx + self.__maxRows > len(df):
+                        q = df.iloc[idx:, :]
+                    else:
+                        q = df.iloc[idx:idx+self.__maxRows, :]
+                    idx += 1000
+                    self._connectDB()
+                    with self._conn.cursor() as curs:
+                        sql = f"REPLACE INTO {self.ticker}_{interval} (date, open, high, low, close, volume) VALUES "
+                        for r in q.itertuples():
+                            sql += f"('{r.Index}', {r.Open}, {r.High}, {r.Low}, {r.Close}, {r.Volume}), "
+                        sql = sql[:-2]
+                        curs.execute(sql)
+                    self._disconnectDB()
                 print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} updated.')
-
+        self._connectDB()
     def update(self):
         self.excute()
