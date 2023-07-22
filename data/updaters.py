@@ -9,6 +9,7 @@ class SQLUpdater(Mysql):
     def setTable(self, ticker, intervals):
         self.ticker = ticker
         self.intervals = intervals
+        self.__maxRows = 1000
 
     def _method(self):
         if self._db == 'binance':
@@ -43,6 +44,8 @@ class SQLUpdater(Mysql):
                 data = self.client.get_historical_klines(symbol=self.ticker, interval=interval, start_str=int(result.timestamp() * 1000))
                 columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades', 'Taker buy 1', 'Taker buy 2', 'Ignore']
                 df = pd.DataFrame(data, columns=columns_df, index=pd.to_datetime([a[0] for a in data], unit='ms'), dtype=float)
+
+                idx = len(df)
 
                 self._connectDB()
                 with self._conn.cursor() as curs:

@@ -35,16 +35,19 @@ class SQLReader(Mysql):
         self.interval = interval
 
     def setDate(self, start, end):
-        self.startTimestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S').timestamp() * 1000
-        self.endTimestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S').timestamp() * 1000
+        self.startDatetime = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+        self.endDatetime = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
+
     def _method(self):
         with self._conn.cursor() as curs:
-            query = f'SELECT * FROM {self.ticker}_{self.interval} WHERE Timestamp >= {self.startTimestamp} AND Timestamp <= {self.endTimestamp}'
+            query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date >= '{self.startDatetime}' AND date <= '{self.endDatetime}'"
             curs.execute(query)
             result = curs.fetchall()
-            df = pd.DataFrame(result, columns=['index', 'Open', 'High', 'Low', 'Close', 'Volume', 'N of trades'], dtype=float)
-            df.index = pd.to_datetime(df['index'], unit='ms')
-            return Candle(self.ticker, df)
+        df = pd.DataFrame(result, columns=['index', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        df.index = df['index']
+        df = df.drop(columns=['index'])
+
+        return Candle(self.ticker, df)
 
     def read(self):
         return self.excute()
