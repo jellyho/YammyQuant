@@ -12,7 +12,6 @@ class SQLUpdater(Mysql):
         self.__maxRows = 10000
 
     def _method(self):
-        self._disconnectDB()
         if self._db == 'binance':
             from binance.client import Client
             self.api_key = os.getenv('Binance_API_KEY')
@@ -21,7 +20,6 @@ class SQLUpdater(Mysql):
 
             for interval in self.intervals:
                 # table이 없다면 생성하고 가장 마지막 저장된 데이터 이후 부터 업데이트
-                self._connectDB()
                 with self._conn.cursor() as curs:
                     sql = f"""
                     create table if not exists {self.ticker}_{interval} (

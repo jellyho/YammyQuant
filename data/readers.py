@@ -30,17 +30,45 @@ class BinanceReader:
 
 
 class SQLReader(Mysql):
+    def __init__(self, host, user, password, db):
+        super().__init__(host, user, password, db)
+        self.ticker = None
+        self.interval = None
+        self.startDatetime = None
+        self.endDatetime = None
+
     def setTable(self, ticker, interval):
         self.ticker = ticker
         self.interval = interval
 
-    def setDate(self, start, end):
-        self.startDatetime = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
-        self.endDatetime = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
+    def setDate(self, start=None, end=None):
+        if not isinstance(start, datetime) and start is not None:
+            try:
+                self.startDatetime = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')  # 예시 형식에 맞게 수정
+            except ValueError:
+                raise ValueError(
+                    "Invalid date format. Please provide a valid datetime.datetime object or a string in the format 'YYYY-MM-DD HH:MM:SS'.")
+        else:
+            self.startDatetime = start
+        if not isinstance(end, datetime) and end is not None:
+            try:
+                self.endDatetime = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')  # 예시 형식에 맞게 수정
+            except ValueError:
+                raise ValueError(
+                    "Invalid date format. Please provide a valid datetime.datetime object or a string in the format 'YYYY-MM-DD HH:MM:SS'.")
+        else:
+            self.endDatetime = end
 
     def _method(self):
+        if self.startDatetime is None and self.endDatetime is None:
+            raise ValueError("One of the Dates must have a value.")
         with self._conn.cursor() as curs:
-            query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date >= '{self.startDatetime}' AND date <= '{self.endDatetime}'"
+            if self.startDatetime is not None and self.endDatetime is not None:
+                query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date >= '{self.startDatetime}' AND date <= '{self.endDatetime}'"
+            elif self.startDatetime is not None:
+                query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date >= '{self.startDatetime}'"
+            else:
+                query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date <= '{self.endDatetime}'"
             curs.execute(query)
             result = curs.fetchall()
         df = pd.DataFrame(result, columns=['index', 'Open', 'High', 'Low', 'Close', 'Volume'])
