@@ -9,7 +9,7 @@ class SQLUpdater(Mysql):
     def setTable(self, ticker, intervals):
         self.ticker = ticker
         self.intervals = intervals
-        self.__maxRows = 1000
+        self.__maxRows = 10000
 
     def _method(self):
         self._disconnectDB()
@@ -42,27 +42,32 @@ class SQLUpdater(Mysql):
                 self._disconnectDB()
                 if result is None:
                     result = datetime.fromtimestamp(123456.0)
+                print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} last update=>{result}.')
+                print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} downloading...')
                 data = self.client.get_historical_klines(symbol=self.ticker, interval=interval, start_str=int(result.timestamp() * 1000))
                 columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades', 'Taker buy 1', 'Taker buy 2', 'Ignore']
                 df = pd.DataFrame(data, columns=columns_df, index=pd.to_datetime([a[0] for a in data], unit='ms'), dtype=float)
+                print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} download complete.')
 
-                idx = 0
-
-                while idx < len(df):
-                    if idx + self.__maxRows > len(df):
-                        q = df.iloc[idx:, :]
+                idx_start = 0
+                idx_end = 0
+                while idx_end < len(df):
+                    if idx_start + self.__maxRows > len(df):
+                        idx_end = len(df)
                     else:
-                        q = df.iloc[idx:idx+self.__maxRows, :]
-                    idx += 1000
+                        idx_end = idx_start + self.__maxRows
+                    print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} updating({idx_end}/{len(df)})...')
                     self._connectDB()
                     with self._conn.cursor() as curs:
                         sql = f"REPLACE INTO {self.ticker}_{interval} (date, open, high, low, close, volume) VALUES "
-                        for r in q.itertuples():
+                        for r in df[idx_start:idx_end].itertuples():
                             sql += f"('{r.Index}', {r.Open}, {r.High}, {r.Low}, {r.Close}, {r.Volume}), "
                         sql = sql[:-2]
                         curs.execute(sql)
+                    idx_start = idx_start + self.__maxRows
                     self._disconnectDB()
-                print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} updated.')
+                print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} update complete.')
         self._connectDB()
+
     def update(self):
         self.excute()

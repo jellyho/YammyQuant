@@ -111,7 +111,7 @@ class Mysql:
                                      user=self.__user,
                                      password=self.__password,
                                      db=self._db,
-                                     charset='utf8')
+                                     charset='utf8', connect_timeout=36000)
 
     def _disconnectDB(self):
         self._conn.commit()
