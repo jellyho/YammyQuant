@@ -5,7 +5,6 @@ from PyQt5.QtCore import Qt
 from datetime import datetime
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
