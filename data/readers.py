@@ -1,6 +1,5 @@
 import os
 from binance.client import Client
-import pandas as pd
 from datetime import datetime
 from data.core import Candle, Mysql
 import pandas as pd
