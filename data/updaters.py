@@ -48,13 +48,13 @@ class SQLUpdater(Mysql):
 
                 idx_start = 0
                 idx_end = 0
+                self._connectDB()
                 while idx_end < len(df):
                     if idx_start + self.__maxRows > len(df):
                         idx_end = len(df)
                     else:
                         idx_end = idx_start + self.__maxRows
                     print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} updating({idx_end}/{len(df)})...')
-                    self._connectDB()
                     with self._conn.cursor() as curs:
                         sql = f"REPLACE INTO {self.ticker}_{interval} (date, open, high, low, close, volume) VALUES "
                         for r in df[idx_start:idx_end].itertuples():
@@ -62,9 +62,7 @@ class SQLUpdater(Mysql):
                         sql = sql[:-2]
                         curs.execute(sql)
                     idx_start = idx_start + self.__maxRows
-                    self._disconnectDB()
                 print(f'{datetime.now()}::{self._db}-{self.ticker}-{interval} update complete.')
-        self._connectDB()
 
     def update(self):
         self.excute()
