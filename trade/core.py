@@ -1,4 +1,4 @@
-from trade.utils import History, Action
+from trade.utils import History
 
 
 class Agent:
