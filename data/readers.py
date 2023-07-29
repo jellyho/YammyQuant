@@ -21,7 +21,7 @@ class BinanceReader:
         , start_str=int(datetime.strptime(self.start, '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
         , end_str=int(datetime.strptime(self.end, '%Y-%m-%d %H:%M:%S').timestamp()) * 1000)
 
-        columns_df = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote', 'N of trades',
+        columns_df = ['Open time', 'open', 'high', 'low', 'close', 'volume', 'close time', 'Quote', 'N of trades',
                       'Taker buy 1', 'Taker buy 2', 'Ignore']
 
         df_data = pd.DataFrame(day, columns=columns_df, index=pd.to_datetime([a[0] for a in day], unit='ms'), dtype=float)
@@ -71,7 +71,7 @@ class SQLReader(Mysql):
                 query = f"SELECT * FROM {self.ticker}_{self.interval} WHERE date <= '{self.endDatetime}'"
             curs.execute(query)
             result = curs.fetchall()
-        df = pd.DataFrame(result, columns=['index', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        df = pd.DataFrame(result, columns=['index', 'open', 'high', 'low', 'close', 'volume'])
         df.index = df['index']
         df = df.drop(columns=['index'])
 

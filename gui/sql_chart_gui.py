@@ -9,11 +9,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # SQLAlchemy 엔진 생성
         self.reader = SQLReader(host='jellyho.iptime.org', user='yammyquant', password='dialfl752', db='binance')
         self.reader.setTable('BTCUSDT', '1d')
 
-        self.setWindowTitle("BTC Data Viewer")
+        self.setWindowTitle("SQL Data Viewer")
         self.setGeometry(100, 100, 900, 600)
 
         # 레이아웃 설정

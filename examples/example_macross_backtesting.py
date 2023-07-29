@@ -14,8 +14,8 @@ trader.trade()
 print(trader.history)
 
 candle = reader.read()
-plt.plot(candle.index, candle.ma(5))
-plt.plot(candle.index, candle.ma(20))
+plt.plot(candle.index, candle.SMA(5))
+plt.plot(candle.index, candle.SMA(20))
 plt.show()
 
 
