@@ -36,6 +36,24 @@ class SQLReader(Mysql):
         self.startDatetime = None
         self.endDatetime = None
 
+    def getInfo(self):
+        self._connectDB()
+        with self._conn.cursor() as curs:
+            curs.execute('SHOW TABLES')
+            result = curs.fetchall()
+        self._disconnectDB()
+        result = [r[0] for r in list(result)]
+        result_dict = {}
+        for r in result:
+            ticker_interval = r.split('_')
+            try:
+                result_dict[ticker_interval[0]]
+            except:
+                result_dict[ticker_interval[0]] = []
+            finally:
+                result_dict[ticker_interval[0]].append(ticker_interval[1])
+        return result_dict
+
     def setTable(self, ticker, interval):
         self.ticker = ticker
         self.interval = interval

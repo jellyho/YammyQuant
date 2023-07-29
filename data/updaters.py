@@ -17,6 +17,11 @@ class SQLUpdater(Mysql):
             self.secret_key = os.getenv('Binance_SECRET_KEY')
             self.client = Client(self.api_key, self.secret_key)
 
+            t = self.client.get_all_tickers()
+            tickers = [info['symbol'] for info in t]
+            if self.ticker not in tickers:
+                raise ValueError(f"{self.ticker} does not exists")
+
             for interval in self.intervals:
                 # table이 없다면 생성하고 가장 마지막 저장된 데이터 이후 부터 업데이트
                 with self._conn.cursor() as curs:
