@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         # ticker QComboBox 설정
         self.combo_box_ticker = QComboBox()
-        self.combo_box_ticker.addItems(['BTCUSDT'])  # 필요한 옵션을 추가
+        self.combo_box_ticker.addItems(['BTCUSDT', 'ETHUSDT', 'XRPUSDT'])  # 필요한 옵션을 추가
         layout.addWidget(self.combo_box_ticker)
 
         # interval QComboBox 설정
