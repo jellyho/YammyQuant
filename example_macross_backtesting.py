@@ -4,7 +4,11 @@ from trade.agents import MACrossAgent
 from trade.core import Trader
 import matplotlib.pyplot as plt
 
-reader = BinanceReader('BTCUSDT', '1d', '2022-02-17 00:00:00', '2022-08-17 00:00:00')
+reader = BinanceReader()
+reader.setTicker('BTCUSDT')
+reader.setInterval('1d')
+reader.setDate('2022-02-17 00:00:00', '2022-08-17 00:00:00')
+
 env = SimpleBacktestingEnvironment(reader=reader)
 env.observeRange = 25
 agent = MACrossAgent(5, 20)

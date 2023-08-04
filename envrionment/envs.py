@@ -16,9 +16,7 @@ class SimpleBacktestingEnvironment(Environment):
 
 class BinanceEnvironment(Environment):
     def __init__(self):
-        self.api_key = os.getenv('Binance_API_KEY')
-        self.secret_key = os.getenv('Binance_SECRET_KEY')
-        self.client = Client(self.api_key, self.secret_key)
+        self.reader = BinanceReader()
         super(BinanceEnvironment, self).__init__()
 
     def getTradeFee(self):

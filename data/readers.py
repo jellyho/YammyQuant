@@ -6,26 +6,56 @@ import pandas as pd
 
 
 class BinanceReader:
-    def __init__(self, symbol, interval, start, end):  # Client 설정에 필요한 변수들
+    def __init__(self):  # Client 설정에 필요한 변수들
         self.api_key = os.getenv('Binance_API_KEY')
         self.secret_key = os.getenv('Binance_SECRET_KEY')
         self.client = Client(self.api_key, self.secret_key)
-        self.symbol = symbol
+        self.ticker = None
+        self.interval = None
+        self.start = None
+        self.end = None
+
+    def setTicker(self, ticker):
+        ticker_list = self.client.get_all_tickers()
+        ticker_list = [t['symbol'] for t in ticker_list]
+        if ticker in ticker_list:
+            self.ticker = ticker
+        else:
+            raise ValueError("Invalid Ticker")
+
+    def setInterval(self, interval):
         self.interval = interval
-        self.start = start
-        self.end = end
+
+    def setDate(self, start=None, end=None):
+        if not isinstance(start, datetime) and start is not None:
+            try:
+                self.start = datetime.strptime(start, '%Y-%m-%d %H:%M:%S').timestamp() * 1000  # 예시 형식에 맞게 수정
+            except ValueError:
+                raise ValueError(
+                    "Invalid date format. Please provide a valid datetime.datetime object or a string in the format 'YYYY-MM-DD HH:MM:SS'.")
+        else:
+            self.start = start.timestamp() * 1000
+        if not isinstance(end, datetime) and end is not None:
+            try:
+                self.end = datetime.strptime(end, '%Y-%m-%d %H:%M:%S').timestamp() * 1000  # 예시 형식에 맞게 수정
+            except ValueError:
+                raise ValueError(
+                    "Invalid date format. Please provide a valid datetime.datetime object or a string in the format 'YYYY-MM-DD HH:MM:SS'.")
+        else:
+            self.end = end.timestamp() * 1000
 
     def read(self):
-        day = self.client.get_historical_klines(symbol=self.symbol, interval=self.interval
-        , start_str=int(datetime.strptime(self.start, '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
-        , end_str=int(datetime.strptime(self.end, '%Y-%m-%d %H:%M:%S').timestamp()) * 1000)
+        if self.start is None and self.end is None:
+            day = self.client.get_klines(symbol=self.ticker, interval=self.interval)
+        else:
+            day = self.client.get_historical_klines(symbol=self.ticker, interval=self.interval, start_str=int(self.start), end_str=int(self.end))
 
         columns_df = ['Open time', 'open', 'high', 'low', 'close', 'volume', 'close time', 'Quote', 'N of trades',
                       'Taker buy 1', 'Taker buy 2', 'Ignore']
 
         df_data = pd.DataFrame(day, columns=columns_df, index=pd.to_datetime([a[0] for a in day], unit='ms'), dtype=float)
 
-        return Candle(self.symbol, df_data)
+        return Candle(self.ticker, df_data)
 
 
 class SQLReader(Mysql):
