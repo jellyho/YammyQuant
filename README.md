@@ -119,17 +119,18 @@ index
 ## 3. data.readers.BinanceReader
 
 sql에서 읽는 것이 아니라 Binance API를 이용해서 읽을 수 있도록 만든 reader이다. binance api 보다 편하게 사용할 수 있도록, 그리고 반환 객체가 data.core.Candle 객체가 되도록 하는것이 목표.
-
-앞으로 .setDate, .setSymbol등의 함수 추가해야 하고 현재 시점으로부터 특정 개수만 받아오는 함수도 작성해야함.
-
  
 
 ```python
 from data.readers import BinanceReader
 
-reader = BinanceReader('BTCUSDT', '1d', '2020-01-01 00:00:00', '2020-03-01 00:00:00')
-
+reader = BinanceReader()
+reader.setTicker('BTCUSDT')
+reader.setInterval('1d')
+reader.setDate('2022-02-17 00:00:00', '2022-08-17 00:00:00')
+candle = reader.read()
 ```
+setDate를 안해줄 경우 그냥 제일 최근 값 가져오도록 했다.
 
 ## 4. data.core.Candle
 
