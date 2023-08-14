@@ -21,7 +21,7 @@ class Trader:
     def _trade_method(self, order):
         """
         :param order: Order Class instance
-        :return: True if trade go well, False if trade not happen.
+        :return: filled order if trade go well, False if trade not happen.
         """
         return True
 

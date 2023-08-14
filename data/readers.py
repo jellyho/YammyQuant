@@ -7,8 +7,8 @@ import pandas as pd
 
 class BinanceReader:
     def __init__(self):  # Client 설정에 필요한 변수들
-        self.api_key = os.getenv('Binance_API_KEY')
-        self.secret_key = os.getenv('Binance_SECRET_KEY')
+        api_key = os.getenv('Binance_API_KEY')
+        secret_key = os.getenv('Binance_SECRET_KEY')
         self.client = Client(self.api_key, self.secret_key)
         self.ticker = None
         self.interval = None
