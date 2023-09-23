@@ -13,9 +13,9 @@ class SQLUpdater(Mysql):
     def _method(self):
         if self._db == 'binance':
             from binance.client import Client
-            self.api_key = os.getenv('Binance_API_KEY')
-            self.secret_key = os.getenv('Binance_SECRET_KEY')
-            self.client = Client(self.api_key, self.secret_key)
+            api_key = os.getenv('Binance_API_KEY')
+            secret_key = os.getenv('Binance_SECRET_KEY')
+            self.client = Client(api_key, secret_key)
 
             t = self.client.get_all_tickers()
             tickers = [info['symbol'] for info in t]

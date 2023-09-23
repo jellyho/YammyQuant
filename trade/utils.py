@@ -1,4 +1,5 @@
 from enum import Enum
+import pandas as pd
 
 
 class Action(Enum):
@@ -13,46 +14,45 @@ class Action(Enum):
 
 class Order:
     def __init__(self, time=None, action=None, ticker=None, price=None, quantity=None):
-        self.__data = {}
-        self.__data['time'] = time
-        self.__data['action'] = action
-        self.__data['ticker'] = ticker
-        self.__data['price'] = price
-        self.__data['quantity'] = quantity
+        self.data = {}
+        self.data['time'] = time
+        self.data['action'] = action
+        self.data['ticker'] = ticker
+        self.data['price'] = price
+        self.data['quantity'] = quantity
         self.filled = False
-        self.allowed_keywords = ['time', 'action', 'ticker', 'price', 'quantity', 'quoteQty', 'fee', 'ID']
+        self.allowed_keywords = ['time', 'action', 'ticker', 'price', 'quantity', 'quoteQty', 'fee', 'ID', 'Yield']
 
     def fill(self, **kwargs):
         for kw in kwargs.keys():
             if kw in self.allowed_keywords:
-                self.__data[kw] = kwargs[kw]
+                self.data[kw] = kwargs[kw]
             else:
                 KeyError("Invalid Keywords for Order")
         self.filled = True
 
     def __str__(self):
-        return f"Order : {self.__data}"
+        return f"Order : {self.data}"
 
     def __getitem__(self, index):
-        if index not in self.__data.keys():
+        if index not in self.data.keys():
             raise IndexError
         else:
-            return self.__data[index]
+            return self.data[index]
 
 
 class History:
     def __init__(self):
-        self.__orders = []
+        self.allowed_keywords = ['action', 'ticker', 'price', 'quantity', 'quoteQty', 'fee', 'ID', 'Yield']
+        self.__orders = pd.DataFrame(columns=self.allowed_keywords)
 
     def add(self, order):
         if type(order) is not Order:
             raise TypeError
         else:
-            self.__orders.append(order)
+            self.__orders.loc[order['time']] = pd.Series(order.data)
 
-    def __str__(self):
+    def show(self, ignore_hold=True):
         s = "History\n"
-        for o in self.__orders:
-            s += str(o)
-            s += "\n"
-        return s
+        s += str(self.__orders[self.__orders['action'] != Action.HOLD] if ignore_hold else self.__orders)
+        print(s)

@@ -9,7 +9,7 @@ class BinanceReader:
     def __init__(self):  # Client 설정에 필요한 변수들
         api_key = os.getenv('Binance_API_KEY')
         secret_key = os.getenv('Binance_SECRET_KEY')
-        self.client = Client(self.api_key, self.secret_key)
+        self.client = Client(api_key, secret_key)
         self.ticker = None
         self.interval = None
         self.start = None
