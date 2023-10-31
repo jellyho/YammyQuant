@@ -25,3 +25,16 @@ class BinanceMarketTrader(Trader):
             return order
         except:
             return False
+
+
+class BackTestingTrader(Trader):
+    # BackTestingTrader : Simply fills the order no matter what order received.
+    def __init__(self):
+        super().__init__()
+
+    def _trade_method(self, order):
+        try:
+            order.fill()
+            return order
+        except:
+            return False

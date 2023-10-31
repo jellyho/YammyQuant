@@ -1,4 +1,4 @@
-from trade.utils import History, Action
+from trade.utils import Action, Portfolio
 
 class Agent:
     def act(self, observation):
@@ -6,16 +6,17 @@ class Agent:
 
 
 class Trader:
-    def __init__(self, env=None, agent=None):
-        self._env = env
-        self._agent = agent
-        self.history = History()
+    def __init__(self, env=None, agent=None, portfolio=None):
+        pass
 
     def setEnv(self, env):
         self._env = env
 
     def setAgent(self, agent):
         self._agent = agent
+
+    def setPortfolio(self, portfolio):
+        self.portfolio = portfolio
 
     def _trade_method(self, order):
         """
@@ -32,4 +33,4 @@ class Trader:
             for act in acts:
                 result = self._trade_method(act)
                 if result is not None:
-                    self.history.add(act)
+                    self.portfolio.update_trade(act)
