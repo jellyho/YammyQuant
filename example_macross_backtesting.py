@@ -4,6 +4,7 @@ from trade.agents import MACrossAgent
 from trade.traders import BackTestingTrader
 from trade.utils import Portfolio
 import matplotlib.pyplot as plt
+from plot_history import drawGraph
 
 reader = BinanceReader()
 reader.setTicker('BTCUSDT')
@@ -26,6 +27,9 @@ print(trader.portfolio.history)
 
 trader.portfolio.history.to_csv('result.csv')
 candle = reader.read()
-plt.plot(candle.index, candle.SMA(5))
-plt.plot(candle.index, candle.SMA(20))
-plt.show()
+
+indicator = dict(ma_5 = candle.SMA(5), ma_20 = candle.SMA(20), rsi_5 = candle.RSI(5), rsi_20 = candle.RSI(20))
+
+graph = drawGraph(trader.portfolio.history, candle.data, indicator)
+graph.filtering()
+
