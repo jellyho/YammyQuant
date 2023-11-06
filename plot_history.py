@@ -26,9 +26,9 @@ class drawGraph:
         self.sub_indi = self.candle_df.drop([ _ for _ in self.candle_df.columns if ('ma' in _) or ('ema' in _)]+['open','high','low','close','volume','vSign'],axis=1)
         self.main_indi = self.candle_df.drop(self.sub_indi.columns,axis=1)
         self.trade = self.history.dropna(subset = ['type'])
-        self.trade.set_index(keys='time')
+        self.trade = self.trade.set_index(keys='time')
         self.cash = self.history.dropna(subset = ['seed'])
-        self.cash.set_index(keys='time')
+        self.cash = self.cash.set_index(keys='time')
 
         self.sub_indi.to_csv('plot_data/sub_indi.csv')
         self.main_indi.to_csv('plot_data/main_indi.csv')
