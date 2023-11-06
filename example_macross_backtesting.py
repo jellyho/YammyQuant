@@ -5,7 +5,7 @@ from trade.traders import BackTestingTrader
 from trade.utils import Portfolio
 import matplotlib.pyplot as plt
 
-reader = SQLReader(host='jellyho.iptime.org', user='yammyquant', password='dialfl752', db='binance')
+reader = SQLReader(json_dir='sql.json')
 reader.setTicker('XRPUSDT')
 reader.setInterval('5m')
 reader.setDate('2023-05-01 00:00:00', '2023-05-03 00:00:00')
