@@ -1,6 +1,5 @@
 from enum import Enum
 import pandas as pd
-import datetime
 
 class Action(Enum):
     HOLD = 'HOLD'
@@ -21,7 +20,7 @@ class Order:
         self.data['price'] = price
         self.data['quantity'] = quantity
         self.filled = False
-        self.allowed_keywords = ['time', 'action', 'ticker', 'price', 'quantity', 'quoteQty', 'fee', 'ID']
+        self.allowed_keywords = ['time', 'action', 'ticker', 'price', 'quantity', 'fill', 'fee', 'ID']
 
     def fill(self, **kwargs):
         for kw in kwargs.keys():
@@ -128,6 +127,7 @@ class Portfolio:
             else :
                 seed += self.wallet['cash']        # 기존 거래 내역이 없던 종목의 경우 다른 종목과 시간대를 맞춰주기 위해서 판단 로직이 수행된 횟수 만큼 0을 앞에 집어넣는다.
         row['seed'] = seed
+
         row_df = pd.DataFrame(row,index=[0])
         self.history = pd.concat([self.history,row_df],ignore_index=True)
 

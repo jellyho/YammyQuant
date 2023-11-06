@@ -1,18 +1,18 @@
 from data.readers import SQLReader
 from envrionment.envs import SimpleBacktestingEnvironment
-from trade.agents import MACrossAgent
+from trade.agents import VotalityBreakoutAgent
 from trade.traders import BackTestingTrader
 from trade.utils import Portfolio
 import matplotlib.pyplot as plt
 
-reader = SQLReader(host='jellyho.iptime.org', user='yammyquant', password='dialfl752', db='binance')
-reader.setTicker('XRPUSDT')
-reader.setInterval('5m')
-reader.setDate('2023-05-01 00:00:00', '2023-05-03 00:00:00')
+reader = SQLReader(json_dir='sql.json')
+reader.setTicker('BTCUSDT')
+reader.setInterval('1h')
+reader.setDate('2023-01-01 00:00:00', '2023-06-30 00:00:00')
 
 env = SimpleBacktestingEnvironment(reader=reader)
 env.observeRange = 25
-agent = MACrossAgent(5, 20)
+agent = VotalityBreakoutAgent(0.6)
 
 trader = BackTestingTrader()
 port = Portfolio(100000, env.tradeFee)
@@ -26,6 +26,5 @@ print(trader.portfolio.history)
 
 trader.portfolio.history.to_csv('result.csv')
 candle = reader.read()
-plt.plot(candle.index, candle.SMA(5))
-plt.plot(candle.index, candle.SMA(20))
+plt.plot(candle.index, candle.close)
 plt.show()

@@ -1,4 +1,4 @@
-import os
+import os, json
 from binance.client import Client
 from datetime import datetime
 from data.core import Candle, Mysql
@@ -59,12 +59,22 @@ class BinanceReader:
 
 
 class SQLReader(Mysql):
-    def __init__(self, host, user, password, db):
-        super().__init__(host, user, password, db)
-        self.ticker = None
-        self.interval = None
-        self.startDatetime = None
-        self.endDatetime = None
+    def __init__(self, host=None, user=None, password=None, db=None, json_dir=None):
+        if json_dir is not None:
+            with open(json_dir, "r") as json_file:
+                dic = json.load(json_file)
+                host = dic['host']
+                user = dic['user']
+                password = dic['password']
+                db = dic['db']
+        if host is not None and user is not None and password is not None and db is not None:
+            super().__init__(host, user, password, db)
+            self.ticker = None
+            self.interval = None
+            self.startDatetime = None
+            self.endDatetime = None
+        else:
+            raise ValueError("Invalid Arguments : Please enter the SQL host, user, password, and db as arguments, or a json file containing the relevant arguments.")
 
     def getInfo(self):
         self._connectDB()
@@ -84,8 +94,18 @@ class SQLReader(Mysql):
                 result_dict[ticker_interval[0]].append(ticker_interval[1])
         return result_dict
 
-    def setTable(self, ticker, interval):
+    def setTable(self, ticker, interval): # deprecated
         self.ticker = ticker
+        self.interval = interval
+
+    def setTicker(self, ticker):
+        d = self.getInfo()
+        if ticker in d.keys():
+            self.ticker = ticker
+        else:
+            raise ValueError("Invalid Ticker")
+
+    def setInterval(self, interval):
         self.interval = interval
 
     def setDate(self, start=None, end=None):

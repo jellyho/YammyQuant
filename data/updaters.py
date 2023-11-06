@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from data.core import Candle, Mysql
+from data.core import Mysql
 import pandas as pd
 
 

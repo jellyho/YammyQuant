@@ -31,6 +31,6 @@ class Trader:
             data = self._env.observe()
             acts = self._agent.act(data)
             for act in acts:
-                result = self._trade_method(act)
-                if result is not None:
+                order_result = self._trade_method(act)
+                if order_result.filled:
                     self.portfolio.update_trade(act)

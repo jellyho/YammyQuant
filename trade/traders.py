@@ -19,8 +19,11 @@ class BinanceMarketTrader(Trader):
                     side=order['action'],
                     type='MARKET',
                     quantity=order['quantity'])
-                # order fill 해야함. 근데 result 결과에 따라서..?
-            else:
+                if result['status'] == 'FILLED':
+                    order.fill(fill=result['executedQty'], fee=result['commision'], ID=order['orderId'])
+                else:
+                    pass
+            else: # Hold...
                 order.fill()
             return order
         except:
