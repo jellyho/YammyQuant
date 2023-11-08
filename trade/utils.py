@@ -102,7 +102,8 @@ class Portfolio:
                     self.history.insert(len(self.history.columns),f"{order['ticker']}_quantity",None)
                     self.history.insert(len(self.history.columns),f"{order['ticker']}_meanPrice",None)
                     print("you don't have this coin")
-        
+            else:
+                pass
         self.update_seed({order['ticker'] : order['price']}, order['time'])
   
     def _get_meanPrice(self, q1, p1, q2, p2):        # 매수 평균가를 계산해주는 함수이다.
@@ -115,8 +116,9 @@ class Portfolio:
         return percentage*100, size
 
     def update_seed(self, currentPrice, time):        # dictionary = 우리가 다루는 코인들의 가장 최근 Open 가격을 dict 형태로 보유한 겁니다. 매번 거래 판단이 실시할 때 마다 시행하세요!!!
-        row = {'time' : time}
-        row['cash'] = self.wallet['cash']
+        row2 = {'time' : time}
+        row = pd.
+        row2['cash'] = self.wallet['cash']
         seed = 0
         for ticker in self.wallet:
             if ticker != 'cash':
@@ -132,10 +134,9 @@ class Portfolio:
         self.history = pd.concat([self.history,row_df],ignore_index=True)
 
 
-    def _record(self, time, ticker, type_, tradePrice, quantity, percentage, benefit):        # Dataframe에 거래 기록을 추가하는 함수이다. 자동으로 수행된다.
-        row = {'time' : pd.DatetimeIndex([time]), 'ticker' : ticker, 'type' : type_, 'tradePrice' : tradePrice, 'quantity' : quantity, 'percentage' : percentage, 'benefit' : benefit}
-        row_df = pd.DataFrame(row,index=[0])
-        self.history = pd.concat([self.history,row_df],ignore_index=True)
+    def _record(self, ticker, type_, tradePrice, quantity, percentage, benefit):        # Dataframe에 거래 기록을 추가하는 함수이다. 자동으로 수행된다.
+        row = {'ticker' : ticker, 'type' : type_, 'tradePrice' : tradePrice, 'quantity' : quantity, 'percentage' : percentage, 'benefit' : benefit}
+        self.row_1 = pd.DataFrame(row,index=[0])
         
 
     def save_history(self):
