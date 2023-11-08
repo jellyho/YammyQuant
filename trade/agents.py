@@ -17,9 +17,9 @@ class MACrossAgent(Agent):
         mas = obs.SMA(self.second)
 
         if maf[-1] > mas[-1] and maf[-2] < mas[-2]:
-            return [Order(time=obs.index[-1], action=a.BUY, ticker=obs.ticker, price=obs[-1].close, quantity=1.0000)]
+            return [Order(time=obs.index[-1], action=a.BUY, ticker=obs.ticker, price=obs[-1].close, quantity=10.0000)]
         elif maf[-1] < mas[-1] and maf[-2] > mas[-2]:
-            return [Order(time=obs.index[-1], action=a.SELL, ticker=obs.ticker, price=obs[-1].close, quantity=1.0000)]
+            return [Order(time=obs.index[-1], action=a.SELL, ticker=obs.ticker, price=obs[-1].close, quantity=8.0000)]
         else:
             return [Order(time=obs.index[-1], action=a.HOLD, ticker=obs.ticker, price=obs[-1].close)] # pass current price even in HOLD Action... to update seed
 
@@ -34,7 +34,7 @@ class VotalityBreakoutAgent(Agent):
     def act(self, obs):
         ran = obs.high[-2] - obs.low[-2]
         if obs.high[-1] > obs.close[-2] + ran * self.k:
-                return [Order(time=obs.index[-1], action=a.BUY, ticker=obs.ticker, price=obs.close[-2] + ran * self.k, quantity=1.0000)
-                        ,Order(time=obs.index[-1], action=a.SELL, ticker=obs.ticker, price=obs[-1].close, quantity=1.0000)]
+                return [Order(time=obs.index[-1], action=a.BUY, ticker=obs.ticker, price=obs.close[-2] + ran * self.k, quantity=10.0000)
+                        ,Order(time=obs.index[-1], action=a.SELL, ticker=obs.ticker, price=obs[-1].close, quantity=9.500)]
         else:
             return [Order(time=obs.index[-1], action=a.HOLD, ticker=obs.ticker, price=obs[-1].close)]

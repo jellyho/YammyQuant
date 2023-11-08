@@ -3,7 +3,9 @@ from envrionment.envs import SimpleBacktestingEnvironment
 from trade.agents import MACrossAgent
 from trade.traders import BackTestingTrader
 from trade.utils import Portfolio
+from filtering_data import drawGraph
 import matplotlib.pyplot as plt
+
 
 reader = SQLReader(json_dir='sql.json')
 reader.setTicker('XRPUSDT')
@@ -15,7 +17,7 @@ env.observeRange = 25
 agent = MACrossAgent(5, 20)
 
 trader = BackTestingTrader()
-port = Portfolio(100000, env.tradeFee)
+port = Portfolio(80, env.tradeFee)
 trader.setEnv(env)
 trader.setAgent(agent)
 trader.setPortfolio(port)
@@ -26,6 +28,5 @@ print(trader.portfolio.history)
 
 trader.portfolio.history.to_csv('result.csv')
 candle = reader.read()
-plt.plot(candle.index, candle.SMA(5))
-plt.plot(candle.index, candle.SMA(20))
-plt.show()
+datasave = drawGraph(trader.portfolio.history, candle.data, {'ma5' : candle.SMA(5), 'ma20' : candle.SMA(20), 'rsi10' : candle.RSI(10)})
+datasave.filtering()

@@ -21,14 +21,11 @@ class drawGraph:
         self.candle_df['vSign'] = np.sign(self.candle_df['open']-self.candle_df['close'])
         self.history['tradeCash'] = round(self.history['tradePrice'] * self.history['quantity'],4)
         self.history['preMean'] = self.history['ticker_meanPrice'].shift(1)
-        self.history['preNow'] = self.history['ticker_meanPrice'].shift(-1)
 
         self.sub_indi = self.candle_df.drop([ _ for _ in self.candle_df.columns if ('ma' in _) or ('ema' in _)]+['open','high','low','close','volume','vSign'],axis=1)
         self.main_indi = self.candle_df.drop(self.sub_indi.columns,axis=1)
-        self.trade = self.history.dropna(subset = ['type'])
-        self.trade = self.trade.set_index(keys='time')
-        self.cash = self.history.dropna(subset = ['seed'])
-        self.cash = self.cash.set_index(keys='time')
+        self.trade = self.history.dropna(subset = ['type']).set_index(keys='time')
+        self.cash = self.history.set_index(keys='time')
 
         self.sub_indi.to_csv('plot_data/sub_indi.csv')
         self.main_indi.to_csv('plot_data/main_indi.csv')

@@ -67,7 +67,7 @@ class Portfolio:
 
     # def update_trade(self, time, type_, price, quantity, ticker):        # 거래 주문을 받을 때 마다 지갑을 최신화 하는 함수.
     def update_trade(self, order):
-        self.row = {'time' : 0, 'ticker' : 0, 'type' : 0, 'tradePrice' : 0, 'quantity' : 0, 'percentage' : 0, 'benefit' : 0, 'seed' : 0, 'cash' : 0, 'ticker_cash' : 0, 'ticker_quantity' : 0, 'ticker_meanPrice' : 0}
+        self.row = {'time' : 0.0, 'ticker' : 0.0, 'type' : 0.0, 'tradePrice' : 0.0, 'quantity' : 0.0, 'percentage' : 0.0, 'benefit' : 0.0, 'seed' : 0.0, 'cash' : 0.0, 'ticker_cash' : 0.0, 'ticker_quantity' : 0.0, 'ticker_meanPrice' : 0.0}
         if order.filled and order['action'] != Action.HOLD:
             if order['action'] == Action.BUY:
                 updateCash = order['price'] * order['quantity']        # 매수 할 때 차감 될 금액이다.
@@ -98,11 +98,13 @@ class Portfolio:
                 else:
                     self.wallet[order['ticker']] = [0, 0]        # 새롭게 종목 기록 생성
                     print("you don't have this coin")
+            else:
+                pass
         
         self.update_seed({order['ticker'] : order['price']}, order['time'])
   
     def _get_meanPrice(self, q1, p1, q2, p2):        # 매수 평균가를 계산해주는 함수이다.
-        newPrice = round((q1 * p1 + p2 * q2) / (q1 + q2), 2)
+        newPrice = round((q1 * p1 + p2 * q2) / (q1 + q2), 4)
         return newPrice
   
     def _cal_margin(self, tradePrice, meanPrice, quantity):
@@ -112,17 +114,17 @@ class Portfolio:
 
     def update_seed(self, currentPrice, time):        # dictionary = 우리가 다루는 코인들의 가장 최근 Open 가격을 dict 형태로 보유한 겁니다. 매번 거래 판단이 실시할 때 마다 시행하세요!!!
         self.row['time'] =  time
-        self.row['cash'] = self.wallet['cash']
+        self.row['cash'] = round(self.wallet['cash'],4)
         seed = 0
         for ticker in self.wallet:
             if ticker != 'cash':
                 seed += self.wallet[ticker][0] * currentPrice[ticker]
                 self.row['ticker_meanPrice'] = self.wallet[ticker][1]        # cash의 경우 int형이고 나머지 종목의 경우 [quantity,meanPrice] 형태인걸 주의합시다!
-                self.row['ticker_quantity'] = self.wallet[ticker][0]
-                self.row['ticker_cash'] = self.wallet[ticker][0] * currentPrice[ticker]
+                self.row['ticker_quantity'] = round(self.wallet[ticker][0],4)
+                self.row['ticker_cash'] = round(self.wallet[ticker][0] * currentPrice[ticker],4)
             else :
                 seed += self.wallet['cash']        # 기존 거래 내역이 없던 종목의 경우 다른 종목과 시간대를 맞춰주기 위해서 판단 로직이 수행된 횟수 만큼 0을 앞에 집어넣는다.
-        self.row['seed'] = seed
+        self.row['seed'] = round(seed,4)
         row_df = pd.DataFrame(self.row,index=[0])
         self.history = pd.concat([self.history,row_df],ignore_index=True)
 

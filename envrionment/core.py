@@ -1,7 +1,7 @@
 class Environment:
     def __init__(self):
         self.observeRange = 50
-        self.tradeFee = 0
+        self.tradeFee = 0.004
         self.taxRate = 0
         self.data = None
         self.idx = 0
