@@ -1,3 +1,5 @@
 result_XRP.csv
 result.csv
 sql.json
+*.pyc
+__pycache__/
