@@ -19,9 +19,25 @@ class BinanceMarketTrader(Trader):
                     side=order['action'],
                     type='MARKET',
                     quantity=order['quantity'])
-                # order fill 해야함. 근데 result 결과에 따라서..?
-            else:
+                if result['status'] == 'FILLED':
+                    order.fill(fill=result['executedQty'], fee=result['commision'], ID=order['orderId'])
+                else:
+                    pass
+            else: # Hold...
                 order.fill()
+            return order
+        except:
+            return False
+
+
+class BackTestingTrader(Trader):
+    # BackTestingTrader : Simply fills the order no matter what order received.
+    def __init__(self):
+        super().__init__()
+
+    def _trade_method(self, order):
+        try:
+            order.fill()
             return order
         except:
             return False
