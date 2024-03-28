@@ -5,12 +5,12 @@ from stable_baselines3 import SAC
 
 env = ChartFollowing()
 
-# model = SAC("MlpPolicy", env, verbose=1)
-# for i in range(5):
-#     model.learn(total_timesteps=10000, log_interval=4, progress_bar=True)
-#     model.save("ChartFollowing_SAC")
+model = SAC("MlpPolicy", env, verbose=1)
+model.load("ChartFollowing_SAC")
+model.learn(total_timesteps=100000, log_interval=4, progress_bar=True)
+model.save("ChartFollowing_SAC2")
 
-# del model # remove to demonstrate saving and loading
+del model # remove to demonstrate saving and loading
 
 model = SAC.load("ChartFollowing_SAC")
 
