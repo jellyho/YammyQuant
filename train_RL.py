@@ -1,18 +1,18 @@
 import gymnasium as gym
-from gym_env import ChartFollowing
+from gym_env import ChartFollowingDeadend
 
 from stable_baselines3 import SAC
 
-env = ChartFollowing()
+env = ChartFollowingDeadend()
 
 model = SAC("MlpPolicy", env, verbose=1)
-model.load("ChartFollowing_SAC")
-model.learn(total_timesteps=100000, log_interval=4, progress_bar=True)
-model.save("ChartFollowing_SAC2")
+# model.load("ChartFollowingDeadend_SAC")
+model.learn(total_timesteps=10000, log_interval=100, progress_bar=True)
+model.save("ChartFollowingDeadend_SAC")
 
 del model # remove to demonstrate saving and loading
 
-model = SAC.load("ChartFollowing_SAC")
+model = SAC.load("ChartFollowingDeadend_SAC")
 
 obs = env.reset()
 while True:
