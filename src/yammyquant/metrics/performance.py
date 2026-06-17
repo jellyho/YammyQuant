@@ -66,5 +66,6 @@ def summary(
         "num_trades": int(len(trades)),
         "num_closed": n_closed,
         "win_rate": round(wins / n_closed, 4) if n_closed else 0.0,
-        "profit_factor": round(gross_win / gross_loss, 3) if gross_loss else float("inf"),
+        # None (not inf) when there are no losing trades — keeps the value JSON-safe
+        "profit_factor": round(gross_win / gross_loss, 3) if gross_loss else None,
     }

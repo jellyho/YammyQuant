@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YammyQuant Cockpit</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+</head>
+<body>
+  <header>
+    <h1>YammyQuant <span class="muted">Cockpit</span></h1>
+    <div class="status">
+      <span id="conn" class="badge">connecting…</span>
+      <span id="live" class="badge">live: ?</span>
+      <span id="equity" class="badge equity">equity: –</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card chart-card">
+      <div class="card-head">
+        <h2>Chart</h2>
+        <span>
+          <input id="ticker" value="BTCUSDT" />
+          <select id="interval">
+            <option>1d</option><option>1h</option><option>15m</option>
+            <option>5m</option><option>1m</option><option>1w</option>
+          </select>
+          <button id="loadChart">Load</button>
+        </span>
+      </div>
+      <div id="price" class="plot"></div>
+      <div id="equityPlot" class="plot"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Pending approvals</h2></div>
+      <table id="pending"><thead><tr>
+        <th>#</th><th>mode</th><th>side</th><th>ticker</th><th>qty</th><th>price</th><th></th>
+      </tr></thead><tbody></tbody></table>
+
+      <div class="card-head"><h2>Positions</h2></div>
+      <table id="positions"><thead><tr>
+        <th>ticker</th><th>qty</th><th>avg price</th><th></th>
+      </tr></thead><tbody></tbody></table>
+
+      <div class="card-head"><h2>Recent trades</h2></div>
+      <table id="trades"><thead><tr>
+        <th>#</th><th>ts</th><th>side</th><th>ticker</th><th>qty</th><th>price</th><th>mode</th><th>status</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Signals</h2></div>
+      <table id="signals"><thead><tr>
+        <th>ts</th><th>ticker</th><th>strategy</th><th>action</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Leave an instruction for the operator</h2></div>
+      <div class="inbox-compose">
+        <textarea id="msg" placeholder="e.g. backtest a 3/10 MA cross on ETH 1h and report Sharpe"></textarea>
+        <button id="send">Send to inbox</button>
+      </div>
+      <ul id="inbox"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Operator activity</h2></div>
+      <ul id="activity" class="feed"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

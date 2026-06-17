@@ -168,3 +168,5 @@ __pycache__/
 data_store/
 *.parquet
 chart_following_sac.zip
+yammyquant_state.db*
+*.sqlite
