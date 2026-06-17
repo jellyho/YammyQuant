@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yammyquant"
+version = "0.2.0"
+description = "A small, modern quant framework for crypto backtesting, live trading, and RL experiments."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "jellyho" }]
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "duckdb>=0.10",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+binance = ["python-binance>=1.0"]
+rl = ["gymnasium>=0.29", "stable-baselines3>=2.0"]
+notify = ["requests>=2.28"]
+plot = ["matplotlib>=3.7"]
+dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+all = [
+    "python-binance>=1.0",
+    "gymnasium>=0.29",
+    "stable-baselines3>=2.0",
+    "requests>=2.28",
+    "matplotlib>=3.7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

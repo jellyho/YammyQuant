@@ -163,3 +163,8 @@ result.csv
 sql.json
 *.pyc
 __pycache__/
+
+# YammyQuant
+data_store/
+*.parquet
+chart_following_sac.zip
