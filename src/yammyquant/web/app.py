@@ -122,6 +122,15 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         state.set(key, value)
         return {"key": key, "value": value}
 
+    @app.get("/api/strategies")
+    def get_strategies():
+        from yammyquant.ops.operator import STRATEGIES
+        settings = state.settings()
+        return [
+            {"name": name, "enabled": settings.get(f"strategy.{name}.enabled", True)}
+            for name in sorted(STRATEGIES)
+        ]
+
     # -- WebSocket: push state snapshots -----------------------------------
     @app.websocket("/ws")
     async def ws(websocket: WebSocket):

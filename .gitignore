@@ -170,3 +170,5 @@ data_store/
 chart_following_sac.zip
 yammyquant_state.db*
 *.sqlite
+feature_store/
+models/

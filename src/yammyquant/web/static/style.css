@@ -63,6 +63,8 @@ th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: upp
 .kind { display: inline-block; min-width: 64px; color: var(--accent); font-size: 11px; }
 .inbox-compose { display: flex; gap: 8px; margin-bottom: 10px; }
 .inbox-compose textarea { flex: 1; resize: vertical; min-height: 44px; }
+.toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+.toggles button { font-size: 12px; }
 .buy { color: var(--green); } .sell { color: var(--red); }
 .pill { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); }
 .pill.filled { color: var(--green); } .pill.pending { color: var(--amber); }

@@ -12,13 +12,29 @@ from typing import Optional
 
 from yammyquant.data.sources.store import DuckDBStore
 from yammyquant.backtest.engine import Backtest
-from yammyquant.strategy.builtin import MACross, VolatilityBreakout
+from yammyquant.strategy.builtin import (
+    MACross,
+    VolatilityBreakout,
+    RSIReversion,
+    DonchianBreakout,
+)
 from yammyquant.state.store import LiveState
 
 STRATEGIES = {
     "macross": MACross,
     "volatility_breakout": VolatilityBreakout,
+    "rsi_reversion": RSIReversion,
+    "donchian_breakout": DonchianBreakout,
 }
+
+
+def enabled_strategies(state: LiveState) -> list[str]:
+    """Strategy names the user has enabled in the cockpit (default: all)."""
+    settings = state.settings()
+    return [
+        name for name in STRATEGIES
+        if settings.get(f"strategy.{name}.enabled", True)
+    ]
 
 
 def build_strategy(name: str, **params):
@@ -62,6 +78,27 @@ def backtest(
     if state:
         state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **result.stats)
     return result.stats
+
+
+def features(
+    store: DuckDBStore,
+    ticker: str,
+    interval: str,
+    feature_store=None,
+    state: Optional[LiveState] = None,
+) -> dict:
+    """Compute candle-derived features, persist them, return the latest row."""
+    from yammyquant.data.features import compute_features, latest_features, FeatureStore
+
+    candle = store.read(ticker, interval)
+    feats = compute_features(candle)
+    fs = feature_store or FeatureStore()
+    fs.write(ticker, interval, feats)
+    latest = latest_features(candle)
+    if state:
+        state.log("features", f"computed {len(feats.columns)} features for {ticker}/{interval}",
+                  latest=latest)
+    return latest
 
 
 def scan(

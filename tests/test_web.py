@@ -69,6 +69,17 @@ def test_state_endpoint_handles_non_finite_meta(client):
     assert meta["profit_factor"] is None and meta["sharpe"] is None
 
 
+def test_strategies_endpoint_and_toggle(client):
+    c, _ = client
+    items = c.get("/api/strategies").json()
+    names = {s["name"] for s in items}
+    assert "macross" in names and "donchian_breakout" in names
+    assert all(s["enabled"] for s in items)  # default all on
+    c.post("/api/settings", json={"key": "strategy.macross.enabled", "value": False})
+    items = {s["name"]: s["enabled"] for s in c.get("/api/strategies").json()}
+    assert items["macross"] is False
+
+
 def test_approve_and_reject_pending(client):
     c, state = client
     tm = TradeManager(state)

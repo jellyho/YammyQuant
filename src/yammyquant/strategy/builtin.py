@@ -62,3 +62,49 @@ class VolatilityBreakout(Strategy):
                 Order(Action.SELL, window.ticker, self.size, float(window.close[-1]), time),
             ]
         return []
+
+
+class RSIReversion(Strategy):
+    """Mean-reversion on RSI: buy oversold crossings, sell overbought crossings."""
+
+    def __init__(self, period: int = 14, oversold: float = 30.0,
+                 overbought: float = 70.0, size: float = 1.0):
+        self.period = period
+        self.oversold = oversold
+        self.overbought = overbought
+        self.size = size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        rsi = window.ind.rsi(self.period).to_numpy()
+        time = window.index[-1]
+        price = float(window.close[-1])
+        if rsi[-1] < self.oversold <= rsi[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if rsi[-1] > self.overbought >= rsi[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class DonchianBreakout(Strategy):
+    """Trend-following channel breakout.
+
+    Buys when close breaks above the highest high of the prior ``period`` bars,
+    sells when it breaks below the prior ``period`` low.
+    """
+
+    def __init__(self, period: int = 20, size: float = 1.0):
+        self.period = period
+        self.size = size
+        self.warmup = period + 1
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        prior_high = window.high[-self.period - 1:-1].max()
+        prior_low = window.low[-self.period - 1:-1].min()
+        close = float(window.close[-1])
+        time = window.index[-1]
+        if close > prior_high:
+            return [Order(Action.BUY, window.ticker, self.size, close, time)]
+        if close < prior_low:
+            return [Order(Action.SELL, window.ticker, self.size, close, time)]
+        return []

@@ -62,6 +62,22 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--interval", default="1d")
     p.add_argument("--strategy", default="macross")
 
+    p = sub.add_parser("features", help="compute & store candle-derived features")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+
+    p = sub.add_parser("strategies", help="list or toggle strategies")
+    p.add_argument("--enable")
+    p.add_argument("--disable")
+
+    p = sub.add_parser("train", help="train an RL agent on stored candles")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("--timesteps", type=int, default=10_000)
+    p.add_argument("--algo", default="SAC", choices=["SAC", "PPO"])
+    p.add_argument("--window", type=int, default=10)
+    p.add_argument("--no-deadend", action="store_true")
+
     p = sub.add_parser("trade", help="submit a trade (paper fills now; live queues)")
     p.add_argument("ticker")
     p.add_argument("side", choices=["BUY", "SELL", "buy", "sell"])
@@ -107,6 +123,26 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "scan":
         _print(ops.scan(DuckDBStore(args.store), args.tickers, args.interval,
                         args.strategy, state=state))
+        return 0
+
+    if args.cmd == "features":
+        _print(ops.features(DuckDBStore(args.store), args.ticker, args.interval, state=state))
+        return 0
+
+    if args.cmd == "strategies":
+        if args.enable:
+            state.set(f"strategy.{args.enable}.enabled", True)
+        if args.disable:
+            state.set(f"strategy.{args.disable}.enabled", False)
+        _print({"available": sorted(ops.STRATEGIES),
+                "enabled": ops.enabled_strategies(state)})
+        return 0
+
+    if args.cmd == "train":
+        from yammyquant.ops import training
+        _print(training.train(DuckDBStore(args.store), args.ticker, args.interval,
+                              timesteps=args.timesteps, window=args.window,
+                              algo=args.algo, deadend=not args.no_deadend, state=state))
         return 0
 
     if args.cmd == "trade":

@@ -34,7 +34,22 @@ function render(s) {
   renderInbox(s.inbox || []);
   renderActivity(s.activity || []);
   drawEquity(s.equity || []);
+  loadStrategies();
 }
+
+async function loadStrategies() {
+  const r = await fetch("/api/strategies");
+  if (!r.ok) return;
+  const items = await r.json();
+  $("strategies").innerHTML = items.map(s =>
+    `<button class="${s.enabled ? 'ok' : 'ghost'}" onclick="toggleStrategy('${s.name}', ${!s.enabled})">
+       ${s.enabled ? '●' : '○'} ${s.name}
+     </button>`).join("");
+}
+window.toggleStrategy = async (name, enable) => {
+  await post("/api/settings", { key: `strategy.${name}.enabled`, value: enable });
+  loadStrategies();
+};
 
 function renderRows(id, rowsHtml) {
   $(id).querySelector("tbody").innerHTML = rowsHtml.map(r => `<tr>${r}</tr>`).join("");

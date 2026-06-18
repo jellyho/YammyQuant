@@ -23,14 +23,20 @@ watch everything live and leave you instructions.
 
 ```bash
 yq collect BTCUSDT 1d 1h            # backfill candles from Binance → DuckDB store
+yq features BTCUSDT 1d              # compute & store candle-derived features
 yq backtest BTCUSDT 1d macross --fast 5 --slow 20
-yq scan BTCUSDT ETHUSDT --interval 1d --strategy macross   # emit signals
+yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout   # emit signals
+yq strategies --disable rsi_reversion   # list / toggle strategies
+yq train BTCUSDT 1d --timesteps 50000   # train an RL agent (needs .[rl])
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper        # paper fills now
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode live         # live → pending approval
 yq approve 7        # approve a pending trade   yq reject 7
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
+
+Strategies: `macross`, `volatility_breakout`, `rsi_reversion`, `donchian_breakout`.
+Toggles set in the dashboard are read via `enabled_strategies(state)`.
 
 State lives in `yammyquant_state.db` (SQLite) and candles in `data_store/`
 (DuckDB/Parquet). Both the CLI and the dashboard share them.
