@@ -173,11 +173,22 @@ class LiveState:
         with self._conn() as c:
             c.execute("UPDATE trades SET status=? WHERE id=?", (status, trade_id))
 
+    def set_trade_meta(self, trade_id: int, **fields: Any) -> None:
+        """Merge ``fields`` into a trade's JSON meta (realized PnL, order id, …)."""
+        current = self.get_trade(trade_id)
+        meta = current.get("meta") if current else None
+        meta = meta if isinstance(meta, dict) else {}
+        meta.update(fields)
+        with self._conn() as c:
+            c.execute("UPDATE trades SET meta=? WHERE id=?", (json.dumps(meta), trade_id))
+
     def record_realized(self, trade_id: int, realized: float) -> None:
         """Store realized PnL on a (sell) trade's meta — used by risk/reporting."""
-        with self._conn() as c:
-            c.execute("UPDATE trades SET meta=? WHERE id=?",
-                      (json.dumps({"realized": realized}), trade_id))
+        self.set_trade_meta(trade_id, realized=realized)
+
+    def open_orders(self) -> list[dict]:
+        """Live orders that have been submitted to an exchange but not yet settled."""
+        return self.trades(status="submitted")
 
     def trades(self, limit: int = 200, status: Optional[str] = None) -> list[dict]:
         if status:

@@ -39,7 +39,10 @@ yq approve 7        # approve a pending trade   yq reject 7
 
 # operating the account
 yq watch add BTCUSDT --interval 1d         # watchlist (universe for cycles)
+yq decide --weight 0.1                      # signals → risk-sized orders (dry-run)
+yq decide --weight 0.1 --execute            # ...actually submit (paper; --mode live to queue)
 yq mark                                     # mark positions to market (live price)
+yq sync                                     # poll & settle submitted live orders
 yq cycle                                    # one maintenance cycle: refresh→scan→mark→notify
 yq schedule --interval 300                  # run cycles forever (or cron `yq cycle`)
 yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrails
@@ -50,6 +53,12 @@ yq journal "why I entered BTC ..." --tag thesis   # cross-session memory
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
+
+**Signal → order.** `yq decide` aggregates enabled-strategy signals per watchlist
+symbol into concrete, risk-sized orders (entry sized to a fraction of equity;
+exits flatten). Dry-run by default; `--execute` submits. Set `auto_trade=true`
+(state setting) to have `yq cycle` / the scheduler call `decide --execute`
+automatically (paper unless `trade_mode=live`).
 
 **Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
 enforced on every order (paper + live) — it can reject a trade before it fills.

@@ -73,6 +73,38 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><h2>Performance</h2><button id="refreshReport" class="ghost">refresh</button></div>
+      <div id="report" class="report"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Watchlist</h2></div>
+      <div class="inbox-compose">
+        <input id="watchSymbol" placeholder="symbol e.g. BTCUSDT / KRW-BTC / 005930" />
+        <input id="watchInterval" value="1d" style="max-width:70px" />
+        <button id="watchAdd">Add</button>
+      </div>
+      <table id="watchlist"><thead><tr>
+        <th>symbol</th><th>exchange</th><th>interval</th><th>note</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Account risk policy</h2><button id="saveRisk" class="ok">save</button></div>
+      <div id="risk" class="risk-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Journal</h2></div>
+      <div class="inbox-compose">
+        <textarea id="journalText" placeholder="why I entered/exited, theses, lessons ..."></textarea>
+        <input id="journalTag" placeholder="tag" style="max-width:90px" />
+        <button id="journalAdd">Add</button>
+      </div>
+      <ul id="journal" class="feed"></ul>
+    </section>
+
+    <section class="card">
       <div class="card-head"><h2>Operator activity</h2></div>
       <ul id="activity" class="feed"></ul>
     </section>

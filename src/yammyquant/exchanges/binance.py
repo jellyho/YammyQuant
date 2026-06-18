@@ -69,3 +69,6 @@ class BinanceExchange(Exchange):
         if kwargs["type"] == "LIMIT":
             kwargs.update(price=str(price), timeInForce="GTC")
         return self.client.create_order(**kwargs)
+
+    def order_status(self, order_id: str, ticker: str) -> dict:
+        return self.client.get_order(symbol=ticker, orderId=int(order_id))

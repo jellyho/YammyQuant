@@ -33,9 +33,63 @@ function render(s) {
     `<td>${x.ts}</td><td>${x.ticker}</td><td>${x.strategy}</td><td class="${x.action.toLowerCase()}">${x.action}</td>`));
   renderInbox(s.inbox || []);
   renderActivity(s.activity || []);
+  renderJournal(s.journal || []);
+  renderWatchlist(s.watchlist || []);
   drawEquity(s.equity || []);
   loadStrategies();
 }
+
+function renderJournal(rows) {
+  $("journal").innerHTML = rows.map(j =>
+    `<li><span class="ts">${j.ts}</span>${j.tag ? `<span class="kind">${escapeHtml(j.tag)}</span>` : ""} ${escapeHtml(j.text)}</li>`).join("");
+}
+
+function renderWatchlist(rows) {
+  $("watchlist").querySelector("tbody").innerHTML = rows.map(w => `<tr>
+    <td>${w.symbol}</td><td>${w.exchange || "-"}</td><td>${w.interval || "-"}</td>
+    <td>${escapeHtml(w.note || "")}</td>
+    <td><button class="ghost" onclick="rmWatch('${w.symbol}')">remove</button></td>
+  </tr>`).join("") || `<tr><td colspan="5" class="muted">empty</td></tr>`;
+}
+
+const RISK_FIELDS = ["max_order_value", "max_position_value", "max_open_positions",
+                     "max_symbol_weight", "daily_loss_limit", "cooldown_minutes"];
+async function loadRisk() {
+  const r = await fetch("/api/risk"); if (!r.ok) return;
+  const p = await r.json();
+  $("risk").innerHTML = RISK_FIELDS.map(f =>
+    `<label>${f}<input id="risk_${f}" value="${p[f] ?? ""}" placeholder="none" /></label>`).join("");
+}
+$("saveRisk").onclick = async () => {
+  const body = {};
+  RISK_FIELDS.forEach(f => { body[f] = $("risk_" + f).value.trim() || null; });
+  await post("/api/risk", body); loadRisk();
+};
+
+async function loadReport() {
+  const r = await fetch("/api/report"); if (!r.ok) return;
+  const d = await r.json();
+  const cell = (k, v) => `<div class="stat"><span>${k}</span><b>${v ?? "–"}</b></div>`;
+  $("report").innerHTML =
+    cell("equity", fmt(d.equity_now)) + cell("total return", d.total_return) +
+    cell("realized PnL", fmt(d.realized_pnl)) + cell("max DD", d.max_drawdown) +
+    cell("sharpe", d.sharpe) + cell("win rate", d.win_rate) +
+    cell("closed", d.closed_trades) + cell("cash", fmt(d.cash));
+}
+$("refreshReport").onclick = loadReport;
+
+$("watchAdd").onclick = async () => {
+  const symbol = $("watchSymbol").value.trim();
+  if (symbol && await post("/api/watch", { symbol, interval: $("watchInterval").value.trim() || "1d" }))
+    $("watchSymbol").value = "";
+};
+window.rmWatch = (symbol) => fetch(`/api/watch/${symbol}`, { method: "DELETE" });
+$("journalAdd").onclick = async () => {
+  const text = $("journalText").value.trim();
+  if (text && await post("/api/journal", { text, tag: $("journalTag").value.trim() })) {
+    $("journalText").value = ""; $("journalTag").value = "";
+  }
+};
 
 async function loadStrategies() {
   const r = await fetch("/api/strategies");
@@ -140,3 +194,5 @@ function drawEquity(eq) {
 
 connect();
 loadChart();
+loadRisk();
+loadReport();

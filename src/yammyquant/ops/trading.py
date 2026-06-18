@@ -102,7 +102,11 @@ class TradeManager:
                 )
                 return self.state.get_trade(trade_id)
             placer = place_live or self._place_live_order
-            placer(trade)
+            result = placer(trade)
+            if isinstance(result, dict):
+                oid = result.get("orderId") or result.get("id") or result.get("uuid")
+                if oid is not None:
+                    self.state.set_trade_meta(trade_id, exchange_order_id=str(oid))
 
         self._fill(trade_id, trade["ticker"], trade["side"],
                    trade["quantity"], trade["price"])
@@ -186,7 +190,7 @@ class TradeManager:
         from yammyquant.exchanges import get_exchange, default_exchange
 
         name = self.state.get("exchange") or default_exchange()
-        get_exchange(name).create_order(
+        return get_exchange(name).create_order(
             ticker=trade["ticker"], side=trade["side"],
             quantity=trade["quantity"], price=trade.get("price"),
             order_type="market",

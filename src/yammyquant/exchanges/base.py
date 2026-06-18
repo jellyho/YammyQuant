@@ -79,6 +79,10 @@ class Exchange(ABC):
                      price: Optional[float] = None, order_type: str = "limit") -> dict:
         raise NotImplementedError(f"{self.name} adapter does not implement create_order()")
 
+    def order_status(self, order_id: str, ticker: str) -> dict:
+        """Fetch an order's current status (for live-order lifecycle sync)."""
+        raise NotImplementedError(f"{self.name} adapter does not implement order_status()")
+
     # -- HTTP (overridable / mockable in tests) ----------------------------
     def _request(self, method: str, url: str, headers: Optional[dict] = None,
                  params: Optional[dict] = None, json_body: Optional[dict] = None,

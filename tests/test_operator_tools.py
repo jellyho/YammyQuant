@@ -100,6 +100,52 @@ def test_report_realized_pnl(tmp_path):
     assert rep["realized_by_symbol"]["AAA"] == pytest.approx(200.0)
 
 
+def test_decide_proposes_buy_dry_run(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.add_watch("BTCUSDT", "fake", "1d")
+    out = ops.decide(store, state, weight=0.2, execute=False)
+    # rising series -> donchian/macross give a BUY; flat book -> entry proposed
+    buys = [p for p in out["proposals"] if p["side"] == "BUY"]
+    assert buys and buys[0]["symbol"] == "BTCUSDT"
+    assert out["proposals"][0].get("status") is None  # dry run, not executed
+    assert state.trades() == []
+
+
+def test_decide_executes_paper(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.add_watch("BTCUSDT", "fake", "1d")
+    out = ops.decide(store, state, weight=0.2, execute=True, mode="paper")
+    assert any(p.get("status") == "filled" for p in out["proposals"])
+    assert state.positions()  # a position was opened
+
+
+def test_sync_orders_settles_submitted(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    from yammyquant.ops.trading import TradeManager
+    TradeManager(state).cash = 10_000.0
+    tid = state.add_trade("BTCUSDT", "BUY", 1.0, 100.0, "live", "submitted", "")
+    state.set_trade_meta(tid, exchange_order_id="OID1")
+
+    class _Ex:
+        name = "fake"
+        def order_status(self, oid, ticker):
+            return {"status": "filled"}
+
+    monkeypatch_target = "yammyquant.exchanges.get_exchange"
+    import pytest as _pytest
+    with _pytest.MonkeyPatch.context() as mp:
+        mp.setattr(monkeypatch_target, lambda name=None, **k: _Ex())
+        mp.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+        out = ops.sync_orders(state)
+    assert out["updated"] == [{"id": tid, "status": "filled"}]
+    assert state.get_trade(tid)["status"] == "filled"
+    assert state.positions()[0]["ticker"] == "BTCUSDT"
+
+
 def test_scheduler_runs_n_cycles(tmp_path, fake_exchange):
     from yammyquant.ops.scheduler import run_loop
     state = LiveState(tmp_path / "s.db")

@@ -49,6 +49,7 @@ yq train BTCUSDT 1d --timesteps 50000        # train an RL agent (needs .[rl])
 yq watch add BTCUSDT --interval 1d           # watchlist = the universe for cycles
 yq risk set max_open_positions=5 daily_loss_limit=200   # enforced on every order
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper     # paper fills; live queues
+yq decide --weight 0.1 --execute             # turn signals into risk-sized orders
 yq cycle                                     # refresh → scan → mark → notify (one pass)
 yq schedule --interval 300                   # keep it running between sessions
 yq report          # realized PnL, drawdown, per-symbol     yq doctor   # health check
@@ -116,6 +117,6 @@ toolbelt, record trades).
 
 ```bash
 pip install -e '.[all,dev]'
-pytest -q          # 118 tests
+pytest -q          # 125 tests
 python examples/backtest_synthetic.py
 ```

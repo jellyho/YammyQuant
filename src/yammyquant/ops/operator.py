@@ -268,10 +268,87 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
 
     state.log("cycle", f"cycle: {len(refreshed)} refreshed, {len(signals)} signals",
               refreshed=refreshed, signals=signals)
+
+    decisions = None
+    if state.get("auto_trade"):  # opt-in autonomous trading
+        decisions = decide(store, state, exchange=exchange,
+                           mode=state.get("trade_mode", "paper"), execute=True)
+
     if notify_signals and signals:
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
-    return {"refreshed": refreshed, "signals": signals, "equity": equity}
+    return {"refreshed": refreshed, "signals": signals, "equity": equity, "decisions": decisions}
+
+
+def decide(
+    store: DuckDBStore,
+    state: LiveState,
+    exchange: Optional[str] = None,
+    mode: str = "paper",
+    weight: Optional[float] = None,
+    count: int = 200,
+    execute: bool = False,
+) -> dict:
+    """Turn current signals into risk-sized order decisions (the signal→order step).
+
+    For each watchlist symbol, aggregate enabled-strategy signals into one stance:
+    a fresh BUY (when flat) is sized to ``weight`` of equity; a SELL exits the
+    whole position. With ``execute=True`` the orders are submitted via
+    :class:`TradeManager` (which enforces the account risk policy); otherwise the
+    proposals are returned for review (dry run).
+    """
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+    from yammyquant.ops.risk_policy import AccountRiskPolicy
+
+    ex = get_exchange(exchange or default_exchange())
+    tm = TradeManager(state)
+    policy = AccountRiskPolicy.load(state)
+    target_w = weight if weight is not None else (policy.max_symbol_weight or 0.1)
+    equity = tm._equity_estimate()
+    positions = {p["ticker"]: p for p in state.positions()}
+    enabled = enabled_strategies(state)
+
+    proposals = []
+    for w in state.watchlist():
+        sym, iv = w["symbol"], (w["interval"] or "1d")
+        try:
+            candle = ex.read(sym, iv, count=count)
+        except Exception as exc:
+            state.log("decide", f"read failed for {sym}: {exc}")
+            continue
+        actions = set()
+        for name in enabled:
+            strat = build_strategy(name)
+            if len(candle) < strat.warmup:
+                continue
+            orders = strat.on_bar(candle[-strat.warmup:])
+            if orders:
+                actions.add(orders[0].action.value)
+
+        price = float(candle.close[-1])
+        held = sym in positions and positions[sym]["quantity"] > 0
+        decision = None
+        if "SELL" in actions and held:
+            decision = {"symbol": sym, "side": "SELL", "quantity": positions[sym]["quantity"],
+                        "price": price, "reason": "exit signal"}
+        elif "BUY" in actions and "SELL" not in actions and not held and price > 0:
+            qty = round((equity * target_w) / price, 8)
+            if qty > 0:
+                decision = {"symbol": sym, "side": "BUY", "quantity": qty, "price": price,
+                            "reason": f"entry signal (weight={target_w})"}
+        if decision is None:
+            continue
+        if execute:
+            res = tm.submit(decision["symbol"], decision["side"], decision["quantity"],
+                            decision["price"], mode=mode, rationale=decision["reason"])
+            decision["status"] = res["status"]
+            decision["trade_id"] = res["id"]
+        proposals.append(decision)
+
+    state.log("decide", f"{len(proposals)} decision(s) (execute={execute}, mode={mode})",
+              proposals=proposals)
+    return {"execute": execute, "mode": mode, "weight": target_w, "proposals": proposals}
 
 
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
@@ -313,6 +390,41 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
     state.log("report", "performance report", realized_pnl=out["realized_pnl"],
               total_return=out["total_return"])
     return out
+
+
+def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:
+    """Poll exchange status of submitted (live) orders and settle them locally.
+
+    Maps the venue's status to filled/canceled and fills filled orders into the
+    book. Most market orders settle immediately at placement; this covers limit
+    orders and partial-fill follow-up.
+    """
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+
+    ex = get_exchange(exchange or default_exchange())
+    tm = TradeManager(state)
+    updated = []
+    for trade in state.open_orders():
+        meta = trade.get("meta") if isinstance(trade.get("meta"), dict) else {}
+        oid = meta.get("exchange_order_id")
+        if not oid:
+            continue
+        try:
+            status = ex.order_status(oid, trade["ticker"])
+        except Exception as exc:
+            state.log("sync", f"status check failed for #{trade['id']}: {exc}")
+            continue
+        raw = str(status.get("status", "")).lower()
+        if raw in ("filled", "closed"):
+            tm._fill(trade["id"], trade["ticker"], trade["side"],
+                     trade["quantity"], trade["price"])
+            updated.append({"id": trade["id"], "status": "filled"})
+        elif raw in ("canceled", "cancelled", "expired", "rejected"):
+            state.set_trade_status(trade["id"], "rejected")
+            updated.append({"id": trade["id"], "status": "rejected"})
+    state.log("sync", f"synced {len(updated)} order(s)")
+    return {"exchange": ex.name, "updated": updated, "open_orders": state.open_orders()}
 
 
 def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:

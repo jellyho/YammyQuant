@@ -45,3 +45,6 @@ class CCXTExchange(Exchange):
     def create_order(self, ticker: str, side: str, quantity: float,
                      price: Optional[float] = None, order_type: str = "limit") -> dict:
         return self.client.create_order(ticker, order_type, side.lower(), quantity, price)
+
+    def order_status(self, order_id: str, ticker: str) -> dict:
+        return self.client.fetch_order(order_id, ticker)

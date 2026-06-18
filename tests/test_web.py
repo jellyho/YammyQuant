@@ -80,6 +80,33 @@ def test_strategies_endpoint_and_toggle(client):
     assert items["macross"] is False
 
 
+def test_journal_endpoint(client):
+    c, state = client
+    assert c.post("/api/journal", json={"text": "thesis", "tag": "t"}).status_code == 200
+    assert state.journal()[0]["text"] == "thesis"
+    assert c.post("/api/journal", json={"text": "  "}).status_code == 400
+
+
+def test_watch_add_and_remove(client):
+    c, state = client
+    c.post("/api/watch", json={"symbol": "BTCUSDT", "interval": "1d"})
+    assert "BTCUSDT" in [w["symbol"] for w in state.watchlist()]
+    c.delete("/api/watch/BTCUSDT")
+    assert state.watchlist() == []
+
+
+def test_risk_get_set(client):
+    c, _ = client
+    c.post("/api/risk", json={"max_open_positions": 5, "daily_loss_limit": 200})
+    risk = c.get("/api/risk").json()
+    assert risk["max_open_positions"] == 5 and risk["daily_loss_limit"] == 200
+
+
+def test_report_endpoint(client):
+    c, _ = client
+    assert "realized_pnl" in c.get("/api/report").json()
+
+
 def test_approve_and_reject_pending(client):
     c, state = client
     tm = TradeManager(state)

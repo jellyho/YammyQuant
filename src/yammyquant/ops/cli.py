@@ -137,6 +137,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--interval", default="1d")
     p.add_argument("--note", default="")
 
+    p = sub.add_parser("decide", help="turn signals into risk-sized orders (dry-run unless --execute)")
+    p.add_argument("--exchange")
+    p.add_argument("--mode", choices=["paper", "live"], default="paper")
+    p.add_argument("--weight", type=float, help="target fraction of equity per entry")
+    p.add_argument("--execute", action="store_true", help="actually submit the orders")
+
+    p = sub.add_parser("sync", help="poll & settle submitted live orders")
+    p.add_argument("--exchange")
+
     p = sub.add_parser("cycle", help="run one maintenance cycle (refresh/scan/mark/notify)")
     p.add_argument("--exchange")
 
@@ -306,6 +315,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                 print("usage: yq watch rm SYMBOL"); return 1
             state.remove_watch(args.symbol)
         _print(state.watchlist())
+        return 0
+
+    if args.cmd == "decide":
+        _print(ops.decide(DuckDBStore(args.store), state, exchange=args.exchange,
+                         mode=args.mode, weight=args.weight, execute=args.execute))
+        return 0
+
+    if args.cmd == "sync":
+        _print(ops.sync_orders(state, exchange=args.exchange))
         return 0
 
     if args.cmd == "cycle":

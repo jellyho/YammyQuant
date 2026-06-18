@@ -122,6 +122,49 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         state.set(key, value)
         return {"key": key, "value": value}
 
+    @app.post("/api/journal")
+    def post_journal(payload: dict):
+        text = (payload or {}).get("text", "").strip()
+        if not text:
+            raise HTTPException(400, "text is required")
+        return {"id": state.add_journal(text, tag=(payload or {}).get("tag", ""))}
+
+    @app.post("/api/watch")
+    def add_watch(payload: dict):
+        symbol = (payload or {}).get("symbol", "").strip()
+        if not symbol:
+            raise HTTPException(400, "symbol is required")
+        state.add_watch(symbol, (payload or {}).get("exchange", ""),
+                        (payload or {}).get("interval", "1d"), (payload or {}).get("note", ""))
+        return _json_safe(state.watchlist())
+
+    @app.delete("/api/watch/{symbol}")
+    def remove_watch(symbol: str):
+        state.remove_watch(symbol)
+        return _json_safe(state.watchlist())
+
+    @app.get("/api/risk")
+    def get_risk():
+        from yammyquant.ops.risk_policy import AccountRiskPolicy
+        from dataclasses import asdict
+        return asdict(AccountRiskPolicy.load(state))
+
+    @app.post("/api/risk")
+    def set_risk(payload: dict):
+        from yammyquant.ops.risk_policy import AccountRiskPolicy
+        from dataclasses import asdict
+        policy = AccountRiskPolicy.load(state)
+        for key, value in (payload or {}).items():
+            if hasattr(policy, key):
+                setattr(policy, key, None if value in (None, "", "none") else float(value))
+        policy.save(state)
+        return asdict(policy)
+
+    @app.get("/api/report")
+    def get_report():
+        from yammyquant.ops import operator as ops
+        return _json_safe(ops.report(state))
+
     @app.get("/api/strategies")
     def get_strategies():
         from yammyquant.ops.operator import STRATEGIES
