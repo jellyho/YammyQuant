@@ -31,6 +31,22 @@ def sharpe(returns: pd.Series, periods_per_year: float) -> float:
     return float(np.sqrt(periods_per_year) * returns.mean() / returns.std(ddof=0))
 
 
+def sortino(returns: pd.Series, periods_per_year: float) -> float:
+    """Annualized Sortino ratio — like Sharpe but penalizes only downside vol."""
+    if returns.empty:
+        return 0.0
+    downside = returns[returns < 0]
+    dd = downside.std(ddof=0)
+    if dd == 0 or np.isnan(dd):
+        return 0.0
+    return float(np.sqrt(periods_per_year) * returns.mean() / dd)
+
+
+def calmar(cagr: float, max_dd: float) -> float:
+    """CAGR divided by the magnitude of max drawdown."""
+    return float(cagr / abs(max_dd)) if max_dd else 0.0
+
+
 def summary(
     equity_curve: pd.DataFrame,
     trades: pd.DataFrame,
@@ -48,12 +64,16 @@ def summary(
     ppy = _BARS_PER_YEAR.get(interval or "", 252)
     n_years = len(equity) / ppy if ppy else 0
     cagr = (end / start) ** (1 / n_years) - 1.0 if start and n_years > 0 else 0.0
+    mdd = max_drawdown(equity)
+    ann_vol = float(returns.std(ddof=0) * np.sqrt(ppy)) if not returns.empty else 0.0
 
     closed = trades[trades["action"] == "SELL"] if not trades.empty else trades
-    wins = int((closed["realized_pnl"] > 0).sum()) if not closed.empty else 0
+    pnl = closed["realized_pnl"] if not closed.empty else pd.Series(dtype=float)
+    wins = pnl[pnl > 0]
+    losses = pnl[pnl < 0]
     n_closed = len(closed)
-    gross_win = float(closed.loc[closed["realized_pnl"] > 0, "realized_pnl"].sum()) if n_closed else 0.0
-    gross_loss = float(-closed.loc[closed["realized_pnl"] < 0, "realized_pnl"].sum()) if n_closed else 0.0
+    gross_win = float(wins.sum()) if n_closed else 0.0
+    gross_loss = float(-losses.sum()) if n_closed else 0.0
 
     return {
         "bars": len(equity),
@@ -61,11 +81,18 @@ def summary(
         "end_equity": round(end, 2),
         "total_return": round(total_return, 4),
         "cagr": round(cagr, 4),
+        "annual_volatility": round(ann_vol, 4),
         "sharpe": round(sharpe(returns, ppy), 3),
-        "max_drawdown": round(max_drawdown(equity), 4),
+        "sortino": round(sortino(returns, ppy), 3),
+        "calmar": round(calmar(cagr, mdd), 3),
+        "max_drawdown": round(mdd, 4),
         "num_trades": int(len(trades)),
         "num_closed": n_closed,
-        "win_rate": round(wins / n_closed, 4) if n_closed else 0.0,
+        "win_rate": round(len(wins) / n_closed, 4) if n_closed else 0.0,
         # None (not inf) when there are no losing trades — keeps the value JSON-safe
         "profit_factor": round(gross_win / gross_loss, 3) if gross_loss else None,
+        "avg_win": round(float(wins.mean()), 4) if len(wins) else 0.0,
+        "avg_loss": round(float(losses.mean()), 4) if len(losses) else 0.0,
+        "best_trade": round(float(pnl.max()), 4) if n_closed else 0.0,
+        "worst_trade": round(float(pnl.min()), 4) if n_closed else 0.0,
     }

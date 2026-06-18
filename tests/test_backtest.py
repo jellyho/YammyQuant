@@ -26,6 +26,13 @@ def test_volatility_breakout_runs(sine_candle):
     assert "max_drawdown" in result.stats
 
 
+def test_expanded_metrics_present(sine_candle):
+    result = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
+    for key in ["sortino", "calmar", "annual_volatility", "avg_win", "avg_loss",
+                "best_trade", "worst_trade"]:
+        assert key in result.stats
+
+
 def test_not_enough_data_raises(sine_candle):
     short = sine_candle[:10]
     bt = Backtest(short, MACross(5, 20))

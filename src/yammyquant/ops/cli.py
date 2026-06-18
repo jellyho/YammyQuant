@@ -66,6 +66,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("ticker")
     p.add_argument("interval")
 
+    p = sub.add_parser("optimize", help="grid-search strategy params (optionally walk-forward)")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("strategy")
+    p.add_argument("--metric", default="sharpe")
+    p.add_argument("--walk-forward", type=int, default=0, metavar="N",
+                   help="number of walk-forward splits (0 = in-sample grid search)")
+
     p = sub.add_parser("strategies", help="list or toggle strategies")
     p.add_argument("--enable")
     p.add_argument("--disable")
@@ -127,6 +135,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "features":
         _print(ops.features(DuckDBStore(args.store), args.ticker, args.interval, state=state))
+        return 0
+
+    if args.cmd == "optimize":
+        _print(ops.optimize(DuckDBStore(args.store), args.ticker, args.interval,
+                           args.strategy, metric=args.metric,
+                           walk_forward_splits=args.walk_forward, state=state))
         return 0
 
     if args.cmd == "strategies":

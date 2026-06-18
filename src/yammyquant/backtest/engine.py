@@ -21,6 +21,7 @@ import pandas as pd
 
 from yammyquant.data.candle import Candle
 from yammyquant.backtest.broker import BacktestBroker, Broker
+from yammyquant.backtest.order import Action, Order
 from yammyquant.backtest.portfolio import Portfolio
 from yammyquant.strategy.base import Strategy
 from yammyquant.metrics.performance import summary
@@ -73,12 +74,18 @@ class Backtest:
         slippage: float = 0.0,
         lookback: int | None = None,
         broker: Broker | None = None,
+        risk: "RiskConfig | None" = None,
     ):
         self.candle = candle
         self.strategy = strategy
         self.lookback = lookback or strategy.warmup
         self.portfolio = Portfolio(cash=cash, fee=fee)
         self.broker = broker or BacktestBroker(fee=fee, slippage=slippage)
+        self.risk = None
+        if risk is not None:
+            from yammyquant.backtest.risk import RiskManager
+            from yammyquant.metrics.performance import _BARS_PER_YEAR
+            self.risk = RiskManager(risk, _BARS_PER_YEAR.get(candle.interval or "", 252))
 
     def run(self) -> BacktestResult:
         self.strategy.reset()
@@ -90,19 +97,34 @@ class Backtest:
             )
 
         close = candle.close
+        high = candle.high
+        low = candle.low
         index = candle.index
         ticker = candle.ticker
+        peak_equity = self.portfolio.equity()
+        halted = False
 
         for i in range(self.lookback - 1, n):
             window = candle[i - self.lookback + 1 : i + 1]
             ref_price = float(close[i])
             time = index[i]
 
-            for order in self.strategy.on_bar(window):
-                order.time = order.time or time
-                fill = self.broker.execute(order, ref_price=ref_price, time=time)
-                if fill is not None:
-                    self.portfolio.apply_fill(fill)
+            # 1) protective exits + drawdown kill switch (before new orders)
+            if self.risk is not None:
+                self._apply_risk_exits(ticker, float(high[i]), float(low[i]), time)
+                peak_equity = max(peak_equity, self.portfolio.equity())
+                if not halted and self.risk.drawdown_breached(peak_equity, self.portfolio.equity()):
+                    self._flatten(ticker, ref_price, time)
+                    halted = True
+
+            # 2) strategy orders (suppressed once the kill switch has fired)
+            if not halted:
+                for order in self.strategy.on_bar(window):
+                    order.time = order.time or time
+                    self._size_order(order, ref_price, close, i)
+                    fill = self.broker.execute(order, ref_price=ref_price, time=time)
+                    if fill is not None:
+                        self.portfolio.apply_fill(fill)
 
             self.portfolio.mark(time, {ticker: ref_price})
 
@@ -112,3 +134,36 @@ class Backtest:
             stats=summary(self.portfolio.equity_curve, self.portfolio.trades, interval=candle.interval),
             portfolio=self.portfolio,
         )
+
+    # -- risk helpers ------------------------------------------------------
+    def _apply_risk_exits(self, ticker: str, bar_high: float, bar_low: float, time) -> None:
+        pos = self.portfolio.position(ticker)
+        if not pos.is_open:
+            return
+        exit_px = self.risk.exit_price(pos.avg_price, bar_high, bar_low)
+        if exit_px is not None:
+            self._sell(ticker, pos.quantity, exit_px, time)
+
+    def _flatten(self, ticker: str, price: float, time) -> None:
+        pos = self.portfolio.position(ticker)
+        if pos.is_open:
+            self._sell(ticker, pos.quantity, price, time)
+
+    def _sell(self, ticker: str, quantity: float, price: float, time) -> None:
+        order = Order(Action.SELL, ticker, quantity, price, time)
+        fill = self.broker.execute(order, ref_price=price, time=time)
+        if fill is not None:
+            self.portfolio.apply_fill(fill)
+
+    def _size_order(self, order, ref_price: float, close, i: int) -> None:
+        """Resize a BUY entry per the risk policy (no-op for sizing='off'/SELL)."""
+        if self.risk is None or order.action != Action.BUY:
+            return
+        lookback = self.risk.config.vol_lookback
+        recent = None
+        if i >= lookback:
+            seg = close[i - lookback : i + 1]
+            recent = seg[1:] / seg[:-1] - 1.0
+        qty = self.risk.size_entry(self.portfolio.equity(), ref_price, recent)
+        if qty > 0:
+            order.quantity = qty

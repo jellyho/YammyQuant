@@ -37,6 +37,55 @@ def enabled_strategies(state: LiveState) -> list[str]:
     ]
 
 
+# Default parameter grids used by `yq optimize` / `yq walkforward`.
+DEFAULT_GRIDS = {
+    "macross": {"fast": [5, 10, 20], "slow": [30, 50, 100]},
+    "volatility_breakout": {"k": [0.3, 0.5, 0.7, 0.9]},
+    "rsi_reversion": {"period": [7, 14, 21], "oversold": [20, 30], "overbought": [70, 80]},
+    "donchian_breakout": {"period": [10, 20, 55]},
+}
+
+
+def optimize(
+    store: DuckDBStore,
+    ticker: str,
+    interval: str,
+    strategy: str,
+    metric: str = "sharpe",
+    grid: Optional[dict] = None,
+    walk_forward_splits: int = 0,
+    cash: float = 10_000.0,
+    fee: float = 0.001,
+    state: Optional[LiveState] = None,
+) -> dict:
+    """Grid-search a strategy's parameters (optionally walk-forward validated)."""
+    from yammyquant.backtest.optimize import grid_search, walk_forward
+
+    if strategy not in STRATEGIES:
+        raise ValueError(f"unknown strategy {strategy!r}")
+    candle = store.read(ticker, interval)
+    grid = grid or DEFAULT_GRIDS.get(strategy, {})
+    cls = STRATEGIES[strategy]
+
+    if walk_forward_splits > 0:
+        out = walk_forward(candle, cls, grid, n_splits=walk_forward_splits,
+                           metric=metric, cash=cash, fee=fee)
+        if state:
+            state.log("optimize", f"walk-forward {strategy} on {ticker}/{interval}",
+                      avg_out_of_sample=out["avg_out_of_sample"], metric=metric)
+        return out
+
+    res = grid_search(candle, cls, grid, metric=metric, cash=cash, fee=fee)
+    out = {"metric": metric, "best_params": res.best_params,
+           "best_score": round(res.best_score, 4),
+           "top": [{"params": r["params"], "score": round(r["score"], 4)}
+                   for r in res.results[:5]]}
+    if state:
+        state.log("optimize", f"optimized {strategy} on {ticker}/{interval}",
+                  best_params=res.best_params, best_score=out["best_score"], metric=metric)
+    return out
+
+
 def build_strategy(name: str, **params):
     if name not in STRATEGIES:
         raise ValueError(f"unknown strategy {name!r}; choose from {sorted(STRATEGIES)}")
