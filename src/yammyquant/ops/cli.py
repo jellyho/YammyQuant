@@ -40,9 +40,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--all", action="store_true", help="show read messages too")
     p.add_argument("--mark-read", action="store_true", help="mark unread messages as read")
 
-    p = sub.add_parser("collect", help="backfill candles from Binance")
+    p = sub.add_parser("collect", help="backfill candles from an exchange")
     p.add_argument("ticker")
     p.add_argument("intervals", nargs="+")
+    p.add_argument("--exchange", default="binance",
+                   help="binance (resumable) | upbit | bithumb | kis | any ccxt id")
+    p.add_argument("--count", type=int, default=200, help="bars to fetch (non-binance)")
+
+    sub.add_parser("exchanges", help="list supported exchanges")
 
     p = sub.add_parser("backtest", help="run a backtest")
     p.add_argument("ticker")
@@ -116,7 +121,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "collect":
-        _print(ops.collect(DuckDBStore(args.store), args.ticker, args.intervals, state))
+        _print(ops.collect(DuckDBStore(args.store), args.ticker, args.intervals, state,
+                           exchange=args.exchange, count=args.count))
+        return 0
+
+    if args.cmd == "exchanges":
+        from yammyquant.exchanges import list_exchanges
+        _print(list_exchanges())
         return 0
 
     if args.cmd == "backtest":

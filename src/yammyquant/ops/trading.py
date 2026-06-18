@@ -151,13 +151,25 @@ class TradeManager:
         self.mark_to_market({ticker: price})
 
     def _place_live_order(self, trade: dict) -> None:
-        """Place a real market order on Binance. Only reached when allowed+approved."""
-        from binance.client import Client  # optional dependency
+        """Place a real order on the configured exchange. Only reached when allowed+approved.
 
-        client = Client(os.getenv("BINANCE_API_KEY"), os.getenv("BINANCE_SECRET_KEY"))
-        client.create_order(
-            symbol=trade["ticker"],
-            side=trade["side"],
-            type="MARKET",
-            quantity=trade["quantity"],
+        The venue is read from the ``exchange`` setting (default ``binance``).
+        Native adapters (upbit/bithumb/kis) load their own API keys from the
+        environment; ccxt venues take ``<NAME>_API_KEY`` / ``<NAME>_SECRET_KEY``.
+        """
+        from yammyquant.exchanges import NATIVE, get_exchange
+
+        name = self.state.get("exchange", "binance")
+        if name in NATIVE:
+            adapter = get_exchange(name)
+        else:
+            adapter = get_exchange(
+                name,
+                api_key=os.getenv(f"{name.upper()}_API_KEY"),
+                secret_key=os.getenv(f"{name.upper()}_SECRET_KEY"),
+            )
+        adapter.create_order(
+            ticker=trade["ticker"], side=trade["side"],
+            quantity=trade["quantity"], price=trade.get("price"),
+            order_type="market",
         )

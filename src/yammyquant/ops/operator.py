@@ -97,14 +97,31 @@ def collect(
     ticker: str,
     intervals: list[str],
     state: Optional[LiveState] = None,
+    exchange: str = "binance",
+    count: int = 200,
 ) -> dict:
-    """Backfill candles from Binance into the local store."""
-    from yammyquant.data.sources.binance import backfill
+    """Backfill candles into the local store from any supported exchange.
 
-    backfill(store, ticker, intervals)
-    result = {iv: len(store.read(ticker, iv, start="1970-01-01 00:00:00")) for iv in intervals}
+    ``exchange="binance"`` uses the resumable Binance backfill; any other name
+    (``upbit``, ``bithumb``, ``kis``, or a ccxt id) uses that venue's adapter.
+    """
+    result = {}
+    if exchange == "binance":
+        from yammyquant.data.sources.binance import backfill
+
+        backfill(store, ticker, intervals)
+        result = {iv: len(store.read(ticker, iv, start="1970-01-01 00:00:00")) for iv in intervals}
+    else:
+        from yammyquant.exchanges import get_exchange
+
+        adapter = get_exchange(exchange)
+        for iv in intervals:
+            candle = adapter.read(ticker, iv, count=count)
+            if len(candle):
+                store.write(candle)
+            result[iv] = len(candle)
     if state:
-        state.log("collect", f"collected {ticker} {intervals}", **result)
+        state.log("collect", f"collected {ticker} {intervals} from {exchange}", **result)
     return result
 
 
