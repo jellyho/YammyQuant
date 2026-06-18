@@ -22,12 +22,14 @@ Use :func:`get_exchange` to obtain an adapter by name.
 """
 
 from yammyquant.exchanges.base import Exchange, jwt_hs256
+from yammyquant.exchanges.binance import BinanceExchange
 from yammyquant.exchanges.upbit import UpbitExchange
 from yammyquant.exchanges.bithumb import BithumbExchange
 from yammyquant.exchanges.korea_investment import KoreaInvestment
 from yammyquant.exchanges.toss import TossSecurities
 
 NATIVE = {
+    "binance": BinanceExchange,
     "upbit": UpbitExchange,
     "bithumb": BithumbExchange,
     "kis": KoreaInvestment,
@@ -48,9 +50,9 @@ def get_exchange(name: str, **creds) -> Exchange:
 def list_exchanges() -> dict:
     """What's supported, grouped by how it's reached."""
     return {
-        "native_crypto": ["upbit", "bithumb"],
+        "native_crypto": ["binance", "upbit", "bithumb"],
         "native_stock": ["kis (한국투자증권)", "toss (토스증권)"],
-        "via_ccxt": ["binance", "bybit", "okx", "coinbase", "kraken",
+        "via_ccxt": ["bybit", "okx", "coinbase", "kraken",
                      "coinone", "korbit", "... any ccxt exchange id"],
     }
 
@@ -58,6 +60,7 @@ def list_exchanges() -> dict:
 __all__ = [
     "Exchange",
     "jwt_hs256",
+    "BinanceExchange",
     "UpbitExchange",
     "BithumbExchange",
     "KoreaInvestment",

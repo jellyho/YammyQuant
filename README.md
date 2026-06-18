@@ -110,6 +110,6 @@ toolbelt, record trades).
 
 ```bash
 pip install -e '.[all,dev]'
-pytest -q          # 89 tests
+pytest -q          # 91 tests
 python examples/backtest_synthetic.py
 ```

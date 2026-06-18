@@ -24,14 +24,17 @@ yq collect KRW-BTC 1d 1h --exchange upbit
 
 | Exchange | Adapter | Class | Auth | Data | Trade | Notes |
 | --- | --- | --- | --- | :-: | :-: | --- |
+| **Binance** | `binance` | crypto | python-binance (HMAC) | ✅ | ✅ | native; `BTCUSDT`; resumable backfill via `--exchange binance` |
 | **Upbit** (업비트) | `upbit` | crypto | JWT HS256 + SHA512 query hash | ✅ | ✅ | `KRW-BTC` market format |
 | **Bithumb** (빗썸) | `bithumb` | crypto | HMAC-SHA512 (classic API) | ✅ | ✅ | `BTC` / `BTC_KRW` |
 | **한국투자증권** (KIS) | `kis` | stock | OAuth2 token + hashkey | ✅ | ✅ | 6-digit codes; real & paper(모의) domains |
 | **토스증권** (Toss) | `toss` | stock | OAuth2 bearer | ⚠️ | ⚠️ | 2026 Open API; **confirm paths** (see below) |
-| Binance / Bybit / OKX / Coinbase / Kraken / Coinone / Korbit / … | `<ccxt id>` | crypto | per ccxt | ✅ | ✅ | via `[ccxt]`; 100+ venues |
+| Bybit / OKX / Coinbase / Kraken / Coinone / Korbit / … | `<ccxt id>` | crypto | per ccxt | ✅ | ✅ | via `[ccxt]`; 100+ venues |
 
-Binance also has a native resumable backfill used by `yq collect … --exchange binance`
-(the default), built on `data/sources/binance.py`.
+> **토스뱅크(Toss Bank) ≠ 토스증권(Toss Securities).** Stock trading (and its API)
+> belongs to **Toss Securities**. Toss Bank is the internet bank — deposits,
+> loans, FX, open-banking transfers — and has no stock-trading API. Use the
+> `toss` adapter (Toss Securities) for equities.
 
 ## Credentials (environment only — never hardcode)
 

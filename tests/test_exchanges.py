@@ -14,10 +14,27 @@ import pytest
 from yammyquant.data.candle import Candle
 from yammyquant.exchanges import get_exchange, list_exchanges, NATIVE
 from yammyquant.exchanges.base import jwt_hs256
+from yammyquant.exchanges.binance import BinanceExchange
 from yammyquant.exchanges.upbit import UpbitExchange
 from yammyquant.exchanges.bithumb import BithumbExchange
 from yammyquant.exchanges.korea_investment import KoreaInvestment
 from yammyquant.exchanges.toss import TossSecurities
+
+
+class _FakeBinanceClient:
+    def __init__(self):
+        self.orders = []
+
+    def get_klines(self, symbol, interval, limit):
+        # [open_time, open, high, low, close, volume, close_time, q, n, tb, tq, ignore]
+        return [
+            [1704067200000, "100", "110", "95", "105", "10", 0, 0, 0, 0, 0, 0],
+            [1704153600000, "105", "112", "104", "108", "8", 0, 0, 0, 0, 0, 0],
+        ]
+
+    def create_order(self, **kwargs):
+        self.orders.append(kwargs)
+        return {"orderId": 1, **kwargs}
 
 
 # -- shared JWT -------------------------------------------------------------
@@ -43,8 +60,26 @@ def test_registry_resolves_native():
 
 def test_list_exchanges_shape():
     info = list_exchanges()
-    assert "upbit" in info["native_crypto"]
+    assert "upbit" in info["native_crypto"] and "binance" in info["native_crypto"]
     assert any("toss" in s for s in info["native_stock"])
+
+
+# -- Binance ----------------------------------------------------------------
+def test_binance_read_parses_klines():
+    ex = BinanceExchange(client=_FakeBinanceClient())
+    c = ex.read("BTCUSDT", "1d", count=200)
+    assert isinstance(c, Candle) and len(c) == 2
+    assert c.open[0] == 100.0 and c.close[-1] == 108.0
+
+
+def test_binance_create_order_maps_type_and_side():
+    fake = _FakeBinanceClient()
+    ex = BinanceExchange(client=fake)
+    ex.create_order("BTCUSDT", "buy", 0.5, price=50000, order_type="limit")
+    assert fake.orders[0] == {"symbol": "BTCUSDT", "side": "BUY", "type": "LIMIT",
+                              "quantity": 0.5, "price": "50000", "timeInForce": "GTC"}
+    ex.create_order("BTCUSDT", "SELL", 0.5, order_type="market")
+    assert fake.orders[1]["type"] == "MARKET" and "price" not in fake.orders[1]
 
 
 # -- Upbit ------------------------------------------------------------------
