@@ -141,7 +141,24 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--exchange")
     p.add_argument("--mode", choices=["paper", "live"], default="paper")
     p.add_argument("--weight", type=float, help="target fraction of equity per entry")
+    p.add_argument("--type", dest="order_type", choices=["market", "limit"], default="market")
     p.add_argument("--execute", action="store_true", help="actually submit the orders")
+
+    p = sub.add_parser("rebalance", help="move portfolio toward target weights")
+    p.add_argument("--exchange")
+    p.add_argument("--mode", choices=["paper", "live"], default="paper")
+    p.add_argument("--band", type=float, default=0.02, help="tolerance band around target")
+    p.add_argument("--execute", action="store_true")
+
+    p = sub.add_parser("target", help="view/set portfolio target weights")
+    p.add_argument("assignments", nargs="*", help="SYMBOL=weight ... (empty = show)")
+
+    p = sub.add_parser("expect", help="record a backtest baseline for decay tracking")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("strategy")
+
+    sub.add_parser("decay", help="compare realized performance to recorded baselines")
 
     p = sub.add_parser("sync", help="poll & settle submitted live orders")
     p.add_argument("--exchange")
@@ -319,7 +336,34 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "decide":
         _print(ops.decide(DuckDBStore(args.store), state, exchange=args.exchange,
-                         mode=args.mode, weight=args.weight, execute=args.execute))
+                         mode=args.mode, weight=args.weight, execute=args.execute,
+                         order_type=args.order_type))
+        return 0
+
+    if args.cmd == "rebalance":
+        _print(ops.rebalance(DuckDBStore(args.store), state, exchange=args.exchange,
+                            mode=args.mode, band=args.band, execute=args.execute))
+        return 0
+
+    if args.cmd == "target":
+        if args.assignments:
+            targets = state.get("targets", {})
+            for kv in args.assignments:
+                if "=" not in kv:
+                    print("usage: yq target SYMBOL=weight ..."); return 1
+                sym, w = kv.split("=", 1)
+                targets[sym] = float(w)
+            state.set("targets", targets)
+        _print(state.get("targets", {}))
+        return 0
+
+    if args.cmd == "expect":
+        _print(ops.record_expectation(DuckDBStore(args.store), state,
+                                     args.ticker, args.interval, args.strategy))
+        return 0
+
+    if args.cmd == "decay":
+        _print(ops.decay_check(state))
         return 0
 
     if args.cmd == "sync":

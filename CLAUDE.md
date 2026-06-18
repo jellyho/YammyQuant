@@ -41,8 +41,13 @@ yq approve 7        # approve a pending trade   yq reject 7
 yq watch add BTCUSDT --interval 1d         # watchlist (universe for cycles)
 yq decide --weight 0.1                      # signals → risk-sized orders (dry-run)
 yq decide --weight 0.1 --execute            # ...actually submit (paper; --mode live to queue)
+yq decide --execute --type limit            # limit orders (live ones rest until synced)
+yq target BTCUSDT=0.5 ETHUSDT=0.3           # set portfolio target weights
+yq rebalance --execute                      # move holdings toward targets
+yq expect BTCUSDT 1d macross               # record a backtest baseline
+yq decay                                    # realized vs baseline (strategy-decay alert)
 yq mark                                     # mark positions to market (live price)
-yq sync                                     # poll & settle submitted live orders
+yq sync                                     # poll & settle submitted/partial live orders
 yq cycle                                    # one maintenance cycle: refresh→scan→mark→notify
 yq schedule --interval 300                  # run cycles forever (or cron `yq cycle`)
 yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrails
@@ -56,9 +61,14 @@ yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 
 **Signal → order.** `yq decide` aggregates enabled-strategy signals per watchlist
 symbol into concrete, risk-sized orders (entry sized to a fraction of equity;
-exits flatten). Dry-run by default; `--execute` submits. Set `auto_trade=true`
-(state setting) to have `yq cycle` / the scheduler call `decide --execute`
-automatically (paper unless `trade_mode=live`).
+exits flatten). Dry-run by default; `--execute` submits; `--type limit` rests
+live orders until `yq sync` settles them (handles partial fills). Set
+`auto_trade=true` (state setting) to have `yq cycle` / the scheduler call
+`decide --execute` automatically (paper unless `trade_mode=live`).
+
+**Portfolio & decay.** `yq target`/`yq rebalance` maintain target weights across
+holdings. `yq expect` records a backtest baseline; `yq decay` warns when realized
+performance falls below it (out-of-sample edge erosion).
 
 **Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
 enforced on every order (paper + live) — it can reject a trade before it fills.

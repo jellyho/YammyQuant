@@ -288,6 +288,7 @@ def decide(
     weight: Optional[float] = None,
     count: int = 200,
     execute: bool = False,
+    order_type: str = "market",
 ) -> dict:
     """Turn current signals into risk-sized order decisions (the signal→order step).
 
@@ -341,7 +342,8 @@ def decide(
             continue
         if execute:
             res = tm.submit(decision["symbol"], decision["side"], decision["quantity"],
-                            decision["price"], mode=mode, rationale=decision["reason"])
+                            decision["price"], mode=mode, rationale=decision["reason"],
+                            order_type=order_type)
             decision["status"] = res["status"]
             decision["trade_id"] = res["id"]
         proposals.append(decision)
@@ -349,6 +351,110 @@ def decide(
     state.log("decide", f"{len(proposals)} decision(s) (execute={execute}, mode={mode})",
               proposals=proposals)
     return {"execute": execute, "mode": mode, "weight": target_w, "proposals": proposals}
+
+
+def rebalance(
+    store: DuckDBStore,
+    state: LiveState,
+    targets: Optional[dict] = None,
+    exchange: Optional[str] = None,
+    mode: str = "paper",
+    band: float = 0.02,
+    execute: bool = False,
+) -> dict:
+    """Move the portfolio toward target weights (target-weight maintenance).
+
+    ``targets`` maps symbol -> desired fraction of equity (defaults to the stored
+    ``targets`` setting). Symbols whose weight drifts more than ``band`` from
+    target get a buy/sell to close the gap; cash is the implicit remainder.
+    """
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+
+    targets = targets or state.get("targets", {})
+    if not targets:
+        return {"orders": [], "note": "no targets set (yq target set SYM=weight)"}
+
+    ex = get_exchange(exchange or default_exchange())
+    tm = TradeManager(state)
+    positions = {p["ticker"]: p for p in state.positions()}
+    prices = {}
+    for sym in set(targets) | set(positions):
+        try:
+            prices[sym] = ex.last_price(sym)
+        except Exception:
+            prices[sym] = positions.get(sym, {}).get("avg_price", 0.0)
+
+    equity = tm.cash + sum(positions[s]["quantity"] * prices.get(s, 0.0) for s in positions)
+    orders = []
+    for sym, target_w in targets.items():
+        price = prices.get(sym, 0.0)
+        if price <= 0:
+            continue
+        cur_val = positions.get(sym, {}).get("quantity", 0.0) * price
+        cur_w = cur_val / equity if equity else 0.0
+        if abs(cur_w - target_w) <= band:
+            continue
+        delta_val = target_w * equity - cur_val
+        side = "BUY" if delta_val > 0 else "SELL"
+        qty = round(abs(delta_val) / price, 8)
+        if qty <= 0:
+            continue
+        order = {"symbol": sym, "side": side, "quantity": qty, "price": price,
+                 "current_weight": round(cur_w, 4), "target_weight": target_w}
+        if execute:
+            res = tm.submit(sym, side, qty, price, mode=mode, rationale="rebalance")
+            order["status"] = res["status"]
+        orders.append(order)
+
+    state.log("rebalance", f"{len(orders)} rebalancing order(s) (execute={execute})", orders=orders)
+    return {"execute": execute, "mode": mode, "equity": round(equity, 2), "orders": orders}
+
+
+def record_expectation(
+    store: DuckDBStore,
+    state: LiveState,
+    ticker: str,
+    interval: str,
+    strategy: str,
+    params: Optional[dict] = None,
+    name: Optional[str] = None,
+) -> dict:
+    """Backtest a strategy and store its result as the live performance baseline."""
+    stats = backtest(store, ticker, interval, strategy, params)
+    key = name or f"{strategy}:{ticker}:{interval}"
+    expectations = state.get("expectations", {})
+    expectations[key] = {"sharpe": stats.get("sharpe"), "total_return": stats.get("total_return"),
+                         "win_rate": stats.get("win_rate"), "max_drawdown": stats.get("max_drawdown"),
+                         "recorded_at": __import__("datetime").datetime.utcnow().isoformat()}
+    state.set("expectations", expectations)
+    state.log("expect", f"recorded expectation {key}", **expectations[key])
+    return {key: expectations[key]}
+
+
+def decay_check(state: LiveState, tolerance: float = 0.5) -> dict:
+    """Compare realized account performance to recorded backtest expectations.
+
+    Flags a strategy as *decayed* when the live/paper Sharpe falls below
+    ``tolerance`` × the backtested Sharpe — an early warning that an edge has
+    stopped working out of sample. (Account-level: most meaningful when one
+    strategy drives the book.)
+    """
+    expectations = state.get("expectations", {})
+    realized = report(state)
+    out = []
+    for key, exp in expectations.items():
+        exp_sharpe = exp.get("sharpe") or 0.0
+        decayed = exp_sharpe > 0 and realized["sharpe"] < tolerance * exp_sharpe
+        out.append({"expectation": key, "expected_sharpe": exp_sharpe,
+                    "realized_sharpe": realized["sharpe"],
+                    "expected_return": exp.get("total_return"),
+                    "realized_return": realized["total_return"], "decayed": decayed})
+    decayed_any = [o for o in out if o["decayed"]]
+    if decayed_any:
+        from yammyquant.ops.notify import notify
+        notify(state, f"⚠️ strategy decay: {', '.join(o['expectation'] for o in decayed_any)}", "warn")
+    return {"realized_sharpe": realized["sharpe"], "checks": out}
 
 
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
@@ -416,9 +522,21 @@ def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:
             state.log("sync", f"status check failed for #{trade['id']}: {exc}")
             continue
         raw = str(status.get("status", "")).lower()
+        # partial fills: fill the newly-filled delta, keep the order open
+        already = float(meta.get("filled_qty", 0.0))
+        filled = float(status.get("filled", status.get("executedQty", 0.0)) or 0.0)
+        delta = filled - already
+        if delta > 1e-12 and raw not in ("filled", "closed"):
+            tm._fill_partial(trade, delta)
+            state.set_trade_meta(trade["id"], filled_qty=filled)
+            updated.append({"id": trade["id"], "status": "partial", "filled": filled})
+            continue
         if raw in ("filled", "closed"):
-            tm._fill(trade["id"], trade["ticker"], trade["side"],
-                     trade["quantity"], trade["price"])
+            remaining = trade["quantity"] - already
+            if remaining > 1e-12:
+                tm._fill(trade["id"], trade["ticker"], trade["side"], remaining, trade["price"])
+            else:
+                state.set_trade_status(trade["id"], "filled")
             updated.append({"id": trade["id"], "status": "filled"})
         elif raw in ("canceled", "cancelled", "expired", "rejected"):
             state.set_trade_status(trade["id"], "rejected")

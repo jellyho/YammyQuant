@@ -107,6 +107,15 @@ def test_report_endpoint(client):
     assert "realized_pnl" in c.get("/api/report").json()
 
 
+def test_decide_preview_empty_watchlist(client):
+    # empty watchlist => no exchange calls => safe dry-run preview
+    c, _ = client
+    r = c.get("/api/decide")
+    assert r.status_code == 200
+    assert r.json()["proposals"] == []
+    assert r.json()["execute"] is False
+
+
 def test_approve_and_reject_pending(client):
     c, state = client
     tm = TradeManager(state)

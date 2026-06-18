@@ -165,6 +165,23 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         from yammyquant.ops import operator as ops
         return _json_safe(ops.report(state))
 
+    @app.get("/api/decide")
+    def preview_decide():
+        from yammyquant.ops import operator as ops
+        try:
+            return _json_safe(ops.decide(store(), state, execute=False))
+        except Exception as e:
+            raise HTTPException(502, f"decide failed: {e}")
+
+    @app.post("/api/decide")
+    def run_decide(payload: dict):
+        from yammyquant.ops import operator as ops
+        mode = (payload or {}).get("mode", "paper")
+        try:
+            return _json_safe(ops.decide(store(), state, mode=mode, execute=True))
+        except Exception as e:
+            raise HTTPException(502, f"decide failed: {e}")
+
     @app.get("/api/strategies")
     def get_strategies():
         from yammyquant.ops.operator import STRATEGIES

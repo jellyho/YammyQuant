@@ -78,6 +78,25 @@ async function loadReport() {
 }
 $("refreshReport").onclick = loadReport;
 
+function renderDecisions(proposals) {
+  $("decisions").querySelector("tbody").innerHTML = (proposals || []).map(p => `<tr>
+    <td class="${p.side.toLowerCase()}">${p.side}</td><td>${p.symbol}</td>
+    <td>${fmt(p.quantity, 6)}</td><td>${fmt(p.price)}</td>
+    <td>${escapeHtml(p.reason || "")}</td><td>${p.status || "(dry-run)"}</td>
+  </tr>`).join("") || `<tr><td colspan="6" class="muted">no decisions</td></tr>`;
+}
+$("previewDecide").onclick = async () => {
+  const r = await fetch("/api/decide");
+  if (!r.ok) { alert((await r.json()).detail || "decide failed"); return; }
+  renderDecisions((await r.json()).proposals);
+};
+$("execDecide").onclick = async () => {
+  if (!confirm("Submit these decisions as PAPER orders?")) return;
+  const r = await fetch("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "paper" }) });
+  if (!r.ok) { alert((await r.json()).detail || "decide failed"); return; }
+  renderDecisions((await r.json()).proposals);
+};
+
 $("watchAdd").onclick = async () => {
   const symbol = $("watchSymbol").value.trim();
   if (symbol && await post("/api/watch", { symbol, interval: $("watchInterval").value.trim() || "1d" }))
