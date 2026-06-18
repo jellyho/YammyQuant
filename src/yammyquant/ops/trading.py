@@ -153,22 +153,14 @@ class TradeManager:
     def _place_live_order(self, trade: dict) -> None:
         """Place a real order on the configured exchange. Only reached when allowed+approved.
 
-        The venue is read from the ``exchange`` setting (default ``binance``).
-        Native adapters (upbit/bithumb/kis) load their own API keys from the
-        environment; ccxt venues take ``<NAME>_API_KEY`` / ``<NAME>_SECRET_KEY``.
+        The venue is the ``exchange`` cockpit setting, falling back to the central
+        config's default. All credentials are resolved centrally by
+        :func:`yammyquant.exchanges.get_exchange` — no per-venue handling here.
         """
-        from yammyquant.exchanges import NATIVE, get_exchange
+        from yammyquant.exchanges import get_exchange, default_exchange
 
-        name = self.state.get("exchange", "binance")
-        if name in NATIVE:
-            adapter = get_exchange(name)
-        else:
-            adapter = get_exchange(
-                name,
-                api_key=os.getenv(f"{name.upper()}_API_KEY"),
-                secret_key=os.getenv(f"{name.upper()}_SECRET_KEY"),
-            )
-        adapter.create_order(
+        name = self.state.get("exchange") or default_exchange()
+        get_exchange(name).create_order(
             ticker=trade["ticker"], side=trade["side"],
             quantity=trade["quantity"], price=trade.get("price"),
             order_type="market",

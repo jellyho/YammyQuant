@@ -86,3 +86,11 @@ def hmac_sha512_hex(secret: str, message: str) -> str:
 
 def hmac_sha256_hex(secret: str, message: str) -> str:
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+
+def pick(row: dict, names: tuple[str, ...]):
+    """Return the first present, non-null value among ``names`` (field aliases)."""
+    for n in names:
+        if n in row and row[n] is not None:
+            return row[n]
+    raise KeyError(f"none of {names} present in row {list(row)}")

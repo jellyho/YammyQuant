@@ -80,8 +80,9 @@ print(result)            # Sharpe, max drawdown, win rate, profit factor, ...
 - **`data/sources/`** — DuckDB+Parquet store, Binance source, and `CCXTSource`
   for 100+ exchanges.
 - **`exchanges/`** — native per-exchange adapters (data + balances + orders):
-  **Upbit**, **Bithumb** (KR crypto), **KIS/한국투자증권** & **Toss/토스증권**
-  (KR stocks), plus any **ccxt** venue. See [`docs/EXCHANGES.md`](docs/EXCHANGES.md).
+  **Binance, Upbit, Bithumb, Coinone, Korbit** (crypto) & **KIS/한국투자증권**,
+  **Toss/토스증권** (KR stocks), plus any **ccxt** venue — all configured in one
+  place via `yq config`. See [`docs/EXCHANGES.md`](docs/EXCHANGES.md).
 - **`rl/`** — `ChartFollowingEnv` (Gymnasium) for RL experiments.
 - **`state/`** + **`ops/`** + **`web/`** — the cockpit (shared state, toolbelt, dashboard).
 
@@ -110,6 +111,6 @@ toolbelt, record trades).
 
 ```bash
 pip install -e '.[all,dev]'
-pytest -q          # 91 tests
+pytest -q          # 102 tests
 python examples/backtest_synthetic.py
 ```

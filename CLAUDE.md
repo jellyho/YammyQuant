@@ -49,11 +49,12 @@ max_drawdown=0.2))`. See `docs/BENCHMARK.md` for how the toolbelt compares to
 freqtrade / Jesse / nautilus / the LLM-agent repos and why our operator (you,
 Claude Code) needs no paid API.
 
-Exchanges (`yammyquant/exchanges/`, `get_exchange(name)`): native **Upbit**,
-**Bithumb** (KR crypto), **한국투자증권/KIS** and **토스증권/Toss** (KR stocks),
-plus any **ccxt** venue (Binance/Bybit/OKX/Coinone/Korbit/…). Keys are env-only.
-See `docs/EXCHANGES.md` — note Toss's exact API paths must be confirmed against
-its dev portal.
+Exchanges (`yammyquant/exchanges/`, `get_exchange(name)`): native **Binance,
+Upbit, Bithumb, Coinone, Korbit** (crypto) and **한국투자증권/KIS, 토스증권/Toss**
+(KR stocks), plus any **ccxt** venue. All keys/options are configured in ONE
+place — `yq config set <exchange> field=value` / `yq config show` — resolving
+override → config file → env. Don't edit adapter files to set credentials. See
+`docs/EXCHANGES.md` (Toss paths must be confirmed against its dev portal).
 
 State lives in `yammyquant_state.db` (SQLite) and candles in `data_store/`
 (DuckDB/Parquet). Both the CLI and the dashboard share them.

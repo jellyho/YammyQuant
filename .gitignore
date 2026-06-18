@@ -172,3 +172,6 @@ yammyquant_state.db*
 *.sqlite
 feature_store/
 models/
+
+# central exchange config (may contain secrets)
+yammyquant.config.json

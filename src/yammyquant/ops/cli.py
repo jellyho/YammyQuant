@@ -49,6 +49,11 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sub.add_parser("exchanges", help="list supported exchanges")
 
+    p = sub.add_parser("config", help="view/set central exchange config (keys, base urls, default)")
+    p.add_argument("action", choices=["show", "set", "default", "path"])
+    p.add_argument("args", nargs="*",
+                   help="set: <exchange> field=value ...   |   default: <exchange>")
+
     p = sub.add_parser("backtest", help="run a backtest")
     p.add_argument("ticker")
     p.add_argument("interval")
@@ -128,6 +133,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "exchanges":
         from yammyquant.exchanges import list_exchanges
         _print(list_exchanges())
+        return 0
+
+    if args.cmd == "config":
+        from yammyquant.exchanges import config as xcfg
+
+        def _coerce(v: str):
+            low = v.lower()
+            if low in ("true", "false"):
+                return low == "true"
+            return v
+
+        if args.action == "show":
+            _print(xcfg.describe())
+        elif args.action == "path":
+            _print({"config_file": str(xcfg.config_path(for_write=True))})
+        elif args.action == "default":
+            if not args.args:
+                print("usage: yq config default <exchange>"); return 1
+            cfg = xcfg.load_config(); cfg["default_exchange"] = args.args[0].lower()
+            path = xcfg.save_config(cfg)
+            _print({"default_exchange": args.args[0].lower(), "saved": str(path)})
+        elif args.action == "set":
+            if len(args.args) < 2 or any("=" not in a for a in args.args[1:]):
+                print("usage: yq config set <exchange> field=value [field=value ...]"); return 1
+            exchange = args.args[0].lower()
+            for assignment in args.args[1:]:
+                field_name, value = assignment.split("=", 1)
+                path = xcfg.set_value(exchange, field_name, _coerce(value))
+            _print({"exchange": exchange, "saved": str(path),
+                    "status": xcfg.describe()["exchanges"].get(exchange)})
         return 0
 
     if args.cmd == "backtest":

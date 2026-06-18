@@ -1,70 +1,65 @@
-"""Native per-exchange API adapters.
+"""Native per-exchange API adapters with one central configuration.
 
 Each adapter implements the :class:`Exchange` interface — candle data plus
-(where supported) balances and order placement — against an exchange's own REST
-API, rather than going through ccxt. This gives first-class support for venues
-ccxt covers poorly, especially Korean ones.
+(where supported) balances and order placement. Everything is configured in one
+place (:mod:`yammyquant.exchanges.config`): credentials/options resolve from a
+central config file or environment variables, so you never edit an adapter file
+to set keys. Use :func:`get_exchange` to obtain a fully-configured adapter.
 
 Coverage
 --------
-- **Korean crypto:** Upbit, Bithumb  (``upbit``, ``bithumb``)
-- **Korean stocks:** Korea Investment & Securities — KIS Developers (``kis``)
-- **Everything else** (Binance, Bybit, OKX, Coinbase, Kraken, Coinone, Korbit, …):
-  reached through ccxt via :class:`~yammyquant.exchanges.ccxt_adapter.CCXTExchange`.
-
-Use :func:`get_exchange` to obtain an adapter by name.
+- **Crypto (native):** Binance, Upbit, Bithumb, Coinone, Korbit
+- **Korean stocks (native):** 한국투자증권 (KIS), 토스증권 (Toss)
+- **Anything else:** any ccxt exchange id (Bybit, OKX, Coinbase, Kraken, …)
 
 .. note::
-   The candle-parsing, auth-signing, and request-building logic is unit-tested
-   with fixtures/mocks. Live network calls require API keys and are validated
-   against each venue's official docs — verify against the current docs before
-   trading real money.
+   Candle parsing, auth signing, request building, and config resolution are
+   unit-tested with mocks; live network calls need API keys and follow each
+   venue's published docs — verify before trading real funds. For Coinone/Korbit
+   the public candles are native and authenticated orders delegate to ccxt; for
+   Toss, confirm the request paths against the developer portal.
 """
 
 from yammyquant.exchanges.base import Exchange, jwt_hs256
 from yammyquant.exchanges.binance import BinanceExchange
 from yammyquant.exchanges.upbit import UpbitExchange
 from yammyquant.exchanges.bithumb import BithumbExchange
+from yammyquant.exchanges.coinone import CoinoneExchange
+from yammyquant.exchanges.korbit import KorbitExchange
 from yammyquant.exchanges.korea_investment import KoreaInvestment
 from yammyquant.exchanges.toss import TossSecurities
+from yammyquant.exchanges.config import (
+    SPECS, ALIASES, build_exchange, describe, load_config, save_config,
+    set_value, config_path, default_exchange,
+)
 
-NATIVE = {
-    "binance": BinanceExchange,
-    "upbit": UpbitExchange,
-    "bithumb": BithumbExchange,
-    "kis": KoreaInvestment,
-    "korea_investment": KoreaInvestment,
-    "toss": TossSecurities,
-}
+# Back-compat: name -> adapter class for native venues (incl. aliases).
+NATIVE = {name: spec.adapter for name, spec in SPECS.items() if spec.native}
+NATIVE.update({alias: SPECS[target].adapter for alias, target in ALIASES.items()})
 
 
-def get_exchange(name: str, **creds) -> Exchange:
-    """Return an exchange adapter by name (native, else a ccxt-backed adapter)."""
-    key = name.lower()
-    if key in NATIVE:
-        return NATIVE[key](**creds)
-    from yammyquant.exchanges.ccxt_adapter import CCXTExchange
-    return CCXTExchange(key, **creds)
+def get_exchange(name: str, **overrides) -> Exchange:
+    """Return a centrally-configured exchange adapter by name."""
+    return build_exchange(name, **overrides)
 
 
 def list_exchanges() -> dict:
-    """What's supported, grouped by how it's reached."""
+    """What's supported, grouped by asset class / how it's reached."""
+    native_crypto = [n for n, s in SPECS.items() if s.native and s.asset_class == "crypto"]
+    native_stock = [n for n, s in SPECS.items() if s.native and s.asset_class == "stock"]
     return {
-        "native_crypto": ["binance", "upbit", "bithumb"],
-        "native_stock": ["kis (한국투자증권)", "toss (토스증권)"],
-        "via_ccxt": ["bybit", "okx", "coinbase", "kraken",
-                     "coinone", "korbit", "... any ccxt exchange id"],
+        "native_crypto": native_crypto,
+        "native_stock": native_stock,
+        "via_ccxt": ["bybit", "okx", "coinbase", "kraken", "... any ccxt exchange id"],
+        "config_file": str(config_path()),
+        "default_exchange": default_exchange(),
     }
 
 
 __all__ = [
-    "Exchange",
-    "jwt_hs256",
-    "BinanceExchange",
-    "UpbitExchange",
-    "BithumbExchange",
-    "KoreaInvestment",
-    "TossSecurities",
-    "get_exchange",
-    "list_exchanges",
+    "Exchange", "jwt_hs256",
+    "BinanceExchange", "UpbitExchange", "BithumbExchange", "CoinoneExchange",
+    "KorbitExchange", "KoreaInvestment", "TossSecurities",
+    "get_exchange", "list_exchanges", "describe", "NATIVE", "SPECS",
+    "load_config", "save_config", "set_value", "config_path", "default_exchange",
 ]
