@@ -47,12 +47,22 @@ class TradeManager:
         mode: str = "paper",
         rationale: str = "",
     ) -> dict:
-        """Submit an order. Paper fills now; live is queued for approval."""
+        """Submit an order. Paper fills now; live is queued for approval.
+
+        The account-level risk policy is checked first and applies to both modes.
+        """
         side = side.upper()
         if side not in ("BUY", "SELL"):
             raise ValueError("side must be BUY or SELL")
         if quantity <= 0:
             raise ValueError("quantity must be positive")
+
+        reason = self._risk_check(ticker, side, quantity, price)
+        if reason is not None:
+            trade_id = self.state.add_trade(ticker, side, quantity, price, mode, "rejected", rationale)
+            self.state.log("trade", f"risk policy blocked #{trade_id}: {reason}", trade_id=trade_id)
+            self._notify(f"order blocked by risk policy: {side} {quantity} {ticker} — {reason}", "warn")
+            return self.state.get_trade(trade_id)
 
         if mode == "live":
             trade_id = self.state.add_trade(
@@ -63,6 +73,7 @@ class TradeManager:
                 f"LIVE {side} {quantity} {ticker} @ {price} queued for approval (#{trade_id})",
                 trade_id=trade_id,
             )
+            self._notify(f"⏳ LIVE {side} {quantity} {ticker} @ {price} needs approval (#{trade_id})", "action")
             return self.state.get_trade(trade_id)
 
         # paper: fill immediately
@@ -142,6 +153,8 @@ class TradeManager:
                 self.state.log("trade", f"trade #{trade_id} rejected: insufficient holdings")
                 return
             self.cash = self.cash + price * qty - fee
+            realized = (price - pos["avg_price"]) * qty - fee
+            self.state.record_realized(trade_id, realized)
             remaining = pos["quantity"] - qty
             self.state.upsert_position(
                 ticker, remaining, pos["avg_price"] if remaining > 1e-12 else 0.0
@@ -149,6 +162,19 @@ class TradeManager:
 
         self.state.set_trade_status(trade_id, "filled")
         self.mark_to_market({ticker: price})
+
+    # -- risk + notifications ---------------------------------------------
+    def _equity_estimate(self) -> float:
+        holdings = sum(p["quantity"] * p["avg_price"] for p in self.state.positions())
+        return self.cash + holdings
+
+    def _risk_check(self, ticker: str, side: str, quantity: float, price: float):
+        from yammyquant.ops.risk_policy import check_order
+        return check_order(self.state, ticker, side, quantity, price, self._equity_estimate())
+
+    def _notify(self, message: str, level: str = "info") -> None:
+        from yammyquant.ops.notify import notify
+        notify(self.state, message, level)
 
     def _place_live_order(self, trade: dict) -> None:
         """Place a real order on the configured exchange. Only reached when allowed+approved.

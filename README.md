@@ -45,8 +45,13 @@ yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout
 yq strategies --disable rsi_reversion       # list / toggle (mirrors the dashboard)
 yq train BTCUSDT 1d --timesteps 50000        # train an RL agent (needs .[rl])
 
-# 3. trade (paper fills immediately; live queues for approval)
-yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper
+# 3. operate the account
+yq watch add BTCUSDT --interval 1d           # watchlist = the universe for cycles
+yq risk set max_open_positions=5 daily_loss_limit=200   # enforced on every order
+yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper     # paper fills; live queues
+yq cycle                                     # refresh → scan → mark → notify (one pass)
+yq schedule --interval 300                   # keep it running between sessions
+yq report          # realized PnL, drawdown, per-symbol     yq doctor   # health check
 
 # 4. launch the cockpit
 yq dashboard          # → http://127.0.0.1:8000
@@ -111,6 +116,6 @@ toolbelt, record trades).
 
 ```bash
 pip install -e '.[all,dev]'
-pytest -q          # 102 tests
+pytest -q          # 118 tests
 python examples/backtest_synthetic.py
 ```

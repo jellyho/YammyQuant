@@ -111,6 +111,40 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sub.add_parser("status", help="print the full cockpit state snapshot")
 
+    p = sub.add_parser("mark", help="mark open positions to market (live prices)")
+    p.add_argument("--exchange")
+    p.add_argument("--interval", default="1m")
+
+    sub.add_parser("doctor", help="health check: data freshness, config, account")
+    sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
+
+    p = sub.add_parser("reconcile", help="compare local positions to exchange balances")
+    p.add_argument("--exchange")
+
+    p = sub.add_parser("risk", help="view/set the account risk policy")
+    p.add_argument("action", choices=["show", "set"])
+    p.add_argument("args", nargs="*", help="set: field=value ...")
+
+    p = sub.add_parser("journal", help="operator journal: add a note, or list")
+    p.add_argument("text", nargs="?", help="note text (omit to list)")
+    p.add_argument("--tag", default="")
+    p.add_argument("--limit", type=int, default=50)
+
+    p = sub.add_parser("watch", help="manage the watchlist")
+    p.add_argument("action", choices=["add", "rm", "list"])
+    p.add_argument("symbol", nargs="?")
+    p.add_argument("--exchange", default="")
+    p.add_argument("--interval", default="1d")
+    p.add_argument("--note", default="")
+
+    p = sub.add_parser("cycle", help="run one maintenance cycle (refresh/scan/mark/notify)")
+    p.add_argument("--exchange")
+
+    p = sub.add_parser("schedule", help="run maintenance cycles on an interval")
+    p.add_argument("--interval", type=int, default=300, help="seconds between cycles")
+    p.add_argument("--exchange")
+    p.add_argument("--max-cycles", type=int)
+
     p = sub.add_parser("dashboard", help="launch the cockpit web app")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
@@ -221,6 +255,67 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "status":
         _print(state.snapshot())
+        return 0
+
+    if args.cmd == "mark":
+        _print(ops.mark(state, exchange=args.exchange, interval=args.interval))
+        return 0
+
+    if args.cmd == "doctor":
+        _print(ops.doctor(DuckDBStore(args.store), state))
+        return 0
+
+    if args.cmd == "report":
+        _print(ops.report(state))
+        return 0
+
+    if args.cmd == "reconcile":
+        _print(ops.reconcile(state, exchange=args.exchange))
+        return 0
+
+    if args.cmd == "risk":
+        from yammyquant.ops.risk_policy import AccountRiskPolicy
+        if args.action == "set":
+            policy = AccountRiskPolicy.load(state)
+            for assignment in args.args:
+                if "=" not in assignment:
+                    print("usage: yq risk set field=value ..."); return 1
+                field_name, value = assignment.split("=", 1)
+                setattr(policy, field_name,
+                        None if value.lower() in ("", "none") else float(value))
+            policy.save(state)
+        from dataclasses import asdict
+        _print(asdict(AccountRiskPolicy.load(state)))
+        return 0
+
+    if args.cmd == "journal":
+        if args.text:
+            jid = state.add_journal(args.text, tag=args.tag)
+            _print({"id": jid, "tag": args.tag, "text": args.text})
+        else:
+            _print(state.journal(limit=args.limit))
+        return 0
+
+    if args.cmd == "watch":
+        if args.action == "add":
+            if not args.symbol:
+                print("usage: yq watch add SYMBOL [--exchange --interval --note]"); return 1
+            state.add_watch(args.symbol, args.exchange, args.interval, args.note)
+        elif args.action == "rm":
+            if not args.symbol:
+                print("usage: yq watch rm SYMBOL"); return 1
+            state.remove_watch(args.symbol)
+        _print(state.watchlist())
+        return 0
+
+    if args.cmd == "cycle":
+        _print(ops.run_cycle(DuckDBStore(args.store), state, exchange=args.exchange))
+        return 0
+
+    if args.cmd == "schedule":
+        from yammyquant.ops.scheduler import run_loop
+        run_loop(args.state, args.store, interval_seconds=args.interval,
+                 exchange=args.exchange, max_cycles=args.max_cycles)
         return 0
 
     if args.cmd == "dashboard":

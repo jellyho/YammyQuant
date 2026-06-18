@@ -61,6 +61,17 @@ class Exchange(ABC):
     ) -> Candle:
         """Fetch OHLCV candles as a :class:`Candle`."""
 
+    def last_price(self, ticker: str, interval: str = "1m") -> float:
+        """Most recent traded price — derived from the latest candle close.
+
+        Works for every adapter with no extra endpoint; override if a venue has a
+        cheaper dedicated ticker endpoint.
+        """
+        candle = self.read(ticker, interval, count=1)
+        if len(candle) == 0:
+            raise RuntimeError(f"no price available for {ticker}")
+        return float(candle.close[-1])
+
     def balances(self) -> dict:
         raise NotImplementedError(f"{self.name} adapter does not implement balances()")
 

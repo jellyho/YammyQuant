@@ -36,9 +36,28 @@ yq train BTCUSDT 1d --timesteps 50000   # train an RL agent (needs .[rl])
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper        # paper fills now
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode live         # live → pending approval
 yq approve 7        # approve a pending trade   yq reject 7
+
+# operating the account
+yq watch add BTCUSDT --interval 1d         # watchlist (universe for cycles)
+yq mark                                     # mark positions to market (live price)
+yq cycle                                    # one maintenance cycle: refresh→scan→mark→notify
+yq schedule --interval 300                  # run cycles forever (or cron `yq cycle`)
+yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrails
+yq report                                   # realized PnL, drawdown, per-symbol
+yq reconcile                                # local positions vs exchange balances
+yq doctor                                   # data freshness / config / account health
+yq journal "why I entered BTC ..." --tag thesis   # cross-session memory
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
+
+**Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
+enforced on every order (paper + live) — it can reject a trade before it fills.
+**Notifications** (Discord webhook via `DISCORD_WEBHOOK_URL`) fire when a live
+order needs approval, a risk rejection happens, or a cycle finds signals. Keep a
+**journal** — you're ephemeral across sessions, so record why you entered/exited;
+read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
+keeps data fresh and signals current while you're away.
 
 Strategies: `macross`, `volatility_breakout`, `rsi_reversion`, `donchian_breakout`.
 Toggles set in the dashboard are read via `enabled_strategies(state)`.

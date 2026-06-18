@@ -167,6 +167,169 @@ def features(
     return latest
 
 
+_INTERVAL_SECONDS = {
+    "1m": 60, "3m": 180, "5m": 300, "10m": 600, "15m": 900, "30m": 1800,
+    "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200,
+    "1d": 86400, "1w": 604800, "1M": 2592000,
+}
+
+
+def mark(state: LiveState, exchange: Optional[str] = None, interval: str = "1m") -> dict:
+    """Mark open positions to market using live prices, recording an equity point."""
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+
+    ex = get_exchange(exchange or default_exchange())
+    prices = {}
+    for pos in state.positions():
+        try:
+            prices[pos["ticker"]] = ex.last_price(pos["ticker"], interval)
+        except Exception as exc:  # keep going; report which failed
+            state.log("mark", f"price fetch failed for {pos['ticker']}: {exc}")
+    equity = TradeManager(state).mark_to_market(prices)
+    state.log("mark", f"marked {len(prices)} positions; equity={equity:.2f}", equity=equity)
+    return {"equity": equity, "prices": prices}
+
+
+def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> dict:
+    """Health check: data freshness, config completeness, account sanity."""
+    from datetime import datetime, timezone
+    from yammyquant.exchanges import describe
+
+    now = datetime.now(timezone.utc)
+    data = []
+    for ticker, intervals in store.info().items():
+        for iv in intervals:
+            last = store.last_time(ticker, iv)
+            age = (now - last.replace(tzinfo=timezone.utc)).total_seconds() if last else None
+            limit = _INTERVAL_SECONDS.get(iv, 86400) * stale_factor
+            data.append({"ticker": ticker, "interval": iv,
+                         "last": str(last) if last else None,
+                         "stale": age is None or age > limit})
+
+    cfg = describe()
+    configured = {n: all(v != "missing" for v in d["credentials"].values())
+                  for n, d in cfg["exchanges"].items()}
+    issues = [f"{d['ticker']}/{d['interval']} stale" for d in data if d["stale"]]
+    if not state.get("cash"):
+        issues.append("cash not initialized (set via a paper trade or config)")
+
+    return {
+        "ok": not issues,
+        "issues": issues,
+        "data_freshness": data,
+        "exchanges_configured": configured,
+        "default_exchange": cfg["default_exchange"],
+        "pending_trades": len(state.trades(status="pending")),
+        "open_positions": len(state.positions()),
+    }
+
+
+def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None,
+              count: int = 200, notify_signals: bool = True) -> dict:
+    """One maintenance cycle: refresh watchlist data, scan, mark, notify.
+
+    This is the unit a scheduler runs periodically (or you run via ``yq cycle``).
+    """
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.notify import notify
+    from yammyquant.ops.trading import TradeManager
+
+    ex = get_exchange(exchange or default_exchange())
+    enabled = enabled_strategies(state)
+    refreshed, signals = [], []
+
+    for w in state.watchlist():
+        sym, iv = w["symbol"], (w["interval"] or "1d")
+        try:
+            candle = ex.read(sym, iv, count=count)
+            store.write(candle)
+            refreshed.append(sym)
+        except Exception as exc:
+            state.log("cycle", f"refresh failed for {sym}: {exc}")
+            continue
+        for name in enabled:
+            strat = build_strategy(name)
+            if len(candle) < strat.warmup:
+                continue
+            orders = strat.on_bar(candle[-strat.warmup:])
+            if orders and orders[0].action.value != "HOLD":
+                action = orders[0].action.value
+                state.add_signal(sym, name, action, price=float(candle.close[-1]))
+                signals.append({"symbol": sym, "strategy": name, "action": action})
+
+    prices = {}
+    for pos in state.positions():
+        try:
+            prices[pos["ticker"]] = ex.last_price(pos["ticker"])
+        except Exception:
+            pass
+    equity = TradeManager(state).mark_to_market(prices) if state.positions() else None
+
+    state.log("cycle", f"cycle: {len(refreshed)} refreshed, {len(signals)} signals",
+              refreshed=refreshed, signals=signals)
+    if notify_signals and signals:
+        summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
+        notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
+    return {"refreshed": refreshed, "signals": signals, "equity": equity}
+
+
+def report(state: LiveState, interval: Optional[str] = None) -> dict:
+    """Performance report from recorded equity + trades (realized PnL, drawdown…)."""
+    import pandas as pd
+    from yammyquant.metrics.performance import max_drawdown, sharpe, _BARS_PER_YEAR
+
+    eqrows = state.equity_curve()
+    equity = pd.Series([r["equity"] for r in eqrows], dtype=float)
+    rets = equity.pct_change().dropna() if len(equity) > 1 else pd.Series(dtype=float)
+    ppy = _BARS_PER_YEAR.get(interval or "", 365)
+
+    sells = [t for t in state.trades(limit=2000) if t["status"] == "filled" and t["side"] == "SELL"]
+    realized, by_symbol = [], {}
+    for t in sells:
+        meta = t.get("meta")
+        if isinstance(meta, dict) and "realized" in meta:
+            r = float(meta["realized"])
+            realized.append(r)
+            by_symbol[t["ticker"]] = round(by_symbol.get(t["ticker"], 0.0) + r, 4)
+    wins = [r for r in realized if r > 0]
+    losses = [r for r in realized if r < 0]
+
+    out = {
+        "equity_start": round(float(equity.iloc[0]), 2) if len(equity) else None,
+        "equity_now": round(float(equity.iloc[-1]), 2) if len(equity) else None,
+        "total_return": round(float(equity.iloc[-1] / equity.iloc[0] - 1), 4)
+                        if len(equity) > 1 and equity.iloc[0] else 0.0,
+        "max_drawdown": round(max_drawdown(equity), 4) if len(equity) else 0.0,
+        "sharpe": round(sharpe(rets, ppy), 3),
+        "realized_pnl": round(sum(realized), 4),
+        "closed_trades": len(realized),
+        "win_rate": round(len(wins) / len(realized), 4) if realized else 0.0,
+        "profit_factor": round(sum(wins) / abs(sum(losses)), 3) if losses else None,
+        "realized_by_symbol": by_symbol,
+        "open_positions": state.positions(),
+        "cash": state.get("cash", 0.0),
+    }
+    state.log("report", "performance report", realized_pnl=out["realized_pnl"],
+              total_return=out["total_return"])
+    return out
+
+
+def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:
+    """Compare local positions to the exchange's reported balances (read-only)."""
+    from yammyquant.exchanges import get_exchange, default_exchange
+
+    ex = get_exchange(exchange or default_exchange())
+    try:
+        balances = ex.balances()
+    except Exception as exc:
+        return {"exchange": ex.name, "error": str(exc),
+                "state_positions": state.positions()}
+    state.log("reconcile", f"reconciled against {ex.name}")
+    return {"exchange": ex.name, "state_positions": state.positions(),
+            "exchange_balances": balances}
+
+
 def scan(
     store: DuckDBStore,
     tickers: list[str],

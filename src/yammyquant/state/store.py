@@ -78,6 +78,19 @@ CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS journal (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT NOT NULL,
+    tag         TEXT,
+    text        TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS watchlist (
+    symbol      TEXT PRIMARY KEY,
+    exchange    TEXT,
+    interval    TEXT,
+    note        TEXT,
+    added_at    TEXT NOT NULL
+);
 """
 
 
@@ -160,6 +173,12 @@ class LiveState:
         with self._conn() as c:
             c.execute("UPDATE trades SET status=? WHERE id=?", (status, trade_id))
 
+    def record_realized(self, trade_id: int, realized: float) -> None:
+        """Store realized PnL on a (sell) trade's meta — used by risk/reporting."""
+        with self._conn() as c:
+            c.execute("UPDATE trades SET meta=? WHERE id=?",
+                      (json.dumps({"realized": realized}), trade_id))
+
     def trades(self, limit: int = 200, status: Optional[str] = None) -> list[dict]:
         if status:
             return self._fetch(
@@ -236,6 +255,34 @@ class LiveState:
     def settings(self) -> dict:
         return {r["key"]: json.loads(r["value"]) for r in self._fetch("SELECT * FROM settings")}
 
+    # -- journal -----------------------------------------------------------
+    def add_journal(self, text: str, tag: str = "") -> int:
+        with self._conn() as c:
+            cur = c.execute("INSERT INTO journal (ts, tag, text) VALUES (?,?,?)",
+                            (_now(), tag, text))
+            return int(cur.lastrowid)
+
+    def journal(self, limit: int = 100) -> list[dict]:
+        return self._fetch("SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,))
+
+    # -- watchlist ---------------------------------------------------------
+    def add_watch(self, symbol: str, exchange: str = "", interval: str = "1d",
+                  note: str = "") -> None:
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO watchlist (symbol, exchange, interval, note, added_at) "
+                "VALUES (?,?,?,?,?) ON CONFLICT(symbol) DO UPDATE SET "
+                "exchange=excluded.exchange, interval=excluded.interval, note=excluded.note",
+                (symbol, exchange, interval, note, _now()),
+            )
+
+    def remove_watch(self, symbol: str) -> None:
+        with self._conn() as c:
+            c.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
+
+    def watchlist(self) -> list[dict]:
+        return self._fetch("SELECT * FROM watchlist ORDER BY symbol")
+
     # -- snapshot ----------------------------------------------------------
     def snapshot(self) -> dict:
         """Full cockpit state for the dashboard (one call → one render)."""
@@ -249,6 +296,8 @@ class LiveState:
             "activity": self.activity(limit=100),
             "inbox": self.inbox(),
             "settings": self.settings(),
+            "journal": self.journal(limit=50),
+            "watchlist": self.watchlist(),
         }
 
     # -- helpers -----------------------------------------------------------
