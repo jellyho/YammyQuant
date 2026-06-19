@@ -91,6 +91,17 @@ CREATE TABLE IF NOT EXISTS watchlist (
     note        TEXT,
     added_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS news (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT NOT NULL,
+    published   TEXT,
+    source      TEXT,
+    symbol      TEXT,
+    title       TEXT NOT NULL,
+    url         TEXT UNIQUE,
+    summary     TEXT,
+    sentiment   REAL
+);
 """
 
 
@@ -292,7 +303,64 @@ class LiveState:
             c.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
 
     def watchlist(self) -> list[dict]:
+        """
+        Retrieves all watchlist entries.
+        
+        Returns:
+            list[dict]: A list of dictionaries, each representing a watchlist entry.
+        """
         return self._fetch("SELECT * FROM watchlist ORDER BY symbol")
+
+    # -- news --------------------------------------------------------------
+    def add_news(self, title: str, url: str = "", source: str = "", symbol: str = "",
+                 summary: str = "", published: str = "", sentiment=None) -> bool:
+        """
+                 Inserts a news item, preventing duplicate URLs.
+                 
+                 Parameters:
+                 	title (str): The headline or title of the news item
+                 	url (str): The unique URL of the news item; empty strings are stored as null
+                 	source (str): The source or publication of the news item
+                 	symbol (str): The stock symbol associated with the news item
+                 	summary (str): A brief summary or description of the news item
+                 	published (str): The publication timestamp
+                 	sentiment: A numeric sentiment score
+                 
+                 Returns:
+                 	bool: True if the insertion succeeded, False if a duplicate URL already exists
+                 """
+        with self._conn() as c:
+            try:
+                c.execute(
+                    "INSERT INTO news (ts, published, source, symbol, title, url, summary, sentiment)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (_now(), published, source, symbol, title, url or None, summary, sentiment),
+                )
+                return True
+            except sqlite3.IntegrityError:
+                return False  # duplicate url
+
+    def news(self, symbol: Optional[str] = None, limit: int = 100) -> list[dict]:
+        """
+        Retrieve recent news articles, optionally filtered by symbol.
+        
+        Parameters:
+            symbol (Optional[str]): If provided, returns only articles for this symbol.
+        
+        Returns:
+            list[dict]: A list of news article records, ordered by most recent first.
+        """
+        if symbol:
+            return self._fetch(
+                "SELECT * FROM news WHERE symbol=? ORDER BY id DESC LIMIT ?", (symbol, limit))
+        return self._fetch("SELECT * FROM news ORDER BY id DESC LIMIT ?", (limit,))
+
+    def set_news_sentiment(self, news_id: int, sentiment: float) -> None:
+        """
+        Update the sentiment score for a news item.
+        """
+        with self._conn() as c:
+            c.execute("UPDATE news SET sentiment=? WHERE id=?", (sentiment, news_id))
 
     # -- snapshot ----------------------------------------------------------
     def snapshot(self) -> dict:
@@ -309,6 +377,7 @@ class LiveState:
             "settings": self.settings(),
             "journal": self.journal(limit=50),
             "watchlist": self.watchlist(),
+            "news": self.news(limit=30),
         }
 
     # -- helpers -----------------------------------------------------------

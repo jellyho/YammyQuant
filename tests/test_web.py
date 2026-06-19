@@ -107,6 +107,13 @@ def test_report_endpoint(client):
     assert "realized_pnl" in c.get("/api/report").json()
 
 
+def test_news_in_snapshot(client):
+    c, state = client
+    state.add_news("BTC rallies", url="http://a", symbol="BTCUSDT", sentiment=0.6, source="t")
+    snap = c.get("/api/state").json()
+    assert "news" in snap and snap["news"][0]["title"] == "BTC rallies"
+
+
 def test_decide_preview_empty_watchlist(client):
     # empty watchlist => no exchange calls => safe dry-run preview
     c, _ = client

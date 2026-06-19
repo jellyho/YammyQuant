@@ -27,6 +27,10 @@ yq collect BTCUSDT 1d 1h            # backfill candles from Binance → DuckDB s
 yq collect KRW-BTC 1d --exchange upbit       # or upbit/bithumb/kis/toss/<ccxt id>
 yq collect 005930 1d --exchange kis          # Korean stock (한국투자증권)
 yq features BTCUSDT 1d              # compute & store candle-derived features
+yq news --collect                  # pull RSS headlines (tags watchlist, scores sentiment)
+yq news BTCUSDT                    # list stored news for a symbol (you judge it)
+yq brief BTCUSDT --exchange kis    # research digest: price+features+news+fundamentals
+yq disclosures 00126380 --symbol 005930   # DART (전자공시) filings (needs DART_API_KEY)
 yq backtest BTCUSDT 1d macross --fast 5 --slow 20
 yq optimize BTCUSDT 1d macross --metric sharpe          # grid search
 yq optimize BTCUSDT 1d macross --walk-forward 4         # out-of-sample validation
@@ -58,6 +62,12 @@ yq journal "why I entered BTC ..." --tag thesis   # cross-session memory
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
+
+**Information layer.** `feeds/` collects raw news (RSS, keyless) and KR
+disclosures (DART) into the `news` table; KIS exposes stock `fundamentals`
+(PER/PBR/EPS). The *judgement* is yours — read `yq news` / `yq brief` and decide,
+or let the keyword scorer auto-tag sentiment. Set a `sentiment_gate` (state
+setting) to have `decide` veto entries when recent news is strongly negative.
 
 **Signal → order.** `yq decide` aggregates enabled-strategy signals per watchlist
 symbol into concrete, risk-sized orders (entry sized to a fraction of equity;

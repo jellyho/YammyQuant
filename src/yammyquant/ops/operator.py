@@ -227,10 +227,23 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
 
 def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None,
               count: int = 200, notify_signals: bool = True) -> dict:
-    """One maintenance cycle: refresh watchlist data, scan, mark, notify.
-
-    This is the unit a scheduler runs periodically (or you run via ``yq cycle``).
     """
+              Refreshes watchlist data, scans enabled strategies for signals, and marks equity to market.
+              
+              Fetches latest candles for each watchlist item, stores them, evaluates each enabled
+              strategy, generates buy/sell signals, updates equity, and optionally sends notifications.
+              If `auto_trade` is enabled, also executes trading decisions.
+              
+              Parameters:
+              	exchange (str, optional): Exchange name (e.g., "binance"). If None, uses default.
+              	count (int): Number of candles per read (default 200).
+              	notify_signals (bool): Whether to send alert notifications for non-empty signals (default True).
+              
+              Returns:
+              	dict: Contains "refreshed" (list of refreshed symbols), "signals" (list of signal dicts
+              	with symbol/strategy/action), "equity" (current portfolio equity or None if no positions),
+              	and "decisions" (auto-trade result dict if auto_trade is enabled, else None).
+              """
     from yammyquant.exchanges import get_exchange, default_exchange
     from yammyquant.ops.notify import notify
     from yammyquant.ops.trading import TradeManager
@@ -280,6 +293,113 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     return {"refreshed": refreshed, "signals": signals, "equity": equity, "decisions": decisions}
 
 
+def collect_news(
+    state: LiveState,
+    sources: Optional[dict] = None,
+    limit_per: int = 15,
+    store_all: bool = False,
+    notify_watch: bool = True,
+) -> dict:
+    """
+    Collect news from RSS feeds, tag items to watchlist symbols, and score sentiment.
+    
+    Parameters:
+        sources (dict, optional): Feed labels to URLs; if None, uses defaults merged with state configuration
+    
+    Returns:
+        dict: Contains "stored" (total items added) and "tagged" (items tagged to watchlist)
+    """
+    from yammyquant.feeds.rss import RSSFeed, tag_symbols
+    from yammyquant.feeds.sentiment import score_text
+    from yammyquant.feeds.sources import DEFAULT_SOURCES, DEFAULT_KEYWORDS
+
+    sources = sources or {**DEFAULT_SOURCES, **(state.get("news_sources") or {})}
+    watched = {w["symbol"] for w in state.watchlist()}
+    kw = {**DEFAULT_KEYWORDS, **(state.get("news_keywords") or {})}
+    symbols = {s: kw.get(s, []) for s in watched}
+
+    stored, tagged, alerts = 0, 0, []
+    for label, url in sources.items():
+        try:
+            items = RSSFeed(url, label).fetch()
+        except Exception as exc:
+            state.log("news", f"feed {label} failed: {exc}")
+            continue
+        for it in items[:limit_per]:
+            sym = tag_symbols(it, symbols) if symbols else None
+            if sym is None and not store_all:
+                continue
+            it.symbol = sym or ""
+            it.sentiment = score_text(f"{it.title} {it.summary}")
+            if state.add_news(**it.as_record()):
+                stored += 1
+                if sym:
+                    tagged += 1
+                    alerts.append((sym, it.title))
+    if notify_watch and alerts:
+        from yammyquant.ops.notify import notify
+        head = "; ".join(f"{s}: {t[:60]}" for s, t in alerts[:3])
+        notify(state, f"📰 {len(alerts)} watchlist headline(s): {head}", "info")
+    state.log("news", f"collected {stored} item(s), {tagged} tagged to watchlist")
+    return {"stored": stored, "tagged": tagged}
+
+
+def news_sentiment(state: LiveState, symbol: str, lookback: int = 20) -> dict:
+    """
+    Computes the average sentiment score of recent stored news for a symbol.
+    
+    Returns:
+    	A dict with the symbol, count of retrieved news rows, and average sentiment rounded to three decimal places (0.0 if no sentiment values available).
+    """
+    rows = state.news(symbol=symbol, limit=lookback)
+    scores = [r["sentiment"] for r in rows if r.get("sentiment") is not None]
+    return {"symbol": symbol, "count": len(rows),
+            "avg_sentiment": round(sum(scores) / len(scores), 3) if scores else 0.0}
+
+
+def brief(store: DuckDBStore, state: LiveState, ticker: str, interval: str = "1d",
+          exchange: Optional[str] = None) -> dict:
+    """
+          Assemble a one-screen research digest with price, features, news sentiment, and position.
+          
+          Parameters:
+          	exchange (str, optional): Exchange name to fetch fundamentals from (for stock assets only).
+          
+          Returns:
+          	digest (dict): Contains ticker, interval, price, bar count, features, news items with 
+          		sentiment, average sentiment, current position (if held), and optional fundamentals. 
+          		Includes data_error if candle read fails, fundamentals_error if fundamentals fetch fails.
+          """
+    from yammyquant.data.features import latest_features
+
+    out = {"ticker": ticker, "interval": interval}
+    try:
+        candle = store.read(ticker, interval)
+        out["price"] = float(candle.close[-1])
+        out["bars"] = len(candle)
+        out["features"] = latest_features(candle)
+    except Exception as exc:
+        out["data_error"] = str(exc)
+
+    out["news"] = [{"title": n["title"], "sentiment": n["sentiment"],
+                    "published": n["published"], "source": n["source"], "url": n["url"]}
+                   for n in state.news(symbol=ticker, limit=8)]
+    out["news_sentiment"] = news_sentiment(state, ticker)["avg_sentiment"]
+
+    if exchange:
+        try:
+            from yammyquant.exchanges import get_exchange
+            ex = get_exchange(exchange)
+            if getattr(ex, "asset_class", "") == "stock" and hasattr(ex, "fundamentals"):
+                out["fundamentals"] = ex.fundamentals(ticker)
+        except Exception as exc:
+            out["fundamentals_error"] = str(exc)
+
+    out["position"] = {p["ticker"]: p for p in state.positions()}.get(ticker)
+    state.log("brief", f"research brief for {ticker}")
+    return out
+
+
 def decide(
     store: DuckDBStore,
     state: LiveState,
@@ -290,13 +410,13 @@ def decide(
     execute: bool = False,
     order_type: str = "market",
 ) -> dict:
-    """Turn current signals into risk-sized order decisions (the signal→order step).
-
-    For each watchlist symbol, aggregate enabled-strategy signals into one stance:
-    a fresh BUY (when flat) is sized to ``weight`` of equity; a SELL exits the
-    whole position. With ``execute=True`` the orders are submitted via
-    :class:`TradeManager` (which enforces the account risk policy); otherwise the
-    proposals are returned for review (dry run).
+    """Aggregate enabled-strategy signals into risk-sized trading proposals.
+    
+    For each watchlist symbol, enabled-strategy signals are combined into unified
+    decisions: BUY (sized to ``weight`` of equity when flat) or SELL (closing entire
+    position). BUY decisions may be gated by recent news sentiment if configured.
+    With ``execute=True``, proposals are submitted to the exchange; otherwise
+    returned for review.
     """
     from yammyquant.exchanges import get_exchange, default_exchange
     from yammyquant.ops.trading import TradeManager
@@ -334,10 +454,18 @@ def decide(
             decision = {"symbol": sym, "side": "SELL", "quantity": positions[sym]["quantity"],
                         "price": price, "reason": "exit signal"}
         elif "BUY" in actions and "SELL" not in actions and not held and price > 0:
+            # optional sentiment gate: veto entries when recent news is strongly negative
+            gate = state.get("sentiment_gate")
+            senti = news_sentiment(state, sym)["avg_sentiment"] if gate is not None else 0.0
+            if gate is not None and senti < float(gate):
+                state.log("decide", f"vetoed BUY {sym}: sentiment {senti} < gate {gate}")
+                continue
             qty = round((equity * target_w) / price, 8)
             if qty > 0:
+                reason = f"entry signal (weight={target_w}"
+                reason += f", sentiment={senti})" if gate is not None else ")"
                 decision = {"symbol": sym, "side": "BUY", "quantity": qty, "price": price,
-                            "reason": f"entry signal (weight={target_w})"}
+                            "reason": reason}
         if decision is None:
             continue
         if execute:

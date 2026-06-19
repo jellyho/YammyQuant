@@ -18,7 +18,10 @@ function setConn(ok) {
   el.style.color = ok ? "var(--green)" : "var(--amber)";
 }
 
-// ---- render snapshot -----------------------------------------------------
+/**
+ * Updates the trading dashboard with data from a snapshot.
+ * @param {Object} s - The snapshot object containing current trading state.
+ */
 function render(s) {
   $("live").textContent = "live trading: " + (s.live_trading_allowed ? "ON" : "off");
   $("live").style.color = s.live_trading_allowed ? "var(--red)" : "var(--muted)";
@@ -35,10 +38,34 @@ function render(s) {
   renderActivity(s.activity || []);
   renderJournal(s.journal || []);
   renderWatchlist(s.watchlist || []);
+  renderNews(s.news || []);
   drawEquity(s.equity || []);
   loadStrategies();
 }
 
+/**
+ * Renders a news feed from an array of news objects.
+ * @param {Array} rows - News items, each with title, source, and optional symbol, sentiment, url, and timestamp properties.
+ */
+function renderNews(rows) {
+  const tone = (x) => x > 0.1 ? "buy" : (x < -0.1 ? "sell" : "");
+  $("news").innerHTML = rows.map(n =>
+    `<li><span class="ts">${n.published || n.ts || ""}</span>` +
+    `<span class="kind">${escapeHtml(n.source || "")}</span>` +
+    (n.symbol ? `<span class="pill">${n.symbol}</span> ` : " ") +
+    (n.sentiment != null ? `<b class="${tone(n.sentiment)}">${n.sentiment}</b> ` : "") +
+    (n.url ? `<a href="${n.url}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a>`
+           : escapeHtml(n.title)) + `</li>`).join("");
+}
+$("collectNews").onclick = async () => {
+  const r = await fetch("/api/news/collect", { method: "POST" });
+  if (!r.ok) alert((await r.json()).detail || "collect failed");
+};
+
+/**
+ * Renders journal entries with optional tags to the journal list.
+ * @param {Array} rows - Journal entries to render.
+ */
 function renderJournal(rows) {
   $("journal").innerHTML = rows.map(j =>
     `<li><span class="ts">${j.ts}</span>${j.tag ? `<span class="kind">${escapeHtml(j.tag)}</span>` : ""} ${escapeHtml(j.text)}</li>`).join("");
