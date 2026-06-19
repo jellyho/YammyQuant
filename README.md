@@ -119,8 +119,15 @@ the flag, an approved live order is rejected. Binance keys are read from
 
 ## For Claude Code
 
-See [`CLAUDE.md`](CLAUDE.md) for the operator workflow (read the inbox, run the
+See [`CLAUDE.md`](CLAUDE.md) for the operator workflow (recall memory, run the
 toolbelt, record trades).
+
+**Plug and play:** open this repo in [Claude Code on the web](https://claude.ai/code)
+and the [`SessionStart` hook](.claude/hooks/session-start.sh) bootstraps the
+environment automatically — it installs the library + operating/test deps and
+greets the agent with how to load its memory (`yq recall`). No manual setup; the
+agent is ready to operate on the first turn. (Heavy RL-training deps are skipped;
+`pip install -e '.[rl]'` on demand.)
 
 ## Development
 
