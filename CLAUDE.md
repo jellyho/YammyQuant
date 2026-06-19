@@ -91,7 +91,7 @@ order needs approval, a risk rejection happens, or a cycle finds signals. Keep a
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
 keeps data fresh and signals current while you're away.
 
-Strategies (18, all in `yq strategies` / optimizable via `yq optimize`):
+Strategies (19, all in `yq strategies` / optimizable via `yq optimize`):
 *trend* — `macross`, `ema_cross`, `triple_ema`, `macd_momentum`, `supertrend`,
 `adx_trend`, `parabolic_sar`; *breakout/vol* — `volatility_breakout`,
 `donchian_breakout`, `bollinger_breakout`, `keltner_breakout`; *mean-reversion/

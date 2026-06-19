@@ -87,7 +87,7 @@ print(result)            # Sharpe, max drawdown, win rate, profit factor, ...
   kill-switch); **optimization** (`grid_search`, `walk_forward`); and metrics
   (Sharpe, Sortino, Calmar, max drawdown, CAGR, volatility, win rate, profit
   factor, trade stats).
-- **`strategy/`** — `Strategy` base + **18 built-ins** across trend (MA/EMA cross,
+- **`strategy/`** — `Strategy` base + **19 built-ins** across trend (MA/EMA cross,
   MACD, SuperTrend, ADX, Parabolic SAR), breakout/volatility (Donchian, Bollinger,
   Keltner, volatility), and mean-reversion/scalping (RSI, Bollinger, Stochastic,
   StochRSI, Williams %R, CCI, MFI, VWAP); toggle on/off from the cockpit.
