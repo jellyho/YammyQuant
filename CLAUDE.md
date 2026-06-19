@@ -91,8 +91,19 @@ order needs approval, a risk rejection happens, or a cycle finds signals. Keep a
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
 keeps data fresh and signals current while you're away.
 
-Strategies: `macross`, `volatility_breakout`, `rsi_reversion`, `donchian_breakout`.
-Toggles set in the dashboard are read via `enabled_strategies(state)`.
+Strategies (18, all in `yq strategies` / optimizable via `yq optimize`):
+*trend* — `macross`, `ema_cross`, `triple_ema`, `macd_momentum`, `supertrend`,
+`adx_trend`, `parabolic_sar`; *breakout/vol* — `volatility_breakout`,
+`donchian_breakout`, `bollinger_breakout`, `keltner_breakout`; *mean-reversion/
+scalp* — `rsi_reversion`, `bollinger_reversion`, `stochastic_scalp`,
+`stoch_rsi_scalp`, `williams_r_scalp`, `cci_reversion`, `mfi_reversion`,
+`vwap_reversion`. Toggles set in the dashboard are read via `enabled_strategies(state)`.
+
+Indicators (`candle.ind.<name>(...)`, 30+): `sma ema wma hma dema tema vwma vwap`,
+`rsi macd ppo roc momentum trix stoch stoch_rsi williams_r cci mfi`,
+`atr tr natr stddev zscore bbands bbwidth keltner donchian supertrend psar adx`,
+`obv cmf`. Multi-output ones (`macd/stoch/bbands/adx/keltner/donchian/supertrend`)
+return DataFrames.
 
 Risk control is available on backtests via `Backtest(candle, strategy,
 risk=RiskConfig(sizing="volatility", stop_loss=0.05, take_profit=0.1,

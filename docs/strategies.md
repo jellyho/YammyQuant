@@ -2,15 +2,66 @@
 
 ## Built-in strategies
 
-| Name | Idea |
-|---|---|
-| `macross` | Moving-average crossover trend following. |
-| `volatility_breakout` | Intraday range breakout (k-factor). |
-| `rsi_reversion` | Mean reversion on RSI extremes. |
-| `donchian_breakout` | Channel breakout over a lookback. |
+A broad library across every classic family. Toggle them from the cockpit (or
+`yq strategies --disable rsi_reversion`); the enabled set is read via
+`enabled_strategies(state)` and drives `yq decide`. Every strategy is optimizable
+via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
 
-Toggle them from the cockpit (or `yq strategies --disable rsi_reversion`); the
-enabled set is read via `enabled_strategies(state)` and drives `yq decide`.
+=== "Trend following"
+
+    | Name | Idea |
+    |---|---|
+    | `macross` | SMA fast/slow crossover. |
+    | `ema_cross` | EMA fast/slow crossover (scalper's trigger). |
+    | `triple_ema` | EMA ribbon (fast/mid/slow) alignment. |
+    | `macd_momentum` | MACD line / signal crossover. |
+    | `supertrend` | ATR trailing trend; trade direction flips. |
+    | `adx_trend` | +DI/−DI crossover gated by ADX strength. |
+    | `parabolic_sar` | Parabolic SAR flips vs price. |
+
+=== "Breakout / volatility"
+
+    | Name | Idea |
+    |---|---|
+    | `volatility_breakout` | Larry Williams k-factor range breakout. |
+    | `donchian_breakout` | Break of the N-bar high/low channel. |
+    | `bollinger_breakout` | Close breaking outside the Bollinger Bands. |
+    | `keltner_breakout` | Break of the Keltner channel (EMA ± ATR). |
+
+=== "Mean reversion / scalping"
+
+    | Name | Idea |
+    |---|---|
+    | `rsi_reversion` | Buy oversold / sell overbought RSI crossings. |
+    | `bollinger_reversion` | Fade band touches back toward the mean. |
+    | `stochastic_scalp` | %K/%D crossover out of OS/OB zones. |
+    | `stoch_rsi_scalp` | Stochastic-RSI %K/%D crossover. |
+    | `williams_r_scalp` | Williams %R reversal out of extremes. |
+    | `cci_reversion` | CCI reversal at ±threshold. |
+    | `mfi_reversion` | Money-Flow-Index (volume RSI) reversal. |
+    | `vwap_reversion` | Fade deviations from rolling VWAP. |
+
+## Indicators
+
+All strategies build on a dependency-free indicator library, callable directly:
+`candle.ind.<name>(...)`. 30+ indicators are registered:
+
+| Family | Indicators |
+|---|---|
+| Moving averages | `sma` `ema` `wma` `hma` `dema` `tema` `vwma` `vwap` |
+| Momentum / oscillators | `rsi` `macd` `ppo` `roc` `momentum` `trix` `stoch` `stoch_rsi` `williams_r` `cci` `mfi` |
+| Volatility / channels | `atr` `tr` `natr` `stddev` `zscore` `bbands` `bbwidth` `keltner` `donchian` `supertrend` `psar` `adx` |
+| Volume | `obv` `cmf` `vwma` `mfi` |
+
+```python
+candle.ind.rsi(14)              # Series
+candle.ind.macd(12, 26, 9)      # DataFrame: macd / signal / hist
+candle.ind.supertrend(10, 3)    # DataFrame: supertrend / direction
+```
+
+Multi-output indicators (`macd`, `stoch`, `stoch_rsi`, `bbands`, `adx`,
+`keltner`, `donchian`, `supertrend`) return a `DataFrame`; the rest return a
+`Series` aligned to the candle index.
 
 ## Backtesting
 

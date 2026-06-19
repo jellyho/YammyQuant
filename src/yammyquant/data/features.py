@@ -14,7 +14,6 @@ features dependency-free and deterministic makes the pipeline fully testable.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -45,6 +44,11 @@ def compute_features(candle: Candle, vol_window: int = 20) -> pd.DataFrame:
             "rsi_14": candle.ind.rsi(14),
             "trend_ratio": close / sma - 1.0,
             "atr_pct": candle.ind.atr(14) / close,
+            "macd_hist": candle.ind.macd()["hist"],
+            "adx_14": candle.ind.adx(14)["adx"],
+            "stoch_k": candle.ind.stoch()["k"],
+            "cci_20": candle.ind.cci(20),
+            "willr_14": candle.ind.williams_r(14),
         }
     )
     return feats
