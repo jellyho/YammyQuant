@@ -76,6 +76,20 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("ticker")
     p.add_argument("interval")
 
+    p = sub.add_parser("news", help="collect/list news (RSS); operator judges sentiment")
+    p.add_argument("symbol", nargs="?")
+    p.add_argument("--collect", action="store_true", help="fetch feeds into the store")
+    p.add_argument("--all", action="store_true", help="store untagged items too")
+
+    p = sub.add_parser("brief", help="research digest (price+features+news+fundamentals)")
+    p.add_argument("ticker")
+    p.add_argument("--interval", default="1d")
+    p.add_argument("--exchange", help="for stock fundamentals, e.g. kis")
+
+    p = sub.add_parser("disclosures", help="DART (전자공시) filings for a corp_code")
+    p.add_argument("corp_code")
+    p.add_argument("--symbol", default="")
+
     p = sub.add_parser("optimize", help="grid-search strategy params (optionally walk-forward)")
     p.add_argument("ticker")
     p.add_argument("interval")
@@ -241,6 +255,26 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "features":
         _print(ops.features(DuckDBStore(args.store), args.ticker, args.interval, state=state))
+        return 0
+
+    if args.cmd == "news":
+        if args.collect:
+            _print(ops.collect_news(state, store_all=args.all))
+        else:
+            _print(state.news(symbol=args.symbol, limit=50))
+        return 0
+
+    if args.cmd == "brief":
+        _print(ops.brief(DuckDBStore(args.store), state, args.ticker,
+                        interval=args.interval, exchange=args.exchange))
+        return 0
+
+    if args.cmd == "disclosures":
+        from yammyquant.feeds.dart import DartFeed
+        items = DartFeed().disclosures(args.corp_code, symbol=args.symbol)
+        for it in items:
+            state.add_news(**it.as_record())
+        _print([it.as_record() for it in items])
         return 0
 
     if args.cmd == "optimize":

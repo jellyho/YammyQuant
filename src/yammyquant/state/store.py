@@ -91,6 +91,17 @@ CREATE TABLE IF NOT EXISTS watchlist (
     note        TEXT,
     added_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS news (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT NOT NULL,
+    published   TEXT,
+    source      TEXT,
+    symbol      TEXT,
+    title       TEXT NOT NULL,
+    url         TEXT UNIQUE,
+    summary     TEXT,
+    sentiment   REAL
+);
 """
 
 
@@ -294,6 +305,31 @@ class LiveState:
     def watchlist(self) -> list[dict]:
         return self._fetch("SELECT * FROM watchlist ORDER BY symbol")
 
+    # -- news --------------------------------------------------------------
+    def add_news(self, title: str, url: str = "", source: str = "", symbol: str = "",
+                 summary: str = "", published: str = "", sentiment=None) -> bool:
+        """Insert a news item; returns False if the url was already stored (dedup)."""
+        with self._conn() as c:
+            try:
+                c.execute(
+                    "INSERT INTO news (ts, published, source, symbol, title, url, summary, sentiment)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (_now(), published, source, symbol, title, url or None, summary, sentiment),
+                )
+                return True
+            except sqlite3.IntegrityError:
+                return False  # duplicate url
+
+    def news(self, symbol: Optional[str] = None, limit: int = 100) -> list[dict]:
+        if symbol:
+            return self._fetch(
+                "SELECT * FROM news WHERE symbol=? ORDER BY id DESC LIMIT ?", (symbol, limit))
+        return self._fetch("SELECT * FROM news ORDER BY id DESC LIMIT ?", (limit,))
+
+    def set_news_sentiment(self, news_id: int, sentiment: float) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE news SET sentiment=? WHERE id=?", (sentiment, news_id))
+
     # -- snapshot ----------------------------------------------------------
     def snapshot(self) -> dict:
         """Full cockpit state for the dashboard (one call → one render)."""
@@ -309,6 +345,7 @@ class LiveState:
             "settings": self.settings(),
             "journal": self.journal(limit=50),
             "watchlist": self.watchlist(),
+            "news": self.news(limit=30),
         }
 
     # -- helpers -----------------------------------------------------------

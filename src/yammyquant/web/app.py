@@ -165,6 +165,14 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         from yammyquant.ops import operator as ops
         return _json_safe(ops.report(state))
 
+    @app.post("/api/news/collect")
+    def collect_news():
+        from yammyquant.ops import operator as ops
+        try:
+            return _json_safe(ops.collect_news(state))
+        except Exception as e:
+            raise HTTPException(502, f"news collect failed: {e}")
+
     @app.get("/api/decide")
     def preview_decide():
         from yammyquant.ops import operator as ops

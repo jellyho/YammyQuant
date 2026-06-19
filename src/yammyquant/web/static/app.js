@@ -35,9 +35,25 @@ function render(s) {
   renderActivity(s.activity || []);
   renderJournal(s.journal || []);
   renderWatchlist(s.watchlist || []);
+  renderNews(s.news || []);
   drawEquity(s.equity || []);
   loadStrategies();
 }
+
+function renderNews(rows) {
+  const tone = (x) => x > 0.1 ? "buy" : (x < -0.1 ? "sell" : "");
+  $("news").innerHTML = rows.map(n =>
+    `<li><span class="ts">${n.published || n.ts || ""}</span>` +
+    `<span class="kind">${escapeHtml(n.source || "")}</span>` +
+    (n.symbol ? `<span class="pill">${n.symbol}</span> ` : " ") +
+    (n.sentiment != null ? `<b class="${tone(n.sentiment)}">${n.sentiment}</b> ` : "") +
+    (n.url ? `<a href="${n.url}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a>`
+           : escapeHtml(n.title)) + `</li>`).join("");
+}
+$("collectNews").onclick = async () => {
+  const r = await fetch("/api/news/collect", { method: "POST" });
+  if (!r.ok) alert((await r.json()).detail || "collect failed");
+};
 
 function renderJournal(rows) {
   $("journal").innerHTML = rows.map(j =>
