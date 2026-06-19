@@ -108,3 +108,299 @@ class DonchianBreakout(Strategy):
         if close < prior_low:
             return [Order(Action.SELL, window.ticker, self.size, close, time)]
         return []
+
+
+# ==========================================================================
+# Trend following
+# ==========================================================================
+class EMACross(Strategy):
+    """Fast/slow EMA crossover — the classic scalper's trend trigger."""
+
+    def __init__(self, fast: int = 9, slow: int = 21, size: float = 1.0):
+        if fast >= slow:
+            raise ValueError("fast period must be smaller than slow period")
+        self.fast, self.slow, self.size = fast, slow, size
+        self.warmup = slow + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        fast = window.ind.ema(self.fast).to_numpy()
+        slow = window.ind.ema(self.slow).to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if fast[-1] > slow[-1] and fast[-2] <= slow[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if fast[-1] < slow[-1] and fast[-2] >= slow[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class TripleEMATrend(Strategy):
+    """Triple-EMA ribbon: enter when fast crosses mid while the ribbon is aligned."""
+
+    def __init__(self, fast: int = 9, mid: int = 21, slow: int = 55, size: float = 1.0):
+        if not fast < mid < slow:
+            raise ValueError("require fast < mid < slow")
+        self.fast, self.mid, self.slow, self.size = fast, mid, slow, size
+        self.warmup = slow + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        f = window.ind.ema(self.fast).to_numpy()
+        m = window.ind.ema(self.mid).to_numpy()
+        s = window.ind.ema(self.slow).to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if f[-1] > m[-1] and f[-2] <= m[-2] and m[-1] > s[-1]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if f[-1] < m[-1] and f[-2] >= m[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class MACDMomentum(Strategy):
+    """MACD line / signal crossover — momentum entries and exits."""
+
+    def __init__(self, fast: int = 12, slow: int = 26, signal: int = 9, size: float = 1.0):
+        self.fast, self.slow, self.signal, self.size = fast, slow, signal, size
+        self.warmup = slow + signal + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        m = window.ind.macd(self.fast, self.slow, self.signal)
+        line, sig = m["macd"].to_numpy(), m["signal"].to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if line[-1] > sig[-1] and line[-2] <= sig[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if line[-1] < sig[-1] and line[-2] >= sig[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class SuperTrendFollow(Strategy):
+    """Follow SuperTrend direction flips (ATR-based trailing trend)."""
+
+    def __init__(self, period: int = 10, mult: float = 3.0, size: float = 1.0):
+        self.period, self.mult, self.size = period, mult, size
+        self.warmup = period * 3 + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        d = window.ind.supertrend(self.period, self.mult)["direction"].to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if d[-1] == 1.0 and d[-2] == -1.0:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if d[-1] == -1.0 and d[-2] == 1.0:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class ADXTrend(Strategy):
+    """Directional-movement crossover, gated by ADX trend strength."""
+
+    def __init__(self, period: int = 14, threshold: float = 25.0, size: float = 1.0):
+        self.period, self.threshold, self.size = period, threshold, size
+        self.warmup = period * 3 + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        a = window.ind.adx(self.period)
+        plus, minus, strength = (
+            a["plus_di"].to_numpy(), a["minus_di"].to_numpy(), a["adx"].to_numpy())
+        price, time = float(window.close[-1]), window.index[-1]
+        if strength[-1] < self.threshold:
+            return []
+        if plus[-1] > minus[-1] and plus[-2] <= minus[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if minus[-1] > plus[-1] and minus[-2] <= plus[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class ParabolicSARFlip(Strategy):
+    """Trade Parabolic SAR flips relative to price."""
+
+    def __init__(self, step: float = 0.02, max_step: float = 0.2, size: float = 1.0):
+        self.step, self.max_step, self.size = step, max_step, size
+        self.warmup = 20
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        sar = window.ind.psar(self.step, self.max_step).to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if close[-1] > sar[-1] and close[-2] <= sar[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < sar[-1] and close[-2] >= sar[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+# ==========================================================================
+# Breakout / volatility
+# ==========================================================================
+class BollingerBreakout(Strategy):
+    """Buy a close breaking above the upper band; sell below the lower band."""
+
+    def __init__(self, period: int = 20, std: float = 2.0, size: float = 1.0):
+        self.period, self.std, self.size = period, std, size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        bb = window.ind.bbands(self.period, self.std)
+        upper, lower = bb["upper"].to_numpy(), bb["lower"].to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if close[-1] > upper[-1] and close[-2] <= upper[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < lower[-1] and close[-2] >= lower[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class KeltnerBreakout(Strategy):
+    """Break out of the Keltner Channel (EMA ± ATR)."""
+
+    def __init__(self, period: int = 20, mult: float = 1.5, size: float = 1.0):
+        self.period, self.mult, self.size = period, mult, size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        kc = window.ind.keltner(self.period, self.mult)
+        upper, lower = kc["upper"].to_numpy(), kc["lower"].to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if close[-1] > upper[-1] and close[-2] <= upper[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < lower[-1] and close[-2] >= lower[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+# ==========================================================================
+# Mean reversion / scalping
+# ==========================================================================
+class BollingerReversion(Strategy):
+    """Fade band touches: buy when close climbs back above the lower band."""
+
+    def __init__(self, period: int = 20, std: float = 2.0, size: float = 1.0):
+        self.period, self.std, self.size = period, std, size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        bb = window.ind.bbands(self.period, self.std)
+        upper, lower = bb["upper"].to_numpy(), bb["lower"].to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if close[-1] > lower[-1] and close[-2] <= lower[-2]:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < upper[-1] and close[-2] >= upper[-2]:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class StochasticScalp(Strategy):
+    """%K/%D crossover out of oversold/overbought zones."""
+
+    def __init__(self, k: int = 14, d: int = 3, oversold: float = 20.0,
+                 overbought: float = 80.0, size: float = 1.0):
+        self.k, self.d, self.oversold, self.overbought, self.size = (
+            k, d, oversold, overbought, size)
+        self.warmup = k + d + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        st = window.ind.stoch(self.k, self.d)
+        kk, dd = st["k"].to_numpy(), st["d"].to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if kk[-1] > dd[-1] and kk[-2] <= dd[-2] and kk[-2] < self.oversold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if kk[-1] < dd[-1] and kk[-2] >= dd[-2] and kk[-2] > self.overbought:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class StochRSIScalp(Strategy):
+    """Stochastic-RSI %K/%D crossover scalp."""
+
+    def __init__(self, period: int = 14, k: int = 3, d: int = 3, oversold: float = 20.0,
+                 overbought: float = 80.0, size: float = 1.0):
+        self.period, self.k, self.d = period, k, d
+        self.oversold, self.overbought, self.size = oversold, overbought, size
+        self.warmup = period * 2 + k + d + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        sr = window.ind.stoch_rsi(self.period, self.k, self.d)
+        kk, dd = sr["k"].to_numpy(), sr["d"].to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if kk[-1] > dd[-1] and kk[-2] <= dd[-2] and kk[-2] < self.oversold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if kk[-1] < dd[-1] and kk[-2] >= dd[-2] and kk[-2] > self.overbought:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class WilliamsRScalp(Strategy):
+    """Williams %R reversal out of extremes."""
+
+    def __init__(self, period: int = 14, oversold: float = -80.0,
+                 overbought: float = -20.0, size: float = 1.0):
+        self.period, self.oversold, self.overbought, self.size = (
+            period, oversold, overbought, size)
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        wr = window.ind.williams_r(self.period).to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if wr[-1] > self.oversold and wr[-2] <= self.oversold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if wr[-1] < self.overbought and wr[-2] >= self.overbought:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class CCIReversion(Strategy):
+    """Commodity Channel Index reversal at ±threshold."""
+
+    def __init__(self, period: int = 20, threshold: float = 100.0, size: float = 1.0):
+        self.period, self.threshold, self.size = period, threshold, size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        c = window.ind.cci(self.period).to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if c[-1] > -self.threshold and c[-2] <= -self.threshold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if c[-1] < self.threshold and c[-2] >= self.threshold:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class MFIReversion(Strategy):
+    """Money Flow Index (volume-weighted RSI) reversal out of extremes."""
+
+    def __init__(self, period: int = 14, oversold: float = 20.0,
+                 overbought: float = 80.0, size: float = 1.0):
+        self.period, self.oversold, self.overbought, self.size = (
+            period, oversold, overbought, size)
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        m = window.ind.mfi(self.period).to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if m[-1] > self.oversold and m[-2] <= self.oversold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if m[-1] < self.overbought and m[-2] >= self.overbought:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class VWAPReversion(Strategy):
+    """Fade deviations from a rolling volume-weighted price back to the mean."""
+
+    def __init__(self, period: int = 20, threshold: float = 0.01, size: float = 1.0):
+        self.period, self.threshold, self.size = period, threshold, size
+        self.warmup = period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        vw = window.ind.vwma(self.period).to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        dev_now = (close[-1] - vw[-1]) / vw[-1]
+        dev_prev = (close[-2] - vw[-2]) / vw[-2]
+        if dev_now < -self.threshold and dev_prev >= -self.threshold:
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if dev_now > self.threshold and dev_prev <= self.threshold:
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []

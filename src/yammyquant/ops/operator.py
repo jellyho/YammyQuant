@@ -17,14 +17,47 @@ from yammyquant.strategy.builtin import (
     VolatilityBreakout,
     RSIReversion,
     DonchianBreakout,
+    EMACross,
+    TripleEMATrend,
+    MACDMomentum,
+    SuperTrendFollow,
+    ADXTrend,
+    ParabolicSARFlip,
+    BollingerBreakout,
+    KeltnerBreakout,
+    BollingerReversion,
+    StochasticScalp,
+    StochRSIScalp,
+    WilliamsRScalp,
+    CCIReversion,
+    MFIReversion,
+    VWAPReversion,
 )
 from yammyquant.state.store import LiveState
 
 STRATEGIES = {
+    # trend following
     "macross": MACross,
+    "ema_cross": EMACross,
+    "triple_ema": TripleEMATrend,
+    "macd_momentum": MACDMomentum,
+    "supertrend": SuperTrendFollow,
+    "adx_trend": ADXTrend,
+    "parabolic_sar": ParabolicSARFlip,
+    # breakout / volatility
     "volatility_breakout": VolatilityBreakout,
-    "rsi_reversion": RSIReversion,
     "donchian_breakout": DonchianBreakout,
+    "bollinger_breakout": BollingerBreakout,
+    "keltner_breakout": KeltnerBreakout,
+    # mean reversion / scalping
+    "rsi_reversion": RSIReversion,
+    "bollinger_reversion": BollingerReversion,
+    "stochastic_scalp": StochasticScalp,
+    "stoch_rsi_scalp": StochRSIScalp,
+    "williams_r_scalp": WilliamsRScalp,
+    "cci_reversion": CCIReversion,
+    "mfi_reversion": MFIReversion,
+    "vwap_reversion": VWAPReversion,
 }
 
 
@@ -40,9 +73,24 @@ def enabled_strategies(state: LiveState) -> list[str]:
 # Default parameter grids used by `yq optimize` / `yq walkforward`.
 DEFAULT_GRIDS = {
     "macross": {"fast": [5, 10, 20], "slow": [30, 50, 100]},
+    "ema_cross": {"fast": [5, 9, 12], "slow": [21, 26, 50]},
+    "triple_ema": {"fast": [5, 9], "mid": [21, 34], "slow": [55, 89]},
+    "macd_momentum": {"fast": [8, 12], "slow": [21, 26], "signal": [9]},
+    "supertrend": {"period": [7, 10, 14], "mult": [2.0, 3.0]},
+    "adx_trend": {"period": [14], "threshold": [20.0, 25.0, 30.0]},
+    "parabolic_sar": {"step": [0.02, 0.03], "max_step": [0.2]},
     "volatility_breakout": {"k": [0.3, 0.5, 0.7, 0.9]},
-    "rsi_reversion": {"period": [7, 14, 21], "oversold": [20, 30], "overbought": [70, 80]},
     "donchian_breakout": {"period": [10, 20, 55]},
+    "bollinger_breakout": {"period": [14, 20], "std": [2.0, 2.5]},
+    "keltner_breakout": {"period": [14, 20], "mult": [1.5, 2.0]},
+    "rsi_reversion": {"period": [7, 14, 21], "oversold": [20, 30], "overbought": [70, 80]},
+    "bollinger_reversion": {"period": [14, 20], "std": [2.0, 2.5]},
+    "stochastic_scalp": {"k": [9, 14], "d": [3], "oversold": [20.0], "overbought": [80.0]},
+    "stoch_rsi_scalp": {"period": [14], "k": [3], "d": [3]},
+    "williams_r_scalp": {"period": [9, 14], "oversold": [-80.0], "overbought": [-20.0]},
+    "cci_reversion": {"period": [14, 20], "threshold": [100.0, 150.0]},
+    "mfi_reversion": {"period": [14], "oversold": [20.0], "overbought": [80.0]},
+    "vwap_reversion": {"period": [14, 20], "threshold": [0.005, 0.01, 0.02]},
 }
 
 

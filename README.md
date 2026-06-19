@@ -87,8 +87,13 @@ print(result)            # Sharpe, max drawdown, win rate, profit factor, ...
   kill-switch); **optimization** (`grid_search`, `walk_forward`); and metrics
   (Sharpe, Sortino, Calmar, max drawdown, CAGR, volatility, win rate, profit
   factor, trade stats).
-- **`strategy/`** — `Strategy` base + built-ins (`MACross`, `VolatilityBreakout`,
-  `RSIReversion`, `DonchianBreakout`); toggle on/off from the cockpit.
+- **`strategy/`** — `Strategy` base + **18 built-ins** across trend (MA/EMA cross,
+  MACD, SuperTrend, ADX, Parabolic SAR), breakout/volatility (Donchian, Bollinger,
+  Keltner, volatility), and mean-reversion/scalping (RSI, Bollinger, Stochastic,
+  StochRSI, Williams %R, CCI, MFI, VWAP); toggle on/off from the cockpit.
+- **`data/indicators.py`** — 30+ dependency-free vectorized indicators
+  (`candle.ind.<name>`): moving averages, momentum oscillators, volatility/channel,
+  and volume — see [docs](https://jellyho.github.io/YammyQuant/strategies/).
 - **`data/sources/`** — DuckDB+Parquet store, Binance source, and `CCXTSource`
   for 100+ exchanges.
 - **`exchanges/`** — native per-exchange adapters (data + balances + orders):
