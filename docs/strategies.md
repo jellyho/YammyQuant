@@ -41,6 +41,50 @@ via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
     | `mfi_reversion` | Money-Flow-Index (volume RSI) reversal. |
     | `vwap_reversion` | Fade deviations from rolling VWAP. |
 
+## Ensembling — blend strategies & signals
+
+No single strategy is right all the time, so you can **combine** them. The same
+vote-aggregation core powers two layers:
+
+- the **`Ensemble`** strategy (backtestable / optimizable), and
+- the operator's **`yq decide`** (mixes live signals per watchlist symbol).
+
+Each member's action on the bar is a vote — `BUY` (+1), `SELL` (-1), `HOLD` (0) —
+combined by a **rule**:
+
+| Rule | Decision |
+|---|---|
+| `any` | buy if any member buys and none sells (permissive; the `decide` default). |
+| `weighted` | net weighted vote in [-1, 1] must clear `±threshold`. |
+| `majority` | the leading side must be ≥ `threshold` of the members that voted. |
+| `unanimous` | all members that voted must agree (no opposing vote). |
+
+### Backtest a blend
+
+```bash
+yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion \
+    --rule weighted --threshold 0.4 --weights 2,1,1
+```
+
+```python
+from yammyquant import Backtest
+from yammyquant.strategy import Ensemble, MACross, SuperTrendFollow, RSIReversion
+
+ens = Ensemble([MACross(5, 20), SuperTrendFollow(10, 3), RSIReversion(14)],
+               weights=[2, 1, 1], rule="weighted", threshold=0.4)
+print(Backtest(candle, ens).run())
+```
+
+### Blend live signals in `yq decide`
+
+```bash
+yq strategies --rule weighted --threshold 0.5 --weight macross=2 --weight rsi_reversion=0.5
+yq decide --weight 0.1                 # now combines signals by the configured rule
+```
+
+Settings persist in state (`ensemble_rule`, `ensemble_threshold`,
+`strategy.<name>.weight`) and are shown by `yq strategies`.
+
 ## Indicators
 
 All strategies build on a dependency-free indicator library, callable directly:

@@ -36,6 +36,7 @@ yq disclosures 00126380 --symbol 005930   # DART (전자공시) filings (needs D
 yq backtest BTCUSDT 1d macross --fast 5 --slow 20
 yq optimize BTCUSDT 1d macross --metric sharpe          # grid search
 yq optimize BTCUSDT 1d macross --walk-forward 4         # out-of-sample validation
+yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weighted  # blend strategies
 yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout   # emit signals
 yq strategies --disable rsi_reversion   # list / toggle strategies
 yq train BTCUSDT 1d --timesteps 50000   # train an RL agent (needs .[rl])
@@ -78,6 +79,14 @@ exits flatten). Dry-run by default; `--execute` submits; `--type limit` rests
 live orders until `yq sync` settles them (handles partial fills). Set
 `auto_trade=true` (state setting) to have `yq cycle` / the scheduler call
 `decide --execute` automatically (paper unless `trade_mode=live`).
+
+**Ensembling signals.** Both `yq decide` and the `Ensemble` strategy blend many
+signals via one rule (`yammyquant.strategy.ensemble.aggregate_votes`): `any`
+(permissive default), `weighted` (net weighted vote ≥ `±threshold`), `majority`
+(leading side ≥ `threshold` of voters), `unanimous` (all voters agree). Configure
+`decide` with `yq strategies --rule weighted --threshold 0.5 --weight macross=2`
+(state settings `ensemble_rule` / `ensemble_threshold` / `strategy.<name>.weight`),
+or backtest an explicit blend with `yq ensemble SYM IV --members a,b,c --rule …`.
 
 **Portfolio & decay.** `yq target`/`yq rebalance` maintain target weights across
 holdings. `yq expect` records a backtest baseline; `yq decay` warns when realized

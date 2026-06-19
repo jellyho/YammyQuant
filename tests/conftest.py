@@ -42,3 +42,34 @@ def trend_candle() -> Candle:
         index=idx,
     )
     return Candle("UPUSDT", df, interval="1d")
+
+
+class _FakeExchange:
+    """Rising-series exchange for operator/ensemble tests (shared fixture)."""
+
+    name = "fake"
+
+    def last_price(self, ticker, interval="1m"):
+        return 120.0
+
+    def read(self, ticker, interval="1d", count=200, start=None, end=None):
+        n = 60
+        idx = pd.date_range("2023-01-01", periods=n, freq="1D")
+        close = 100 + np.arange(n, dtype=float)
+        df = pd.DataFrame(
+            {"open": close, "high": close + 1, "low": close - 1, "close": close,
+             "volume": [1.0] * n},
+            index=idx,
+        )
+        return Candle(ticker.replace("/", ""), df, interval=interval)
+
+    def balances(self):
+        return {"FAKE": {"free": 1.0}}
+
+
+@pytest.fixture
+def fake_exchange(monkeypatch):
+    fake = _FakeExchange()
+    monkeypatch.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: fake)
+    monkeypatch.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+    return fake
