@@ -175,3 +175,6 @@ models/
 
 # central exchange config (may contain secrets)
 yammyquant.config.json
+
+# mkdocs build output
+site/
