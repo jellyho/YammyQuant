@@ -9,10 +9,11 @@ operator instructions.
 No paid LLM API in the loop — the brain is your Claude Code session. The
 dashboard is the cockpit; the conversation happens in Claude Code.
 
-📖 **Documentation site:** [`docs/index.html`](docs/index.html) — a self-contained
-(zero-build) docs page; published via GitHub Pages at
-`https://jellyho.github.io/YammyQuant/` once Pages is enabled (Settings → Pages →
-Deploy from branch → `master` / `/docs`).
+📖 **Documentation:** **<https://jellyho.github.io/YammyQuant/>** — a full MkDocs
+Material site (getting started, the toolbelt, information layer, memory, strategies
+& risk, library reference). Built from [`docs/`](docs/); auto-deployed on every push
+to `master` (Settings → Pages → source = `gh-pages` branch). Build locally with
+`pip install -e '.[docs]' && mkdocs serve`.
 
 ```
 Claude Code (operator)  ──drives──▶  yq CLI toolbelt

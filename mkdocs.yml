@@ -1,0 +1,72 @@
+site_name: YammyQuant
+site_description: An agentic quant research cockpit — Claude Code is the operator, no paid LLM API in the loop.
+site_url: https://jellyho.github.io/YammyQuant/
+repo_url: https://github.com/jellyho/YammyQuant
+repo_name: jellyho/YammyQuant
+copyright: The agentic quant cockpit whose brain is your Claude Code session.
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/chart-line
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle: { icon: material/brightness-auto, name: Switch to light mode }
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle: { icon: material/brightness-7, name: Switch to dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: blue
+      toggle: { icon: material/brightness-4, name: Switch to system preference }
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Operating:
+      - The toolbelt: toolbelt.md
+      - Information layer: information-layer.md
+      - Memory & persistence: memory.md
+      - Strategies & risk: strategies.md
+      - Money safety: safety.md
+  - Reference:
+      - Python library: library.md
+      - Exchanges: EXCHANGES.md
+      - Benchmark: BENCHMARK.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
