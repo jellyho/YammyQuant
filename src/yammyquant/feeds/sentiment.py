@@ -22,7 +22,12 @@ _BEARISH = {
 
 
 def score_text(text: str) -> float:
-    """Crude lexicon sentiment in [-1, 1]; 0.0 when neutral/unknown."""
+    """
+    Compute sentiment score based on keyword frequency.
+    
+    Returns:
+    	float: Sentiment score in the range [-1, 1], or 0.0 if no keywords are found.
+    """
     if not text:
         return 0.0
     low = text.lower()

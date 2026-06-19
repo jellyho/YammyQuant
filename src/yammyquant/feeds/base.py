@@ -17,6 +17,12 @@ class NewsItem:
     sentiment: Optional[float] = None
 
     def as_record(self) -> dict:
+        """
+        Convert the NewsItem instance to a dictionary.
+        
+        Returns:
+        	dict: A dictionary containing all fields of the NewsItem (title, url, source, summary, published, symbol, sentiment).
+        """
         return {
             "title": self.title, "url": self.url, "source": self.source,
             "summary": self.summary, "published": self.published,

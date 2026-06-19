@@ -18,7 +18,10 @@ function setConn(ok) {
   el.style.color = ok ? "var(--green)" : "var(--amber)";
 }
 
-// ---- render snapshot -----------------------------------------------------
+/**
+ * Updates the trading dashboard with data from a snapshot.
+ * @param {Object} s - The snapshot object containing current trading state.
+ */
 function render(s) {
   $("live").textContent = "live trading: " + (s.live_trading_allowed ? "ON" : "off");
   $("live").style.color = s.live_trading_allowed ? "var(--red)" : "var(--muted)";
@@ -40,6 +43,10 @@ function render(s) {
   loadStrategies();
 }
 
+/**
+ * Renders a news feed from an array of news objects.
+ * @param {Array} rows - News items, each with title, source, and optional symbol, sentiment, url, and timestamp properties.
+ */
 function renderNews(rows) {
   const tone = (x) => x > 0.1 ? "buy" : (x < -0.1 ? "sell" : "");
   $("news").innerHTML = rows.map(n =>
@@ -55,6 +62,10 @@ $("collectNews").onclick = async () => {
   if (!r.ok) alert((await r.json()).detail || "collect failed");
 };
 
+/**
+ * Renders journal entries with optional tags to the journal list.
+ * @param {Array} rows - Journal entries to render.
+ */
 function renderJournal(rows) {
   $("journal").innerHTML = rows.map(j =>
     `<li><span class="ts">${j.ts}</span>${j.tag ? `<span class="kind">${escapeHtml(j.tag)}</span>` : ""} ${escapeHtml(j.text)}</li>`).join("");

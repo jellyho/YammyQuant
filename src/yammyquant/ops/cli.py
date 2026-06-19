@@ -31,6 +31,17 @@ def _print(obj) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Parse and execute a YammyQuant operator CLI command.
+    
+    Parses global options (--state and --store) and the specified subcommand, then dispatches to the appropriate handler.
+    
+    Parameters:
+        argv (list[str], optional): Arguments to parse; defaults to sys.argv if None.
+    
+    Returns:
+        int: Exit code; 0 on success, 1 on argument validation error or unrecognized command.
+    """
     parser = argparse.ArgumentParser(prog="yq", description="YammyQuant operator CLI")
     parser.add_argument("--state", default="yammyquant_state.db", help="SQLite state file")
     parser.add_argument("--store", default="data_store", help="DuckDB candle store dir")

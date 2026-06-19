@@ -227,10 +227,23 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
 
 def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None,
               count: int = 200, notify_signals: bool = True) -> dict:
-    """One maintenance cycle: refresh watchlist data, scan, mark, notify.
-
-    This is the unit a scheduler runs periodically (or you run via ``yq cycle``).
     """
+              Refreshes watchlist data, scans enabled strategies for signals, and marks equity to market.
+              
+              Fetches latest candles for each watchlist item, stores them, evaluates each enabled
+              strategy, generates buy/sell signals, updates equity, and optionally sends notifications.
+              If `auto_trade` is enabled, also executes trading decisions.
+              
+              Parameters:
+              	exchange (str, optional): Exchange name (e.g., "binance"). If None, uses default.
+              	count (int): Number of candles per read (default 200).
+              	notify_signals (bool): Whether to send alert notifications for non-empty signals (default True).
+              
+              Returns:
+              	dict: Contains "refreshed" (list of refreshed symbols), "signals" (list of signal dicts
+              	with symbol/strategy/action), "equity" (current portfolio equity or None if no positions),
+              	and "decisions" (auto-trade result dict if auto_trade is enabled, else None).
+              """
     from yammyquant.exchanges import get_exchange, default_exchange
     from yammyquant.ops.notify import notify
     from yammyquant.ops.trading import TradeManager
@@ -287,7 +300,15 @@ def collect_news(
     store_all: bool = False,
     notify_watch: bool = True,
 ) -> dict:
-    """Fetch RSS feeds, tag watchlist symbols, score sentiment, store (deduped)."""
+    """
+    Collect news from RSS feeds, tag items to watchlist symbols, and score sentiment.
+    
+    Parameters:
+        sources (dict, optional): Feed labels to URLs; if None, uses defaults merged with state configuration
+    
+    Returns:
+        dict: Contains "stored" (total items added) and "tagged" (items tagged to watchlist)
+    """
     from yammyquant.feeds.rss import RSSFeed, tag_symbols
     from yammyquant.feeds.sentiment import score_text
     from yammyquant.feeds.sources import DEFAULT_SOURCES, DEFAULT_KEYWORDS
@@ -324,7 +345,12 @@ def collect_news(
 
 
 def news_sentiment(state: LiveState, symbol: str, lookback: int = 20) -> dict:
-    """Average keyword-sentiment of recent stored news for a symbol."""
+    """
+    Computes the average sentiment score of recent stored news for a symbol.
+    
+    Returns:
+    	A dict with the symbol, count of retrieved news rows, and average sentiment rounded to three decimal places (0.0 if no sentiment values available).
+    """
     rows = state.news(symbol=symbol, limit=lookback)
     scores = [r["sentiment"] for r in rows if r.get("sentiment") is not None]
     return {"symbol": symbol, "count": len(rows),
@@ -333,10 +359,17 @@ def news_sentiment(state: LiveState, symbol: str, lookback: int = 20) -> dict:
 
 def brief(store: DuckDBStore, state: LiveState, ticker: str, interval: str = "1d",
           exchange: Optional[str] = None) -> dict:
-    """One-screen research digest: price/features + news + fundamentals + position.
-
-    Built for the operator (Claude Code) to read and form a decision.
     """
+          Assemble a one-screen research digest with price, features, news sentiment, and position.
+          
+          Parameters:
+          	exchange (str, optional): Exchange name to fetch fundamentals from (for stock assets only).
+          
+          Returns:
+          	digest (dict): Contains ticker, interval, price, bar count, features, news items with 
+          		sentiment, average sentiment, current position (if held), and optional fundamentals. 
+          		Includes data_error if candle read fails, fundamentals_error if fundamentals fetch fails.
+          """
     from yammyquant.data.features import latest_features
 
     out = {"ticker": ticker, "interval": interval}
@@ -377,13 +410,13 @@ def decide(
     execute: bool = False,
     order_type: str = "market",
 ) -> dict:
-    """Turn current signals into risk-sized order decisions (the signal→order step).
-
-    For each watchlist symbol, aggregate enabled-strategy signals into one stance:
-    a fresh BUY (when flat) is sized to ``weight`` of equity; a SELL exits the
-    whole position. With ``execute=True`` the orders are submitted via
-    :class:`TradeManager` (which enforces the account risk policy); otherwise the
-    proposals are returned for review (dry run).
+    """Aggregate enabled-strategy signals into risk-sized trading proposals.
+    
+    For each watchlist symbol, enabled-strategy signals are combined into unified
+    decisions: BUY (sized to ``weight`` of equity when flat) or SELL (closing entire
+    position). BUY decisions may be gated by recent news sentiment if configured.
+    With ``execute=True``, proposals are submitted to the exchange; otherwise
+    returned for review.
     """
     from yammyquant.exchanges import get_exchange, default_exchange
     from yammyquant.ops.trading import TradeManager

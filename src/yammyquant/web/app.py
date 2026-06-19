@@ -51,6 +51,19 @@ def _json_safe(obj: Any) -> Any:
 
 
 def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_store") -> FastAPI:
+    """
+    Create and configure a FastAPI application for the YammyQuant Cockpit dashboard.
+    
+    The application exposes REST endpoints and a WebSocket for reading shared state and issuing control actions. 
+    It optionally serves a dependency-free frontend from the static directory.
+    
+    Parameters:
+    	state_path (str): Path to the persistent state database file (default: "yammyquant_state.db")
+    	store_path (str): Path to the data store directory (default: "data_store")
+    
+    Returns:
+    	FastAPI: Configured application instance
+    """
     app = FastAPI(title="YammyQuant Cockpit")
     state = LiveState(state_path)
 
@@ -162,11 +175,26 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
 
     @app.get("/api/report")
     def get_report():
+        """
+        Retrieve the operational report.
+        
+        Returns:
+        	A dictionary containing the operational report, with non-finite floats converted to None.
+        """
         from yammyquant.ops import operator as ops
         return _json_safe(ops.report(state))
 
     @app.post("/api/news/collect")
     def collect_news():
+        """
+        Collect financial news data.
+        
+        Returns:
+            dict: A JSON-safe dictionary containing the collected news.
+        
+        Raises:
+            HTTPException: HTTP 502 error if news collection fails.
+        """
         from yammyquant.ops import operator as ops
         try:
             return _json_safe(ops.collect_news(state))
@@ -175,6 +203,15 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
 
     @app.get("/api/decide")
     def preview_decide():
+        """
+        Preview trading decisions without executing them.
+        
+        Returns:
+        	Decision preview data.
+        
+        Raises:
+        	HTTPException: 502 status if the decision operation fails.
+        """
         from yammyquant.ops import operator as ops
         try:
             return _json_safe(ops.decide(store(), state, execute=False))

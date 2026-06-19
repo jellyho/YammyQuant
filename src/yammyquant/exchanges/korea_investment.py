@@ -114,7 +114,18 @@ class KoreaInvestment(Exchange):
 
     def create_order(self, ticker: str, side: str, quantity: float,
                      price: Optional[float] = None, order_type: str = "limit") -> dict:
-        cano, prdt = self._account_parts()
+        """
+                     Submit a cash order to buy or sell a stock.
+                     
+                     Parameters:
+                         side (str): "BUY" to buy or "SELL" to sell
+                         price (Optional[float]): Price per share; required for limit orders, ignored for market orders
+                         order_type (str): "limit" (default) for limit price orders or "market" for market orders
+                     
+                     Returns:
+                         dict: The API response containing order details
+                     """
+                     cano, prdt = self._account_parts()
         buy_trid, sell_trid = _ORDER_TRID[self.paper]
         tr_id = buy_trid if side.upper() == "BUY" else sell_trid
         body = {
@@ -129,7 +140,14 @@ class KoreaInvestment(Exchange):
             headers=headers, json_body=body)
 
     def fundamentals(self, ticker: str) -> dict:
-        """Current price + key valuation ratios (PER/PBR/EPS/BPS) for a stock."""
+        """
+        Fetch current price and valuation metrics for a stock.
+        
+        Returns:
+            dict: Dictionary with keys `ticker`, `price`, `per`, `pbr`, `eps`, `bps`, 
+                  `market_cap`, `week52_high`, and `week52_low`. Numeric values are floats 
+                  when available, None otherwise.
+        """
         raw = self._request(
             "GET", self.base + "/uapi/domestic-stock/v1/quotations/inquire-price",
             headers=self._headers("FHKST01010100"),
@@ -142,6 +160,15 @@ class KoreaInvestment(Exchange):
                 "week52_low": pick("w52_lwpr")}
 
     def _account_parts(self) -> tuple[str, str]:
+        """
+        Parse and validate the account identifier.
+        
+        Returns:
+            A tuple of the CANO (first 8 characters) and account product code (next 2 characters).
+        
+        Raises:
+            RuntimeError: If the account identifier is invalid (fewer than 10 characters after removing dashes).
+        """
         acct = self.account.replace("-", "")
         if len(acct) < 10:
             raise RuntimeError("KIS account required as '########-##' (KIS_ACCOUNT)")

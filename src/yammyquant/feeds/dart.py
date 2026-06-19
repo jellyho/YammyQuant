@@ -18,7 +18,15 @@ _VIEWER = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="
 
 
 def parse_disclosures(payload: dict, symbol: str = "") -> list[NewsItem]:
-    """Turn a DART list.json response into NewsItems."""
+    """
+    Convert a DART list.json response into NewsItem objects.
+    
+    Parameters:
+    	payload (dict): A DART API list.json response
+    
+    Returns:
+    	list[NewsItem]: A list of NewsItem objects representing corporate disclosures
+    """
     items = []
     for row in payload.get("list", []):
         name = row.get("corp_name", "")
@@ -36,9 +44,29 @@ def parse_disclosures(payload: dict, symbol: str = "") -> list[NewsItem]:
 
 class DartFeed:
     def __init__(self, api_key: Optional[str] = None):
+        """
+        Initialize the DartFeed instance with an API key.
+        
+        Parameters:
+        	api_key (Optional[str]): API key for DART. If not provided, reads from the DART_API_KEY environment variable.
+        """
         self.api_key = api_key or os.getenv("DART_API_KEY")
 
     def disclosures(self, corp_code: str, symbol: str = "", count: int = 20) -> list[NewsItem]:
+        """
+        Retrieve corporate disclosures from the Korean DART system.
+        
+        Parameters:
+            corp_code (str): The DART corporation code.
+            symbol (str): The ticker symbol to associate with results. Defaults to "".
+            count (int): Maximum number of disclosures to fetch. Defaults to 20.
+        
+        Returns:
+            list[NewsItem]: A list of disclosure items.
+        
+        Raises:
+            RuntimeError: If DART_API_KEY is not configured.
+        """
         import requests  # optional dependency
 
         if not self.api_key:
