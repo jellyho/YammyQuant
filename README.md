@@ -1,182 +1,122 @@
-# YammyQuant Docs
+# YammyQuant
 
-# 0. Installation
+An **agentic quant research cockpit**. Claude Code is the operator — it drives a
+CLI toolbelt over the `yammyquant` library to collect data, backtest, train RL
+agents, generate signals, and manage a paper/live portfolio. A web **dashboard**
+(FastAPI + a dependency-free SPA) lets you watch everything live and leave the
+operator instructions.
 
-## 1. python depedencies
+No paid LLM API in the loop — the brain is your Claude Code session. The
+dashboard is the cockpit; the conversation happens in Claude Code.
 
-```python
-pip install numpy pandas matplotlib pymysql pyqt5 finta mplfinance python-binance
+```
+Claude Code (operator)  ──drives──▶  yq CLI toolbelt
+        │                                │
+        │  reads instructions            │ writes state + logs activity
+        ▼                                ▼
+   ┌──────────────────  shared state  ──────────────────┐
+   │  SQLite (positions, trades, equity, signals,        │
+   │  activity log, instruction inbox) + DuckDB candles  │
+   └──────────────────────────┬──────────────────────────┘
+                              ▼
+              FastAPI cockpit + SPA dashboard
+       (charts · positions · trade approvals · inbox)
 ```
 
-나중에 requirements.txt로 바꾸자
+## Install
 
-## 2. PATH settings
-
-binance api key 설정하는 법 추가해야함. (python os 모듈 사용해서 간단하게 추가하는것도 만들면 좋을 듯)
-
-# 1. data Module
-
-## 1. data.updaters.SQLUpdater (SQL db 구축하기)
-
- 백테스팅과 알고리즘 개발을 위해서는 먼저 DB에 거래 데이터를 저장해 놓아야 한다. YammyQuant에서는 개인 mysql 서버에 거래 데이터 db를 구축할 수 있도록 해준다.
-
-```python
-### example_sqlUpdate.py
-
-from data.updaters import SQLUpdater
-
-updater = SQLUpdater(host='*', user='*', password='*', db='binance')
-updater.setTable('ETHUSDT', ['1w', '1d', '6h', '1h', '15m', '5m', '1m'])
-updater.update()
+```bash
+pip install -e '.[all]'        # everything
+pip install -e '.[web]'        # just the dashboard
+pip install -e '.[binance]'    # Binance data/trading
 ```
 
-1. db 이름을 binance로 지정하므로써 binance API를 사용해서 데이터를 불러온다. (다른 거래소 API도 추후 지원하도록 코드 짜야할듯)
-2. .setTable(’BTCUSDT’, [’1w’, ‘1d’, …])를 통해서 updater에게 어떤 ticker의 각 interval에 대해서 업데이트 할지 알려준다.
-3. .update()를 통해 update 실행
+## Quickstart
 
-```python
-2023-07-29 06:20:04.683781::binance-ETHUSDT-1w last update=>1970-01-02 10:17:36.
-2023-07-29 06:20:04.683926::binance-ETHUSDT-1w downloading...
-2023-07-29 06:20:04.799147::binance-ETHUSDT-1w download complete.
-2023-07-29 06:20:04.808637::binance-ETHUSDT-1w updating(311/311)...
-2023-07-29 06:20:04.845477::binance-ETHUSDT-1w update complete.
-2023-07-29 06:20:04.958874::binance-ETHUSDT-1d last update=>1970-01-02 10:17:36.
-2023-07-29 06:20:04.958983::binance-ETHUSDT-1d downloading...
-2023-07-29 06:20:05.244100::binance-ETHUSDT-1d download complete.
-2023-07-29 06:20:05.254626::binance-ETHUSDT-1d updating(2173/2173)...
-2023-07-29 06:20:05.519638::binance-ETHUSDT-1d update complete.
-2023-07-29 06:20:05.658238::binance-ETHUSDT-6h last update=>1970-01-02 10:17:36.
-2023-07-29 06:20:05.658358::binance-ETHUSDT-6h downloading...
-2023-07-29 06:20:08.642423::binance-ETHUSDT-6h download complete.
-2023-07-29 06:20:08.650292::binance-ETHUSDT-6h updating(8684/8684)...
-2023-07-29 06:20:09.826637::binance-ETHUSDT-6h update complete.
-2023-07-29 06:20:09.961169::binance-ETHUSDT-1h last update=>1970-01-02 10:17:36.
-2023-07-29 06:20:09.961291::binance-ETHUSDT-1h downloading...
-2023-07-29 06:20:32.987504::binance-ETHUSDT-1h download complete.
-2023-07-29 06:20:32.997861::binance-ETHUSDT-1h updating(10000/52003)...
-2023-07-29 06:20:34.163404::binance-ETHUSDT-1h updating(20000/52003)...
-2023-07-29 06:20:35.432261::binance-ETHUSDT-1h updating(30000/52003)...
-2023-07-29 06:20:36.252786::binance-ETHUSDT-1h updating(40000/52003)...
-2023-07-29 06:20:37.109443::binance-ETHUSDT-1h updating(50000/52003)...
-2023-07-29 06:20:37.906069::binance-ETHUSDT-1h updating(52003/52003)...
-2023-07-29 06:20:38.070265::binance-ETHUSDT-1h update complete.
-2023-07-29 06:20:38.256104::binance-ETHUSDT-15m last update=>1970-01-02 10:17:36.
-2023-07-29 06:20:38.256299::binance-ETHUSDT-15m downloading...
+```bash
+# 1. collect some candles (needs network; or seed your own — see examples/)
+yq collect BTCUSDT 1d 1h
+
+# 2. research
+yq features BTCUSDT 1d                       # returns, vol, volume z-score, RSI, ...
+yq backtest BTCUSDT 1d macross --fast 5 --slow 20
+yq optimize BTCUSDT 1d macross --walk-forward 4   # grid search + out-of-sample
+yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout
+yq strategies --disable rsi_reversion       # list / toggle (mirrors the dashboard)
+yq train BTCUSDT 1d --timesteps 50000        # train an RL agent (needs .[rl])
+
+# 3. operate the account
+yq watch add BTCUSDT --interval 1d           # watchlist = the universe for cycles
+yq risk set max_open_positions=5 daily_loss_limit=200   # enforced on every order
+yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper     # paper fills; live queues
+yq decide --weight 0.1 --execute             # turn signals into risk-sized orders
+yq cycle                                     # refresh → scan → mark → notify (one pass)
+yq schedule --interval 300                   # keep it running between sessions
+yq report          # realized PnL, drawdown, per-symbol     yq doctor   # health check
+
+# 4. launch the cockpit
+yq dashboard          # → http://127.0.0.1:8000
 ```
 
-이런 식으로 업데이트가 진행 된다. (맨 처음 업데이트시 오래걸릴 수 있음)
+In the dashboard you can watch the price/equity charts, approve or reject
+pending trades, close positions, and **leave instructions** for the operator —
+which Claude Code reads with `yq inbox` on its next run.
 
-앞으로 다른 거래소의 db를 업데이트 하는 경우에 대한 코드도 추가하면 좋을 듯 하다.
+## The library
 
-## 2. data.readers.SQLReader (SQL 읽기)
+The CLI is a thin layer over a clean, tested Python framework you can also use
+directly:
 
 ```python
-### example_sqlRead.py
-
-from data.readers import SQLReader
-
-reader = SQLReader(host='*', user='*', password='*', db='binance')
-print(reader.getInfo())
-
-reader.setTable('BTCUSDT', '1d')
-reader.setDate('2022-02-17 00:00:00', '2022-08-17 00:00:00')
-
-candle = reader.read()
-print(candle)
+from yammyquant import Candle, Backtest, MACross
+result = Backtest(candle, MACross(5, 20), cash=10_000, fee=0.001).run()
+print(result)            # Sharpe, max drawdown, win rate, profit factor, ...
 ```
 
-sqlUpdater로 구축된 데이터를 다시 불러오는 모듈이다.
+- **`data/`** — typed `Candle` + dependency-free indicators (sma/ema/rsi/atr/
+  bbands/macd), DuckDB+Parquet store, Binance source, and a **feature pipeline**
+  (`features.py`: returns, realized vol, volume z-score, RSI, trend, ATR%).
+- **`backtest/`** — order/portfolio/broker/engine with fees & slippage; a **risk
+  layer** (`RiskConfig`: position sizing, stop-loss/take-profit, drawdown
+  kill-switch); **optimization** (`grid_search`, `walk_forward`); and metrics
+  (Sharpe, Sortino, Calmar, max drawdown, CAGR, volatility, win rate, profit
+  factor, trade stats).
+- **`strategy/`** — `Strategy` base + built-ins (`MACross`, `VolatilityBreakout`,
+  `RSIReversion`, `DonchianBreakout`); toggle on/off from the cockpit.
+- **`data/sources/`** — DuckDB+Parquet store, Binance source, and `CCXTSource`
+  for 100+ exchanges.
+- **`exchanges/`** — native per-exchange adapters (data + balances + orders):
+  **Binance, Upbit, Bithumb, Coinone, Korbit** (crypto) & **KIS/한국투자증권**,
+  **Toss/토스증권** (KR stocks), plus any **ccxt** venue — all configured in one
+  place via `yq config`. See [`docs/EXCHANGES.md`](docs/EXCHANGES.md).
+- **`rl/`** — `ChartFollowingEnv` (Gymnasium) for RL experiments.
+- **`state/`** + **`ops/`** + **`web/`** — the cockpit (shared state, toolbelt, dashboard).
 
-1. reader를 생성한다. db이름에 유의. binance데이터를 불러오기 위해서는 ‘binance’라고 입력해야한다.
-2. .getInfo()를 통해서 현재 db에 저장된 코인이름(ticker)와 ticker 별 interval을 dictionary 형태로 반환한다. 어떤 코인을 불러올 수 있는지 확인하기 위해 사용
-3. .setTable을 통해 불러올 코인이름(ticker)와 간격(interval)을 지정해 준다.
-4. .setDate를 통해 불러올 데이터의 시작 시간과 끝 시간을 넣어준다. str와 datetime.datetime 객체로 넣어줄 수 있으며, str 형식으로 넣을 경우 `'%Y-%m-%d %H:%M:%S'` 형태로 넣어주어야 한다.
-시작 시간이 None이고 끝 시간을 넣어주는 경우 db의 첫 데이터부터 끝 시간까지 불러오며, 끝 시간이 None이고 시작 시간을 넣어주는 경우 시작 시간부터 db의 마지막 데이터까지 불러온다. 두개 모두 None일 경우 ValueError.
-5. .read()를 통해 데이터를 불러온다. 반환 타입은 data.core.Candle 이다.
+## How it compares
 
-```python
-{'BTCUSDT': ['15m', '1d', '1h', '1m', '1w', '5m', '6h'], 'ETHUSDT': ['15m', '1d', '1h', '1m', '1w', '5m', '6h'], 'XRPUSDT': ['15m', '1d', '1h', '1m', '1w', '5m', '6h']}
-BTCUSDT-Candle
-               open     high      low    close    volume
-index                                                   
-2022-02-17  43873.6  44164.7  40073.2  40515.7   47246.0
-2022-02-18  40515.7  40959.9  39450.0  39974.4   43845.9
-2022-02-19  39974.4  40444.3  39639.0  40079.2   18042.1
-2022-02-20  40079.2  40125.4  38000.0  38386.9   33439.3
-2022-02-21  38386.9  39494.4  36800.0  37008.2   62347.7
-...             ...      ...      ...      ...       ...
-2022-08-13  24401.7  24888.0  24291.2  24441.4  152852.0
-2022-08-14  24443.1  25047.6  24144.0  24305.2  151206.0
-2022-08-15  24305.2  25211.3  23773.2  24094.8  242540.0
-2022-08-16  24093.0  24247.5  23671.2  23854.7  179325.0
-2022-08-17  23856.2  24446.7  23180.4  23342.7  210669.0
+See [`docs/BENCHMARK.md`](docs/BENCHMARK.md) for a feature-by-feature comparison
+against freqtrade, Jesse, NautilusTrader, FinRL, and the LLM-agent repos
+(ai-hedge-fund, TradingAgents, FinRobot). Short version: YammyQuant now ships the
+risk layer, optimization/walk-forward, expanded analytics, and multi-exchange
+data those frameworks have — and its agentic operator is your Claude Code
+session, so it needs **no paid LLM API**.
 
-[182 rows x 5 columns]
-```
+## Money safety
 
-실행결과.
+Paper trading is the default. **Live orders require both** `YQ_ALLOW_LIVE=1`
+**and** explicit human approval (a dashboard button or `yq approve <id>`). Without
+the flag, an approved live order is rejected. Binance keys are read from
+`BINANCE_API_KEY` / `BINANCE_SECRET_KEY` (environment only — never hardcoded).
 
-## 3. data.readers.BinanceReader
+## For Claude Code
 
-sql에서 읽는 것이 아니라 Binance API를 이용해서 읽을 수 있도록 만든 reader이다. binance api 보다 편하게 사용할 수 있도록, 그리고 반환 객체가 data.core.Candle 객체가 되도록 하는것이 목표.
- 
+See [`CLAUDE.md`](CLAUDE.md) for the operator workflow (read the inbox, run the
+toolbelt, record trades).
 
-```python
-from data.readers import BinanceReader
+## Development
 
-reader = BinanceReader()
-reader.setTicker('BTCUSDT')
-reader.setInterval('1d')
-reader.setDate('2022-02-17 00:00:00', '2022-08-17 00:00:00')
-candle = reader.read()
-```
-setDate를 안해줄 경우 그냥 제일 최근 값 가져오도록 했다.
-
-## 4. data.core.Candle
-
-거래 시계열 데이터를 쉽게 다룰 수 있게 하기 위해서 만든 클래스. 기본적으로 pandas.Dataframe의 wrapper겪이다.
-
-```python
-from data.core import Candle
-
-candle = Candle('BTCUSDT', df)
-```
-
-이런식으로 이름과 데이터프레임을 넣어서 생성한다. 데이터프레임에는 기본적으로 `['open', 'high', 'low', 'close', 'volume']` column이 존재해야하며 그 외의 column은 있어도 삭제된다.
-
-candle.data로 데이터프레임에 직접 접근 가능
-
-```python
-candle.open
-candle.high
-candle.low
-candle.close
-candle.volume
-candle.index
-```
-
-각 column과 index 접근 가능 (slice indexing도 마찬가지로 가능하다)
-
-candle 클래스에 finta의 TA들 wrapper를 구현해 놓았다.
-
-[https://github.com/peerchemist/finta](https://github.com/peerchemist/finta)
-
-github를 참고하여 다양한 TA를 사용할 수 있다. github에서는 TA.SMA(ohlc, 42)로 사용했다면 대신에 candle.SMA(42)와 같이 사용할 수 있다.
-
-아래 예시 참고
-
-```python
-###example_candle_indicators.py
-import matplotlib.pyplot as plt
-from data.readers import BinanceReader
-
-reader = BinanceReader()
-reader.setTicker('BTCUSDT')
-reader.setInterval('1d')
-reader.setDate('2022-02-17 00:00:00', '2022-08-17 00:00:00')
-candle = reader.read()
-
-plt.plot(candle.index, candle.SMA(5))
-plt.plot(candle.index, candle.SMA(20))
-plt.show()
+```bash
+pip install -e '.[all,dev]'
+pytest -q          # 132 tests
+python examples/backtest_synthetic.py
 ```

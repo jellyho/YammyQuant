@@ -163,3 +163,15 @@ result.csv
 sql.json
 *.pyc
 __pycache__/
+
+# YammyQuant
+data_store/
+*.parquet
+chart_following_sac.zip
+yammyquant_state.db*
+*.sqlite
+feature_store/
+models/
+
+# central exchange config (may contain secrets)
+yammyquant.config.json
