@@ -1,4 +1,5 @@
 from yammyquant.strategy.base import Strategy
+from yammyquant.strategy.ensemble import Ensemble, aggregate_votes
 from yammyquant.strategy.builtin import (
     MACross,
     VolatilityBreakout,
@@ -23,6 +24,8 @@ from yammyquant.strategy.builtin import (
 
 __all__ = [
     "Strategy",
+    "Ensemble",
+    "aggregate_votes",
     "MACross",
     "VolatilityBreakout",
     "RSIReversion",

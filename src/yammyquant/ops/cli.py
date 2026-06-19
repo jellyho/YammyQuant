@@ -109,9 +109,26 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--walk-forward", type=int, default=0, metavar="N",
                    help="number of walk-forward splits (0 = in-sample grid search)")
 
-    p = sub.add_parser("strategies", help="list or toggle strategies")
+    p = sub.add_parser("strategies", help="list/toggle strategies & blend config")
     p.add_argument("--enable")
     p.add_argument("--disable")
+    p.add_argument("--rule", choices=["any", "weighted", "majority", "unanimous"],
+                   help="how `decide` blends signals across strategies")
+    p.add_argument("--threshold", type=float, help="vote threshold for weighted/majority")
+    p.add_argument("--weight", action="append", metavar="NAME=VAL",
+                   help="per-strategy vote weight, e.g. --weight macross=2")
+
+    p = sub.add_parser("ensemble", help="backtest a blend of strategies (voting/weighted)")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("--members", required=True,
+                   help="comma list, e.g. macross,rsi_reversion,supertrend")
+    p.add_argument("--weights", help="comma list of floats matching --members")
+    p.add_argument("--rule", default="weighted",
+                   choices=["any", "weighted", "majority", "unanimous"])
+    p.add_argument("--threshold", type=float, default=0.5)
+    p.add_argument("--cash", type=float, default=10_000.0)
+    p.add_argument("--fee", type=float, default=0.001)
 
     p = sub.add_parser("train", help="train an RL agent on stored candles")
     p.add_argument("ticker")
@@ -304,8 +321,29 @@ def main(argv: Optional[list[str]] = None) -> int:
             state.set(f"strategy.{args.enable}.enabled", True)
         if args.disable:
             state.set(f"strategy.{args.disable}.enabled", False)
+        if args.rule:
+            state.set("ensemble_rule", args.rule)
+        if args.threshold is not None:
+            state.set("ensemble_threshold", args.threshold)
+        for pair in (args.weight or []):
+            name, _, val = pair.partition("=")
+            state.set(f"strategy.{name.strip()}.weight", float(val))
         _print({"available": sorted(ops.STRATEGIES),
-                "enabled": ops.enabled_strategies(state)})
+                "enabled": ops.enabled_strategies(state),
+                "blend": {"rule": state.get("ensemble_rule", "any"),
+                          "threshold": float(state.get("ensemble_threshold", 0.5)),
+                          "weights": {n: state.get(f"strategy.{n}.weight", 1.0)
+                                      for n in ops.STRATEGIES
+                                      if state.get(f"strategy.{n}.weight") is not None}}})
+        return 0
+
+    if args.cmd == "ensemble":
+        members = [s.strip() for s in args.members.split(",") if s.strip()]
+        weights = [float(x) for x in args.weights.split(",")] if args.weights else None
+        _print(ops.ensemble_backtest(DuckDBStore(args.store), args.ticker, args.interval,
+                                     members, weights=weights, rule=args.rule,
+                                     threshold=args.threshold, cash=args.cash, fee=args.fee,
+                                     state=state))
         return 0
 
     if args.cmd == "train":

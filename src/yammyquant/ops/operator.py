@@ -140,6 +140,40 @@ def build_strategy(name: str, **params):
     return STRATEGIES[name](**params)
 
 
+def build_ensemble(members: list[str], weights: Optional[list[float]] = None,
+                   rule: str = "weighted", threshold: float = 0.5):
+    """Build an :class:`Ensemble` from a list of strategy names."""
+    from yammyquant.strategy.ensemble import Ensemble
+
+    return Ensemble([build_strategy(m) for m in members],
+                    weights=weights, rule=rule, threshold=threshold)
+
+
+def ensemble_backtest(
+    store: DuckDBStore,
+    ticker: str,
+    interval: str,
+    members: list[str],
+    weights: Optional[list[float]] = None,
+    rule: str = "weighted",
+    threshold: float = 0.5,
+    cash: float = 10_000.0,
+    fee: float = 0.001,
+    state: Optional[LiveState] = None,
+) -> dict:
+    """Backtest a blend of strategies combined by a voting rule."""
+    candle = store.read(ticker, interval)
+    strat = build_ensemble(members, weights=weights, rule=rule, threshold=threshold)
+    result = Backtest(candle, strat, cash=cash, fee=fee).run()
+    stats = dict(result.stats)
+    stats["members"] = members
+    stats["rule"] = rule
+    if state:
+        state.log("ensemble", f"ensemble[{rule}] {members} on {ticker}/{interval}",
+                  **result.stats)
+    return stats
+
+
 def collect(
     store: DuckDBStore,
     ticker: str,
@@ -538,21 +572,30 @@ def decide(
             state.log("decide", f"read failed for {sym}: {exc}")
             continue
         actions = set()
+        votes, vote_weights = [], []
         for name in enabled:
             strat = build_strategy(name)
             if len(candle) < strat.warmup:
                 continue
             orders = strat.on_bar(candle[-strat.warmup:])
+            vote = orders[0].action.value if orders else "HOLD"
+            votes.append(vote)
+            vote_weights.append(float(state.get(f"strategy.{name}.weight", 1.0)))
             if orders:
-                actions.add(orders[0].action.value)
+                actions.add(vote)
+
+        from yammyquant.strategy.ensemble import aggregate_votes
+        rule = state.get("ensemble_rule", "any")
+        threshold = float(state.get("ensemble_threshold", 0.5))
+        agg = aggregate_votes(votes, vote_weights, rule, threshold)
 
         price = float(candle.close[-1])
         held = sym in positions and positions[sym]["quantity"] > 0
         decision = None
-        if "SELL" in actions and held:
+        if agg["sell"] and held:
             decision = {"symbol": sym, "side": "SELL", "quantity": positions[sym]["quantity"],
-                        "price": price, "reason": "exit signal"}
-        elif "BUY" in actions and "SELL" not in actions and not held and price > 0:
+                        "price": price, "reason": f"exit signal ({rule}, score={agg['score']})"}
+        elif agg["buy"] and not agg["sell"] and not held and price > 0:
             # optional sentiment gate: veto entries when recent news is strongly negative
             gate = state.get("sentiment_gate")
             senti = news_sentiment(state, sym)["avg_sentiment"] if gate is not None else 0.0
