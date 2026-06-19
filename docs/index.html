@@ -275,11 +275,25 @@ yq disclosures 00126380 --symbol 005930   # DART filings</code></pre>
   it's lost when the container is reclaimed, and it isn't shared with the
   dashboard. In YammyQuant, the transcript is disposable — the SQLite state DB,
   the DuckDB candles, and <code>CLAUDE.md</code> are the memory.</p>
+  <h3>The memory stream — <code>yq recall</code></h3>
+  <p>Re-reading the whole journal every session doesn't scale, so the journal is a
+  retrievable <b>memory stream</b> (the Generative-Agents pattern). Each note can
+  carry an <code>--importance</code> (1–10); <code>yq recall</code> ranks notes by
+  <b>recency × importance × relevance</b> and bundles unread inbox + open positions
+  into one session-start digest:</p>
+<pre><code>yq journal "scaled into BTC on breakout, high conviction" --tag thesis --importance 8
+yq recall                 # top memories + inbox + positions
+yq recall "ETH merge"     # a query biases retrieval toward matching notes</code></pre>
+  <table>
+    <tr><th>Signal</th><th>Meaning</th></tr>
+    <tr><td><b>recency</b></td><td>half-life decay (~14d) — recent notes weigh more.</td></tr>
+    <tr><td><b>importance</b></td><td>operator-set salience (1–10); defaults to mid when unset.</td></tr>
+    <tr><td><b>relevance</b></td><td>term overlap with the query (0 when no query is given).</td></tr>
+  </table>
   <div class="callout">
-    <div class="h">First thing each session</div>
-    Read <code>CLAUDE.md</code> → <code>yq inbox</code> (new instructions) →
-    <code>yq journal</code> (what past-you was thinking) → <code>yq status</code>
-    (current positions &amp; equity). Last thing: write a <code>yq journal</code>
+    <div class="h">First &amp; last thing each session</div>
+    Start with <code>yq recall</code> (memory + inbox + positions) and read
+    <code>CLAUDE.md</code>. End by writing a <code>yq journal … --importance N</code>
     entry so next-you starts informed.
   </div>
 </section>

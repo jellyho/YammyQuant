@@ -8,11 +8,13 @@ watch everything live and leave you instructions.
 
 ## The loop
 
-1. **Read the inbox first** every session — the user leaves instructions there
-   from the dashboard:
+1. **Recall first** every session — you're ephemeral, so reload your memory before
+   acting. `yq recall` bundles unread instructions + your most salient past notes
+   (ranked by recency × importance × relevance) + open positions in one call:
    ```bash
-   yq inbox            # show unread instructions
-   yq inbox --mark-read
+   yq recall                 # session-start memory digest
+   yq recall "BTC thesis"    # bias retrieval toward a topic
+   yq inbox --mark-read      # then clear the instructions you've read
    ```
 2. **Do the work** with the toolbelt (below). Every command logs to the shared
    state, so the dashboard reflects what you did in real time.
@@ -58,7 +60,8 @@ yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrail
 yq report                                   # realized PnL, drawdown, per-symbol
 yq reconcile                                # local positions vs exchange balances
 yq doctor                                   # data freshness / config / account health
-yq journal "why I entered BTC ..." --tag thesis   # cross-session memory
+yq journal "why I entered BTC ..." --tag thesis --importance 8   # cross-session memory
+yq recall "BTC"                            # ranked memory digest (recency×importance×relevance)
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```

@@ -82,7 +82,9 @@ CREATE TABLE IF NOT EXISTS journal (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT NOT NULL,
     tag         TEXT,
-    text        TEXT NOT NULL
+    text        TEXT NOT NULL,
+    importance  REAL,            -- 1..10, operator-set salience (memory-stream weight)
+    accessed    INTEGER DEFAULT 0  -- recall count, for diagnostics
 );
 CREATE TABLE IF NOT EXISTS watchlist (
     symbol      TEXT PRIMARY KEY,
@@ -116,6 +118,16 @@ class LiveState:
         self.path = str(path)
         with self._conn() as c:
             c.executescript(_SCHEMA)
+            self._migrate(c)
+
+    @staticmethod
+    def _migrate(conn) -> None:
+        """Add columns introduced after a DB was first created (idempotent)."""
+        have = {r["name"] for r in conn.execute("PRAGMA table_info(journal)")}
+        if "importance" not in have:
+            conn.execute("ALTER TABLE journal ADD COLUMN importance REAL")
+        if "accessed" not in have:
+            conn.execute("ALTER TABLE journal ADD COLUMN accessed INTEGER DEFAULT 0")
 
     @contextmanager
     def _conn(self):
@@ -278,14 +290,23 @@ class LiveState:
         return {r["key"]: json.loads(r["value"]) for r in self._fetch("SELECT * FROM settings")}
 
     # -- journal -----------------------------------------------------------
-    def add_journal(self, text: str, tag: str = "") -> int:
+    def add_journal(self, text: str, tag: str = "", importance: Optional[float] = None) -> int:
         with self._conn() as c:
-            cur = c.execute("INSERT INTO journal (ts, tag, text) VALUES (?,?,?)",
-                            (_now(), tag, text))
+            cur = c.execute(
+                "INSERT INTO journal (ts, tag, text, importance) VALUES (?,?,?,?)",
+                (_now(), tag, text, importance))
             return int(cur.lastrowid)
 
     def journal(self, limit: int = 100) -> list[dict]:
         return self._fetch("SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,))
+
+    def bump_journal_recall(self, ids: list[int]) -> None:
+        """Increment the recall counter for surfaced memories."""
+        if not ids:
+            return
+        with self._conn() as c:
+            c.executemany("UPDATE journal SET accessed = COALESCE(accessed,0)+1 WHERE id=?",
+                          [(i,) for i in ids])
 
     # -- watchlist ---------------------------------------------------------
     def add_watch(self, symbol: str, exchange: str = "", interval: str = "1d",
