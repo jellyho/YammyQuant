@@ -400,6 +400,57 @@ def brief(store: DuckDBStore, state: LiveState, ticker: str, interval: str = "1d
     return out
 
 
+def recall(state: LiveState, query: Optional[str] = None, limit: int = 5,
+           half_life_days: float = 14.0) -> dict:
+    """Memory-stream retrieval — what a fresh session should know right now.
+
+    Ranks journal entries by ``recency × importance × relevance`` (the Generative-
+    Agents memory pattern) and bundles unread inbox + open positions, so an
+    ephemeral operator can reconstruct context in one call at session start.
+    """
+    import re
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    q_terms = set(re.findall(r"\w+", query.lower())) if query else set()
+
+    def _score(entry: dict) -> tuple[float, float, float, float]:
+        try:
+            age_days = (now - datetime.fromisoformat(entry["ts"])).total_seconds() / 86400
+        except Exception:
+            age_days = 0.0
+        recency = 0.5 ** (max(age_days, 0.0) / half_life_days)          # half-life decay
+        imp = entry.get("importance")
+        importance = (float(imp) / 10.0) if imp is not None else 0.5    # 1..10 → 0..1
+        relevance = 0.0
+        if q_terms:
+            words = set(re.findall(r"\w+", f"{entry['text']} {entry.get('tag') or ''}".lower()))
+            relevance = len(q_terms & words) / len(q_terms)
+        return round(0.45 * recency + 0.35 * importance + 0.20 * relevance, 4), recency, importance, relevance
+
+    ranked = []
+    for e in state.journal(limit=200):
+        sc, rec, imp, rel = _score(e)
+        ranked.append({**e, "_score": sc, "_rel": rel})
+    if q_terms:
+        ranked = [r for r in ranked if r["_rel"] > 0] or ranked      # drop noise when querying
+    ranked.sort(key=lambda r: r["_score"], reverse=True)
+    top = ranked[:limit]
+    state.bump_journal_recall([t["id"] for t in top])
+
+    hints = {k: state.get(k) for k in ("auto_trade", "trade_mode", "sentiment_gate")
+             if state.get(k) is not None}
+    return {
+        "query": query,
+        "unread_inbox": state.inbox(only_unread=True),
+        "memories": [{"id": t["id"], "ts": t["ts"], "tag": t["tag"], "text": t["text"],
+                      "importance": t["importance"], "score": t["_score"]} for t in top],
+        "open_positions": [{"ticker": p["ticker"], "quantity": p["quantity"],
+                            "avg_price": p["avg_price"]} for p in state.positions()],
+        "settings": hints,
+    }
+
+
 def decide(
     store: DuckDBStore,
     state: LiveState,

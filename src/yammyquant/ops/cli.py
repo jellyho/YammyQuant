@@ -153,7 +153,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     p = sub.add_parser("journal", help="operator journal: add a note, or list")
     p.add_argument("text", nargs="?", help="note text (omit to list)")
     p.add_argument("--tag", default="")
+    p.add_argument("--importance", type=float, help="salience 1..10 for memory recall")
     p.add_argument("--limit", type=int, default=50)
+
+    p = sub.add_parser("recall", help="session-start memory: ranked journal + inbox + positions")
+    p.add_argument("query", nargs="?", help="optional topic to bias retrieval")
+    p.add_argument("--limit", type=int, default=5)
 
     p = sub.add_parser("watch", help="manage the watchlist")
     p.add_argument("action", choices=["add", "rm", "list"])
@@ -361,10 +366,14 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "journal":
         if args.text:
-            jid = state.add_journal(args.text, tag=args.tag)
-            _print({"id": jid, "tag": args.tag, "text": args.text})
+            jid = state.add_journal(args.text, tag=args.tag, importance=args.importance)
+            _print({"id": jid, "tag": args.tag, "importance": args.importance, "text": args.text})
         else:
             _print(state.journal(limit=args.limit))
+        return 0
+
+    if args.cmd == "recall":
+        _print(ops.recall(state, query=args.query, limit=args.limit))
         return 0
 
     if args.cmd == "watch":

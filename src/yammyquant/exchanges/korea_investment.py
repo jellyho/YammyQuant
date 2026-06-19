@@ -125,7 +125,7 @@ class KoreaInvestment(Exchange):
                      Returns:
                          dict: The API response containing order details
                      """
-                     cano, prdt = self._account_parts()
+        cano, prdt = self._account_parts()
         buy_trid, sell_trid = _ORDER_TRID[self.paper]
         tr_id = buy_trid if side.upper() == "BUY" else sell_trid
         body = {

@@ -9,6 +9,11 @@ operator instructions.
 No paid LLM API in the loop — the brain is your Claude Code session. The
 dashboard is the cockpit; the conversation happens in Claude Code.
 
+📖 **Documentation site:** [`docs/index.html`](docs/index.html) — a self-contained
+(zero-build) docs page; published via GitHub Pages at
+`https://jellyho.github.io/YammyQuant/` once Pages is enabled (Settings → Pages →
+Deploy from branch → `master` / `/docs`).
+
 ```
 Claude Code (operator)  ──drives──▶  yq CLI toolbelt
         │                                │
@@ -120,6 +125,6 @@ toolbelt, record trades).
 
 ```bash
 pip install -e '.[all,dev]'
-pytest -q          # 142 tests
+pytest -q          # 147 tests
 python examples/backtest_synthetic.py
 ```
