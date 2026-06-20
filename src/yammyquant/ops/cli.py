@@ -208,7 +208,20 @@ def _print(obj) -> None:
         print(_c(f"{title} ", _Hue.B + _Hue.ACCENT) + _c(f"({len(obj)} rows)", _Hue.GREY))
         print(_table(obj))
     elif isinstance(obj, dict):
-        print(_box(title, _kv(obj)))
+        # if the dict carries exactly one list-of-dicts (e.g. compare→ranking,
+        # attribution→by_strategy, doctor→data_freshness), show the scalars in a
+        # box and that list as a proper table below it.
+        table_keys = [k for k, v in obj.items()
+                      if isinstance(v, list) and v and all(isinstance(x, dict) for x in v)]
+        if len(table_keys) == 1:
+            tk = table_keys[0]
+            scalars = {k: v for k, v in obj.items() if k != tk}
+            if scalars:
+                print(_box(title, _kv(scalars)))
+            print(_c(f"{tk} ", _Hue.B + _Hue.ACCENT) + _c(f"({len(obj[tk])} rows)", _Hue.GREY))
+            print(_table(obj[tk]))
+        else:
+            print(_box(title, _kv(obj)))
     elif isinstance(obj, list):
         print(_c(f"{title}", _Hue.B + _Hue.ACCENT))
         print("\n".join(f"  {_c('-', _Hue.ACCENT)} {x}" for x in obj)
