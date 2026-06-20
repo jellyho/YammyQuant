@@ -12,7 +12,7 @@ state, so the dashboard reflects it live.
 | `yq backtest SYM 1d macross --fast 5 --slow 20` | Run a strategy; Sharpe / drawdown / win rate. |
 | `yq optimize SYM 1d macross --metric sharpe` | Grid search over parameters. |
 | `yq optimize SYM 1d macross --walk-forward 4` | Out-of-sample (walk-forward) validation. |
-| `yq compare SYM 1d [--metric sharpe]` | Rank every strategy on a symbol (leaderboard + excess vs buy&hold). |
+| `yq compare SYM 1d [--metric sharpe] [--optimize]` | Rank every strategy on a symbol (leaderboard + excess vs buy&hold); `--optimize` tunes each first. |
 | `yq scan A B --interval 1d --strategy donchian_breakout` | Emit signals across symbols. |
 | `yq train SYM 1d --timesteps 50000` | Train an RL agent (needs `.[rl]`). |
 

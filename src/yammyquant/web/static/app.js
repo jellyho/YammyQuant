@@ -521,7 +521,7 @@ $("cmpRun").onclick = async () => {
   try {
     const r = await fetch("/api/compare", { method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker, interval, metric }) });
+      body: JSON.stringify({ ticker, interval, metric, optimize: $("cmpOptimize").checked }) });
     const d = await r.json();
     if (!r.ok) { alert(d.detail || "failed"); Plotly.purge("cmpPlot"); return; }
     const rows = d.ranking || [];

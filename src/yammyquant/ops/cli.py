@@ -318,6 +318,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--strategies", help="comma-separated subset (default: all)")
     p.add_argument("--metric", default="sharpe",
                    help="rank by: sharpe|total_return|excess_return|sortino|calmar|cagr|win_rate")
+    p.add_argument("--optimize", action="store_true",
+                   help="grid-search each strategy first, then rank at its best params")
 
     p = sub.add_parser("strategies", help="list/toggle strategies & blend config")
     p.add_argument("--enable")
@@ -587,7 +589,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "compare":
         subset = [s.strip() for s in args.strategies.split(",")] if args.strategies else None
         _print(ops.compare(DuckDBStore(args.store), args.ticker, args.interval,
-                           strategies=subset, metric=args.metric, state=state))
+                           strategies=subset, metric=args.metric,
+                           optimize_each=args.optimize, state=state))
         return 0
 
     if args.cmd == "strategies":

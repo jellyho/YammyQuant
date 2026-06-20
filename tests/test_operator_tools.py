@@ -274,6 +274,23 @@ def test_compare_ranks_strategies_by_metric(tmp_path):
         ops.compare(store, "BTCUSDT", "1d", strategies=["nope"])
 
 
+def test_compare_optimize_each_tunes_and_reports_params(tmp_path):
+    store = DuckDBStore(tmp_path / "store")
+    rng = np.random.default_rng(4)
+    close = 100 * np.exp(np.cumsum(rng.normal(0.001, 0.02, 400)))
+    idx = pd.date_range("2023-01-01", periods=400, freq="1D")
+    store.write(Candle("BTCUSDT", pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+         "volume": np.full(400, 1000.0)}, index=idx), interval="1d"))
+    out = ops.compare(store, "BTCUSDT", "1d",
+                      strategies=["macross", "donchian_breakout"],
+                      metric="sharpe", optimize_each=True)
+    for r in out["ranking"]:
+        assert "params" in r and isinstance(r["params"], dict) and r["params"]
+    scores = [r["sharpe"] for r in out["ranking"]]
+    assert scores == sorted(scores, reverse=True)
+
+
 def test_correlation_matrix(tmp_path):
     import numpy as np
     import pandas as pd
