@@ -13,6 +13,8 @@ you watch everything live and leave instructions.
     A hands-on, end-to-end walkthrough — collect → research → backtest → ensemble
     → signal → risk → trade → automate, every step a real `yq` command.
 
+![Backtest signals on price](assets/signals.png)
+
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch: **[Getting started](getting-started.md)**

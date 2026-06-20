@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Optional
 
@@ -25,9 +26,123 @@ from yammyquant.data.sources.store import DuckDBStore
 from yammyquant.ops import operator as ops
 from yammyquant.ops.trading import TradeManager
 
+# ---- cute output -----------------------------------------------------------
+# Pretty (colored, emoji, tables) when writing to a terminal; clean JSON when
+# piped or with --json, so machine consumers keep parsing exactly as before.
+_COLOR = sys.stdout.isatty() and os.getenv("NO_COLOR") is None and os.getenv("TERM") != "dumb"
+_FORCE_JSON = False
+
+BANNER = r"""
+  __ _  __ _ _ __ ___  _ __ ___  _   _
+ / _` |/ _` | '_ ` _ \| '_ ` _ \| | | |   {accent}YammyQuant{r} · agentic quant cockpit
+| (_| | (_| | | | | | | | | | | | |_| |   {dim}paper-by-default · you are the operator{r}
+ \__, |\__,_|_| |_| |_|_| |_| |_|\__, |   {dim}yq <command> --help · yq dashboard{r}
+ |___/                           |___/
+"""
+
+
+class _Hue:
+    R = "\033[0m"; B = "\033[1m"; DIM = "\033[2m"
+    CYAN = "\033[36m"; GREEN = "\033[32m"; RED = "\033[31m"
+    YEL = "\033[33m"; BLUE = "\033[34m"; MAG = "\033[35m"; GREY = "\033[90m"
+
+
+def _c(text, color: str) -> str:
+    return f"{color}{text}{_Hue.R}" if _COLOR else str(text)
+
+
+def _emoji(s: str) -> str:
+    return s if _COLOR else ""
+
+
+def banner() -> str:
+    return BANNER.format(
+        accent=_Hue.CYAN + _Hue.B if _COLOR else "",
+        dim=_Hue.DIM if _COLOR else "",
+        r=_Hue.R if _COLOR else "",
+    )
+
+
+def _plain(value) -> str:
+    if value is None:
+        return "–"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value)
+
+
+def _color_for(key, value) -> Optional[str]:
+    """Pick an ANSI color for a value based on its key/content (or None)."""
+    if value is None:
+        return _Hue.GREY
+    if isinstance(value, bool):
+        return _Hue.GREEN if value else _Hue.GREY
+    s, low = str(value), str(key).lower()
+    if s in ("BUY", "buy", "long"):
+        return _Hue.GREEN
+    if s in ("SELL", "sell", "short"):
+        return _Hue.RED
+    if s in ("filled", "approved", "ok", "healthy", "enabled"):
+        return _Hue.GREEN
+    if s in ("pending", "submitted", "partial", "queued"):
+        return _Hue.YEL
+    if s in ("rejected", "error", "failed", "stale", "disabled"):
+        return _Hue.RED
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and any(
+        k in low for k in ("pnl", "return", "sharpe", "sentiment", "score", "decay")
+    ):
+        return _Hue.GREEN if value > 0 else _Hue.RED if value < 0 else _Hue.GREY
+    return None
+
+
+def _cell(key, value) -> str:
+    color = _color_for(key, value)
+    text = _plain(value)
+    return _c(text, color) if color else text
+
+
+def _table(rows: list[dict]) -> str:
+    cols = list({k: None for r in rows for k in r})  # union, order-preserving
+    widths = {c: max(len(c), *(len(_plain(r.get(c))) for r in rows)) for c in cols}
+    head = "  ".join(_c(c.ljust(widths[c]), _Hue.B + _Hue.CYAN) for c in cols)
+    sep = _c("  ".join("─" * widths[c] for c in cols), _Hue.GREY)
+    body = []
+    for r in rows:
+        cells = []
+        for c in cols:
+            raw = _plain(r.get(c))
+            pad = " " * (widths[c] - len(raw))
+            cells.append(_cell(c, r.get(c)) + pad)
+        body.append("  ".join(cells))
+    return "\n".join([head, sep, *body])
+
+
+def _kv(obj: dict) -> str:
+    width = max((len(str(k)) for k in obj), default=0)
+    lines = []
+    for k, v in obj.items():
+        if isinstance(v, (dict, list)):
+            blob = json.dumps(v, default=str, ensure_ascii=False)
+            lines.append(f"  {_c(str(k).rjust(width), _Hue.CYAN)}  "
+                         f"{_c(blob if len(blob) <= 80 else blob[:77] + '…', _Hue.GREY)}")
+        else:
+            lines.append(f"  {_c(str(k).rjust(width), _Hue.CYAN)}  {_cell(k, v)}")
+    return "\n".join(lines)
+
 
 def _print(obj) -> None:
-    print(json.dumps(obj, indent=2, default=str))
+    """Pretty in a terminal; JSON when piped or with --json (machine-safe)."""
+    if _FORCE_JSON or not _COLOR:
+        print(json.dumps(obj, indent=2, default=str))
+        return
+    if isinstance(obj, list) and obj and all(isinstance(x, dict) for x in obj):
+        print(_table(obj))
+    elif isinstance(obj, dict):
+        print(_kv(obj))
+    elif isinstance(obj, list):
+        print("\n".join(f"  {_c('•', _Hue.CYAN)} {x}" for x in obj) or _c("  (empty)", _Hue.GREY))
+    else:
+        print(obj)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -42,10 +157,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     Returns:
         int: Exit code; 0 on success, 1 on argument validation error or unrecognized command.
     """
-    parser = argparse.ArgumentParser(prog="yq", description="YammyQuant operator CLI")
+    parser = argparse.ArgumentParser(
+        prog="yq", description=banner(),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--state", default="yammyquant_state.db", help="SQLite state file")
     parser.add_argument("--store", default="data_store", help="DuckDB candle store dir")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    parser.add_argument("--json", action="store_true", help="raw JSON output (for piping)")
+    sub = parser.add_subparsers(dest="cmd", required=False)
 
     p = sub.add_parser("inbox", help="read/clear instructions left in the dashboard")
     p.add_argument("--all", action="store_true", help="show read messages too")
@@ -223,6 +341,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
+
+    global _FORCE_JSON
+    _FORCE_JSON = args.json
+    if not args.cmd:                       # `yq` with no command → cute home screen
+        print(banner())
+        parser.print_help()
+        return 0
+
     state = LiveState(args.state)
 
     if args.cmd == "inbox":
