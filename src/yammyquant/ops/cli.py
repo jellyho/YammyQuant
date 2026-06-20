@@ -299,6 +299,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--walk-forward", type=int, default=0, metavar="N",
                    help="number of walk-forward splits (0 = in-sample grid search)")
 
+    p = sub.add_parser("compare", help="rank many strategies on one symbol (leaderboard)")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("--strategies", help="comma-separated subset (default: all)")
+    p.add_argument("--metric", default="sharpe",
+                   help="rank by: sharpe|total_return|excess_return|sortino|calmar|cagr|win_rate")
+
     p = sub.add_parser("strategies", help="list/toggle strategies & blend config")
     p.add_argument("--enable")
     p.add_argument("--disable")
@@ -562,6 +569,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print(ops.optimize(DuckDBStore(args.store), args.ticker, args.interval,
                            args.strategy, metric=args.metric,
                            walk_forward_splits=args.walk_forward, state=state))
+        return 0
+
+    if args.cmd == "compare":
+        subset = [s.strip() for s in args.strategies.split(",")] if args.strategies else None
+        _print(ops.compare(DuckDBStore(args.store), args.ticker, args.interval,
+                           strategies=subset, metric=args.metric, state=state))
         return 0
 
     if args.cmd == "strategies":

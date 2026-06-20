@@ -476,6 +476,38 @@ $("corrRun").onclick = async () => {
     { displayModeBar: false, responsive: true });
 };
 
+$("cmpRun").onclick = async () => {
+  const ticker = $("cmpTicker").value.trim().toUpperCase();
+  const interval = $("cmpInterval").value.trim();
+  const metric = $("cmpMetric").value;
+  if (!ticker) { alert("enter a ticker"); return; }
+  $("cmpRun").textContent = "ranking…"; $("cmpRun").disabled = true;
+  try {
+    const r = await fetch("/api/compare", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker, interval, metric }) });
+    const d = await r.json();
+    if (!r.ok) { alert(d.detail || "failed"); Plotly.purge("cmpPlot"); return; }
+    const rows = d.ranking || [];
+    // horizontal bars of the ranked metric, best at the top
+    const ordered = rows.slice().reverse();
+    Plotly.react("cmpPlot", [{
+      type: "bar", orientation: "h",
+      x: ordered.map(s => s[metric]), y: ordered.map(s => s.strategy),
+      marker: { color: ordered.map(s => (s[metric] || 0) >= 0 ? "#3fb950" : "#f85149") },
+    }], { ...layout(`${metric} by strategy · ${ticker} ${interval}`
+            + (d.benchmark_return != null ? ` (buy&hold ${(d.benchmark_return * 100).toFixed(1)}%)` : "")),
+          margin: { l: 130, r: 10, t: 30, b: 30 } },
+      { displayModeBar: false, responsive: true });
+    $("cmpTable").querySelector("tbody").innerHTML = rows.map((s, i) => `<tr>
+      <td>${i + 1}</td><td>${s.strategy}</td><td><b>${fmt(s[metric])}</b></td>
+      <td>${fmt(s.total_return)}</td>
+      <td class="${(s.excess_return || 0) >= 0 ? 'buy' : 'sell'}">${fmt(s.excess_return)}</td>
+      <td>${fmt(s.max_drawdown)}</td><td>${s.num_trades ?? "—"}</td></tr>`).join("")
+      || `<tr><td colspan="7" class="muted">no results</td></tr>`;
+  } finally { $("cmpRun").textContent = "rank all"; $("cmpRun").disabled = false; }
+};
+
 async function loadAttribution() {
   const r = await fetch("/api/attribution"); if (!r.ok) return;
   const rows = (await r.json()).by_strategy || [];

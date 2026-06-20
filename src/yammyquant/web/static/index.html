@@ -78,6 +78,23 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><h2>Strategy leaderboard</h2></div>
+      <div class="inbox-compose">
+        <input id="cmpTicker" value="BTCUSDT" style="max-width:120px" />
+        <input id="cmpInterval" value="1d" style="max-width:60px" />
+        <select id="cmpMetric">
+          <option>sharpe</option><option>excess_return</option><option>total_return</option>
+          <option>sortino</option><option>calmar</option><option>cagr</option><option>win_rate</option>
+        </select>
+        <button id="cmpRun" class="ok">rank all</button>
+      </div>
+      <div id="cmpPlot" class="plot"></div>
+      <table id="cmpTable"><thead><tr>
+        <th>#</th><th>strategy</th><th>metric</th><th>total ret</th><th>excess</th><th>maxDD</th><th>trades</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
       <div class="card-head"><h2>Signals</h2></div>
       <table id="signals"><thead><tr>
         <th>ts</th><th>ticker</th><th>strategy</th><th>action</th>

@@ -77,6 +77,31 @@ Research panel plots exactly this, in-sample vs out-of-sample per fold:
 
 ![Walk-forward in-sample vs out-of-sample per fold](assets/walkforward.png)
 
+## Rank every strategy (leaderboard)
+
+Don't guess which edge fits a symbol — run them all and rank:
+
+```console
+$ yq compare BTCUSDT 1d --strategies keltner_breakout,donchian_breakout,rsi_reversion --metric sharpe
+{
+  "ticker": "BTCUSDT", "interval": "1d", "metric": "sharpe",
+  "benchmark_return": 0.1442,
+  "ranking": [
+    {"strategy": "keltner_breakout",  "sharpe": 1.732, "total_return": 0.038,  "excess_return": -0.0794, "num_trades": 24},
+    {"strategy": "donchian_breakout", "sharpe": 1.520, "total_return": 0.0409, "excess_return": -0.0714, "num_trades": 34},
+    {"strategy": "rsi_reversion",     "sharpe": 1.217, "total_return": 0.0173, "excess_return": -0.0723, "num_trades": 15}
+  ],
+  "errors": {}
+}
+```
+
+Omit `--strategies` to rank all 19. `benchmark_return` is buy-and-hold over the
+full window (a stable reference for every row); `--metric` accepts
+`sharpe` / `total_return` / `excess_return` / `sortino` / `calmar` / `cagr` /
+`win_rate`. The dashboard **Strategy leaderboard** panel plots the same ranking
+as a bar chart. Strategies that error (e.g. too little data) land in `errors`
+instead of failing the whole run.
+
 ## Blend strategies (ensemble)
 
 ```console

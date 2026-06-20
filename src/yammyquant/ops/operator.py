@@ -8,7 +8,7 @@ trivial to call from the CLI, a notebook, or directly in a Claude Code session.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 from yammyquant.data.sources.store import DuckDBStore
 from yammyquant.backtest.engine import Backtest
@@ -250,6 +250,62 @@ def backtest(
     if state:
         state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **stats)
     return stats
+
+
+# headline columns surfaced by the strategy leaderboard
+_COMPARE_FIELDS = ("total_return", "excess_return", "sharpe", "sortino",
+                   "max_drawdown", "win_rate", "num_trades")
+
+
+def compare(
+    store: DuckDBStore,
+    ticker: str,
+    interval: str,
+    strategies: Optional[Sequence[str]] = None,
+    metric: str = "sharpe",
+    cash: float = 10_000.0,
+    fee: float = 0.001,
+    state: Optional[LiveState] = None,
+) -> dict:
+    """Backtest many strategies on one symbol and rank them by ``metric``.
+
+    Each strategy runs with its default parameters; rows carry the headline
+    stats plus ``excess_return`` vs buy-and-hold. Strategies that error (e.g.
+    too little data) are reported under ``errors`` rather than failing the run.
+    """
+    names = list(strategies) if strategies else list(STRATEGIES)
+    unknown = [n for n in names if n not in STRATEGIES]
+    if unknown:
+        raise ValueError(f"unknown strategies: {unknown}")
+    if metric not in _COMPARE_FIELDS and metric not in ("calmar", "cagr"):
+        raise ValueError(f"unknown metric {metric!r}")
+
+    # one stable buy-and-hold reference over the full loaded window, so it's
+    # comparable across strategies regardless of their individual warmups.
+    try:
+        candle = store.read(ticker, interval)
+        _, benchmark = buy_hold_benchmark(candle, candle.index, cash)
+    except Exception:  # noqa: BLE001 - benchmark is informational, never fatal
+        benchmark = None
+
+    rows, errors = [], {}
+    for name in names:
+        try:
+            stats = backtest(store, ticker, interval, name, cash=cash, fee=fee)
+        except Exception as e:  # noqa: BLE001 - surface per-strategy, keep going
+            errors[name] = str(e)
+            continue
+        rows.append({"strategy": name,
+                     **{f: stats.get(f) for f in _COMPARE_FIELDS},
+                     "calmar": stats.get("calmar"), "cagr": stats.get("cagr")})
+
+    rows.sort(key=lambda r: (r.get(metric) is not None, r.get(metric) or 0.0), reverse=True)
+    if state:
+        best = rows[0]["strategy"] if rows else None
+        state.log("compare", f"compared {len(rows)} strategies on {ticker}/{interval} by {metric}",
+                  best=best, metric=metric)
+    return {"ticker": ticker, "interval": interval, "metric": metric,
+            "benchmark_return": benchmark, "ranking": rows, "errors": errors}
 
 
 def features(
