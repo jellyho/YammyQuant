@@ -350,6 +350,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("doctor", help="health check: data freshness, config, account")
     sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
 
+    p = sub.add_parser("notify", help="push a message / status digest to Discord & Slack")
+    p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
+    p.add_argument("--status", action="store_true", help="send the status digest")
+
     p = sub.add_parser("reconcile", help="compare local positions to exchange balances")
     p.add_argument("--exchange")
 
@@ -583,6 +587,15 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "report":
         _print(ops.report(state))
+        return 0
+
+    if args.cmd == "notify":
+        if args.message and not args.status:
+            from yammyquant.ops.notify import notify as _notify, channels
+            _print({"message": args.message, "sent": _notify(state, args.message),
+                    "channels": channels()})
+        else:
+            _print(ops.notify_status(state))
         return 0
 
     if args.cmd == "reconcile":

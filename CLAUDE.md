@@ -94,7 +94,8 @@ performance falls below it (out-of-sample edge erosion).
 
 **Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
 enforced on every order (paper + live) — it can reject a trade before it fills.
-**Notifications** (Discord webhook via `DISCORD_WEBHOOK_URL`) fire when a live
+**Notifications** (Discord webhook via `DISCORD_WEBHOOK_URL` and/or Slack via
+`SLACK_WEBHOOK_URL`; `yq notify [msg]` / `yq notify --status`) fire when a live
 order needs approval, a risk rejection happens, or a cycle finds signals. Keep a
 **journal** — you're ephemeral across sessions, so record why you entered/exited;
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)

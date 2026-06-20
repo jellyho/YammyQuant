@@ -34,6 +34,8 @@ order submitted → yq sync settles partial/filled live orders
 
 ## Notifications
 
-A Discord webhook (`DISCORD_WEBHOOK_URL`) fires when a live order needs approval,
+A Discord webhook (`DISCORD_WEBHOOK_URL`) and/or Slack (`SLACK_WEBHOOK_URL`) fire
+— send a custom message or a status digest any time with `yq notify` /
+`yq notify --status` — when a live order needs approval,
 a risk rejection happens, or a cycle finds signals — so you stay in the loop while
 the operator runs unattended.
