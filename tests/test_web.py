@@ -241,6 +241,11 @@ def test_backtest_returns_equity_curve(client):
     # price series + trade markers for the signals overlay
     assert body["price"] and all({"ts", "close"} <= set(pt) for pt in body["price"])
     assert all({"ts", "side", "price"} <= set(t) for t in body["trades"])
+    # underwater drawdown series: every point carries a non-positive dd,
+    # and its trough equals the reported max_drawdown stat
+    dds = [pt["dd"] for pt in body["equity"]]
+    assert all(d <= 1e-9 for d in dds)
+    assert min(dds) == pytest.approx(body["max_drawdown"], abs=1e-4)
 
 
 def test_plugin_web_authoring(client, tmp_path, monkeypatch):

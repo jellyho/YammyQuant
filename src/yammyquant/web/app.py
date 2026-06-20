@@ -392,8 +392,13 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         res = Backtest(candle, strat).run()
         eq = res.equity_curve
         step = max(1, len(eq) // 300)                 # downsample for the chart
-        curve = [{"ts": str(ts), "equity": float(v)}
-                 for ts, v in list(zip(eq.index, eq["equity"]))[::step]] if len(eq) else []
+        if len(eq):
+            running_max = eq["equity"].cummax()
+            dd = (eq["equity"] / running_max - 1.0).fillna(0.0)   # underwater (≤ 0)
+            curve = [{"ts": str(ts), "equity": float(v), "dd": float(d)}
+                     for ts, v, d in list(zip(eq.index, eq["equity"], dd))[::step]]
+        else:
+            curve = []
         pstep = max(1, len(candle) // 400)
         price = [{"ts": str(ts), "close": float(c)}
                  for ts, c in list(zip(candle.index, candle.close))[::pstep]]
