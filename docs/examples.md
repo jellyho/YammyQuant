@@ -32,6 +32,12 @@ $ yq backtest BTCUSDT 1d keltner_breakout
     the `max_drawdown` stat, so you can *see* how long and how deep each
     drawdown ran, not just its worst point.
 
+!!! tip "Beat the market?"
+    The equity chart also overlays a dashed **buy & hold** line — the same
+    starting equity, just holding the asset over the backtested window — and the
+    title shows its return. If your strategy curve sits below the dashed line,
+    you'd have done better doing nothing; that's the bar every edge has to clear.
+
 ## Optimize parameters
 
 ```console

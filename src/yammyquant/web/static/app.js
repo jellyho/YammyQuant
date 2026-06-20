@@ -361,10 +361,19 @@ async function research(path, extra) {
     return;
   }
   if (d.equity && d.equity.length) {
-    Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
+    const traces = [{ type: "scatter", mode: "lines", name: "strategy",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
-      line: { color: "#3fb950", width: 2 }, fill: "tozeroy", fillcolor: "rgba(63,185,80,0.08)" }],
-      layout("backtest equity"), { displayModeBar: false, responsive: true });
+      line: { color: "#3fb950", width: 2 }, fill: "tozeroy", fillcolor: "rgba(63,185,80,0.08)" }];
+    // buy-and-hold benchmark overlay (dashed) — beat-the-market check
+    if (d.equity[0].bench !== undefined) {
+      traces.push({ type: "scatter", mode: "lines", name: "buy & hold",
+        x: d.equity.map(e => e.ts), y: d.equity.map(e => e.bench),
+        line: { color: "#7d8794", width: 1.4, dash: "dot" } });
+    }
+    const bt = (d.benchmark_return != null)
+      ? `backtest equity — vs buy & hold (${(d.benchmark_return * 100).toFixed(1)}%)` : "backtest equity";
+    Plotly.react("researchPlot", traces,
+      { ...layout(bt), showlegend: true }, { displayModeBar: false, responsive: true });
     // underwater (drawdown) chart: how far below the running peak, in %
     if (d.equity[0].dd !== undefined) {
       Plotly.react("researchDrawdown", [{ type: "scatter", mode: "lines",
