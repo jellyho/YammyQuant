@@ -86,23 +86,33 @@ class Ensemble(Strategy):
             raise ValueError(f"unknown rule {rule!r}; choose from {RULES}")
         self.rule, self.threshold, self.size = rule, threshold, size
         self.warmup = max(m.warmup for m in self.members)
+        self._stance = ["HOLD"] * len(self.members)
+        self._side = "FLAT"
 
     def reset(self) -> None:
         for m in self.members:
             m.reset()
+        self._stance = ["HOLD"] * len(self.members)
+        self._side = "FLAT"
 
     def on_bar(self, window: Candle) -> List[Order]:
-        votes = []
-        for m in self.members:
+        # Members signal on crossover *bars* only; carry each member's last
+        # directional signal forward as a persistent stance so the vote reflects
+        # who is currently long/short — otherwise members rarely agree on the
+        # same bar and weighted/majority rules almost never fire.
+        for i, m in enumerate(self.members):
             if len(window) < m.warmup:
-                votes.append("HOLD")
                 continue
             orders = m.on_bar(window[-m.warmup:])
-            votes.append(orders[0].action.value if orders else "HOLD")
-        agg = aggregate_votes(votes, self.weights, self.rule, self.threshold)
+            if orders:
+                self._stance[i] = orders[0].action.value
+        agg = aggregate_votes(self._stance, self.weights, self.rule, self.threshold)
         price, time = float(window.close[-1]), window.index[-1]
-        if agg["buy"] and not agg["sell"]:
+        # Debounce: trade only when the aggregate stance flips (long ↔ flat).
+        if agg["buy"] and not agg["sell"] and self._side != "LONG":
+            self._side = "LONG"
             return [Order(Action.BUY, window.ticker, self.size, price, time)]
-        if agg["sell"] and not agg["buy"]:
+        if agg["sell"] and not agg["buy"] and self._side == "LONG":
+            self._side = "FLAT"
             return [Order(Action.SELL, window.ticker, self.size, price, time)]
         return []
