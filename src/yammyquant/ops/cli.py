@@ -308,6 +308,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--weight", action="append", metavar="NAME=VAL",
                    help="per-strategy vote weight, e.g. --weight macross=2")
 
+    p = sub.add_parser("new", help="scaffold your own strategy / indicator / skill")
+    p.add_argument("kind", choices=["strategy", "indicator", "skill"])
+    p.add_argument("name")
+
+    sub.add_parser("plugins", help="list operator-authored plugins (strategies/indicators)")
+
     p = sub.add_parser("ensemble", help="backtest a blend of strategies (voting/weighted)")
     p.add_argument("ticker")
     p.add_argument("interval")
@@ -426,7 +432,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.print_help()
         return 0
 
+    # Load operator-authored plugins so their strategies/indicators are live.
+    from yammyquant.plugins import load_plugins, new_plugin
+    _plugins = load_plugins()
+
     state = LiveState(args.state)
+
+    if args.cmd == "new":
+        try:
+            path = new_plugin(args.kind, args.name)
+        except (FileExistsError, ValueError) as e:
+            print(f"could not create {args.kind}: {e}")
+            return 1
+        state.log("plugin", f"scaffolded {args.kind} {args.name} → {path}")
+        _print({"created": str(path), "kind": args.kind,
+                "next": f"edit it, then `yq backtest <SYM> <IV> {args.name}`"
+                        if args.kind != "skill" else "edit the SKILL.md playbook"})
+        return 0
+
+    if args.cmd == "plugins":
+        _print(_plugins)
+        return 0
 
     if args.cmd == "inbox":
         msgs = state.inbox(only_unread=not args.all)

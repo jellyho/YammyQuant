@@ -63,9 +63,18 @@ yq reconcile                                # local positions vs exchange balanc
 yq doctor                                   # data freshness / config / account health
 yq journal "why I entered BTC ..." --tag thesis --importance 8   # cross-session memory
 yq recall "BTC"                            # ranked memory digest (recency×importance×relevance)
+yq new strategy my_edge                    # scaffold your own strategy (also: indicator / skill)
+yq plugins                                 # list operator-authored plugins (auto-loaded)
+yq notify --status                         # push a status digest to Discord/Slack
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
+
+**Self-improvement.** You can grow your own toolbox: `yq new strategy|indicator|skill
+<name>` scaffolds a file (strategies/indicators in `user_plugins/`, skills in
+`.claude/skills/`), auto-loaded on every run so it's usable immediately and —
+once you `git commit` it — permanent across sessions. `yq plugins` lists what's
+loaded. Hypothesize → backtest/walk-forward → keep&commit or delete → journal it.
 
 **Information layer.** `feeds/` collects raw news (RSS, keyless) and KR
 disclosures (DART) into the `news` table; KIS exposes stock `fundamentals`
@@ -141,6 +150,7 @@ src/yammyquant/
 ├── rl/          # gymnasium env (ChartFollowingEnv)
 ├── state/       # LiveState — shared SQLite cockpit state
 ├── ops/         # operator toolbelt: trading, operator fns, `yq` CLI
+├── plugins/     # self-improvement: load/scaffold operator-authored strategies, indicators, skills
 └── web/         # FastAPI cockpit + static SPA (Plotly, no build step)
 ```
 

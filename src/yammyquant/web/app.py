@@ -66,6 +66,13 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
     app = FastAPI(title="YammyQuant Cockpit")
     state = LiveState(state_path)
 
+    # Surface operator-authored plugins (strategies/indicators) in the dashboard.
+    try:
+        from yammyquant.plugins import load_plugins
+        load_plugins()
+    except Exception:
+        pass
+
     def store() -> DuckDBStore:
         return DuckDBStore(store_path)
 

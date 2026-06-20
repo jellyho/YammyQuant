@@ -57,3 +57,12 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq dashboard` | Launch the cockpit web app. |
 
 See [Memory & persistence](memory.md) for how `recall` ranks notes.
+
+## Self-improvement & alerts
+
+| Command | What it does |
+|---|---|
+| `yq new strategy\|indicator\|skill <name>` | Scaffold your own, auto-loaded (see [Self-improvement](self-improvement.md)). |
+| `yq plugins` | List operator-authored plugins + any load errors. |
+| `yq notify "msg"` | Push a message to Discord/Slack. |
+| `yq notify --status` | Push a status digest (equity, PnL, positions, pending). |
