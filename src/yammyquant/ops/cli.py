@@ -355,6 +355,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sub.add_parser("doctor", help="health check: data freshness, config, account")
     sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
+    sub.add_parser("attribution", help="per-strategy performance attribution")
 
     p = sub.add_parser("notify", help="push a message / status digest to Discord & Slack")
     p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
@@ -613,6 +614,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "report":
         _print(ops.report(state))
+        return 0
+
+    if args.cmd == "attribution":
+        _print(ops.attribution(state)["by_strategy"])
         return 0
 
     if args.cmd == "notify":

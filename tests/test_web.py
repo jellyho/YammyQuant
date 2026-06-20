@@ -183,3 +183,35 @@ def test_backtest_requires_fields(client):
 def test_strategies_endpoint_includes_weight(client):
     c, _ = client
     assert all("weight" in s for s in c.get("/api/strategies").json())
+
+
+def test_attribution_endpoint(client):
+    c, _ = client
+    r = c.get("/api/attribution")
+    assert r.status_code == 200 and "by_strategy" in r.json()
+
+
+def test_backtest_returns_equity_curve(client):
+    c, _ = client
+    r = c.post("/api/backtest", json={"ticker": "BTCUSDT", "interval": "1d",
+                                      "strategy": "macross", "params": {"fast": 3, "slow": 8}})
+    assert r.status_code == 200 and isinstance(r.json().get("equity"), list)
+
+
+def test_plugin_web_authoring(client, tmp_path, monkeypatch):
+    c, _ = client
+    monkeypatch.setenv("YQ_PLUGINS_DIR", str(tmp_path / "uplugins"))
+    r = c.post("/api/plugins/new", json={"kind": "strategy", "name": "web_edge"})
+    assert r.status_code == 200
+    files = c.get("/api/plugins/files").json()
+    assert any("web_edge" in f["path"] for f in files)
+    path = next(f["path"] for f in files if "web_edge" in f["path"])
+    content = c.get("/api/plugins/file", params={"path": path}).json()["content"]
+    assert "web_edge" in content
+    assert c.post("/api/plugins/file", json={"path": path, "content": content}).status_code == 200
+
+
+def test_plugin_path_traversal_blocked(client, tmp_path, monkeypatch):
+    c, _ = client
+    monkeypatch.setenv("YQ_PLUGINS_DIR", str(tmp_path / "uplugins"))
+    assert c.get("/api/plugins/file", params={"path": "../../etc/passwd"}).status_code == 400

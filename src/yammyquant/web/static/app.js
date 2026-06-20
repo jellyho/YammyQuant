@@ -252,7 +252,7 @@ function drawEquity(eq) {
 
 // ---- control center ------------------------------------------------------
 const CONTROL_FIELDS = ["auto_trade", "trade_mode", "ensemble_rule",
-  "ensemble_threshold", "sentiment_gate", "exchange"];
+  "ensemble_threshold", "sentiment_gate", "sizing", "target_vol", "exchange"];
 
 function parseVal(v) {
   if (v === "") return null;
@@ -332,11 +332,64 @@ async function research(path, extra) {
   const r = await fetch(path, { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const d = await r.json();
-  if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; return; }
+  if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`${body.strategy} ${body.ticker} ${body.interval}`, d);
+  if (d.equity && d.equity.length) {
+    Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
+      x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
+      line: { color: "#3fb950", width: 2 }, fill: "tozeroy", fillcolor: "rgba(63,185,80,0.08)" }],
+      layout("backtest equity"), { displayModeBar: false, responsive: true });
+  } else { Plotly.purge("researchPlot"); }
 }
 $("rsBacktest").onclick = () => research("/api/backtest", {});
 $("rsOptimize").onclick = () => research("/api/optimize", { walk_forward: parseInt($("rsWF").value) || 0 });
+
+// ---- plugin authoring & attribution --------------------------------------
+async function loadPluginFiles() {
+  const r = await fetch("/api/plugins/files"); if (!r.ok) return;
+  const files = await r.json();
+  $("plFile").innerHTML = `<option value="">— edit a file —</option>` +
+    files.map(f => `<option value="${f.path}">${f.path}</option>`).join("");
+}
+window.openPluginFile = async (path) => {
+  if (!path) { $("plEditor").value = ""; return; }
+  const r = await fetch("/api/plugins/file?path=" + encodeURIComponent(path));
+  const d = await r.json();
+  $("plEditor").value = r.ok ? d.content : (d.detail || "");
+  $("plEditor").dataset.path = path;
+};
+$("plNew").onclick = async () => {
+  const body = { kind: $("plKind").value, name: $("plName").value.trim() };
+  if (!body.name) return;
+  const r = await fetch("/api/plugins/new", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $("plResult").textContent = r.ok ? "created " + d.created : (d.detail || "failed");
+  $("plName").value = ""; loadPlugins(); loadPluginFiles();
+};
+$("plSave").onclick = async () => {
+  const path = $("plEditor").dataset.path;
+  if (!path) { $("plResult").textContent = "select a file first"; return; }
+  const r = await fetch("/api/plugins/file", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content: $("plEditor").value }) });
+  const d = await r.json();
+  $("plResult").textContent = r.ok
+    ? `saved · loaded: ${(d.reload.strategies || []).concat(d.reload.indicators || []).join(", ") || "—"}`
+      + ((d.reload.errors || []).length ? ` · errors: ${d.reload.errors.join("; ")}` : "")
+    : (d.detail || "failed");
+  loadPlugins();
+};
+
+async function loadAttribution() {
+  const r = await fetch("/api/attribution"); if (!r.ok) return;
+  const rows = (await r.json()).by_strategy || [];
+  $("attribution").querySelector("tbody").innerHTML = rows.map(s => `<tr>
+    <td>${s.strategy}</td><td>${s.round_trips}</td>
+    <td class="${s.pnl >= 0 ? 'buy' : 'sell'}">${fmt(s.pnl)}</td></tr>`).join("")
+    || `<tr><td colspan="3" class="muted">no closed round-trips yet</td></tr>`;
+}
+$("loadAttr").onclick = loadAttribution;
 
 async function loadPlugins() {
   const r = await fetch("/api/plugins"); if (!r.ok) return;
@@ -355,3 +408,5 @@ loadRisk();
 loadReport();
 loadControl();
 loadPlugins();
+loadPluginFiles();
+loadAttribution();

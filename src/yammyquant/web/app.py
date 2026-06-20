@@ -150,6 +150,61 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         from yammyquant.plugins import load_plugins
         return _json_safe(load_plugins())
 
+    def _plugin_root() -> Path:
+        from yammyquant.plugins import plugins_dir
+        return plugins_dir().resolve()
+
+    def _safe_plugin_path(rel: str) -> Path:
+        """Resolve a path and confirm it stays under the plugins dir (no escape)."""
+        root = _plugin_root()
+        p = (root / rel).resolve()
+        if root not in p.parents and p != root:
+            raise HTTPException(400, "path outside the plugins directory")
+        return p
+
+    @app.get("/api/plugins/files")
+    def list_plugin_files():
+        root = _plugin_root()
+        out = []
+        for sub in ("strategies", "indicators"):
+            d = root / sub
+            if d.is_dir():
+                out += [{"kind": sub[:-1], "path": f"{sub}/{f.name}"}
+                        for f in sorted(d.glob("*.py")) if not f.name.startswith("_")]
+        return out
+
+    @app.get("/api/plugins/file")
+    def read_plugin_file(path: str):
+        p = _safe_plugin_path(path)
+        if not p.is_file():
+            raise HTTPException(404, "no such plugin file")
+        return {"path": path, "content": p.read_text()}
+
+    @app.post("/api/plugins/file")
+    def write_plugin_file(payload: dict):
+        p = _safe_plugin_path((payload or {}).get("path", ""))
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text((payload or {}).get("content", ""))
+        from yammyquant.plugins import load_plugins
+        return _json_safe({"saved": str(p), "reload": load_plugins()})
+
+    @app.post("/api/plugins/new")
+    def new_plugin_file(payload: dict):
+        from yammyquant.plugins import new_plugin, load_plugins
+        p = payload or {}
+        try:
+            path = new_plugin(p["kind"], p["name"])
+        except KeyError:
+            raise HTTPException(400, "kind and name are required")
+        except (FileExistsError, ValueError) as e:
+            raise HTTPException(400, str(e))
+        return _json_safe({"created": str(path), "reload": load_plugins()})
+
+    @app.get("/api/attribution")
+    def get_attribution():
+        from yammyquant.ops import operator as ops
+        return _json_safe(ops.attribution(state))
+
     @app.post("/api/trade")
     def manual_trade(payload: dict):
         p = payload or {}
@@ -300,16 +355,22 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
 
     @app.post("/api/backtest")
     def run_backtest(payload: dict):
-        from yammyquant.ops import operator as ops
+        from yammyquant.backtest.engine import Backtest
+        from yammyquant.ops.operator import build_strategy
         p = payload or {}
         try:
-            return _json_safe(ops.backtest(
-                store(), p["ticker"], p.get("interval", "1d"), p["strategy"],
-                params=p.get("params") or None, state=state))
+            candle = store().read(p["ticker"], p.get("interval", "1d"))
+            strat = build_strategy(p["strategy"], **(p.get("params") or {}))
         except KeyError:
             raise HTTPException(400, "ticker and strategy are required")
         except Exception as e:
             raise HTTPException(502, f"backtest failed: {e}")
+        res = Backtest(candle, strat).run()
+        eq = res.equity_curve
+        step = max(1, len(eq) // 300)                 # downsample for the chart
+        curve = [{"ts": str(ts), "equity": float(v)}
+                 for ts, v in list(zip(eq.index, eq["equity"]))[::step]] if len(eq) else []
+        return _json_safe({**res.stats, "equity": curve})
 
     @app.post("/api/optimize")
     def run_optimize(payload: dict):

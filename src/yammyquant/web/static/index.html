@@ -67,6 +67,7 @@
         <label style="font-size:11px;color:var(--muted)">WF<input id="rsWF" value="0" style="max-width:40px" /></label>
       </div>
       <div id="research" class="report"></div>
+      <div id="researchPlot" class="plot"></div>
     </section>
 
     <section class="card">
@@ -178,6 +179,23 @@
     <section class="card">
       <div class="card-head"><h2>Plugins</h2><button id="reloadPlugins" class="ghost">reload</button></div>
       <div id="plugins" class="report"></div>
+      <div class="inbox-compose">
+        <select id="plKind"><option>strategy</option><option>indicator</option><option>skill</option></select>
+        <input id="plName" placeholder="name e.g. my_edge" style="max-width:160px" />
+        <button id="plNew" class="ok">new</button>
+        <select id="plFile" onchange="openPluginFile(this.value)" style="max-width:200px"></select>
+      </div>
+      <textarea id="plEditor" class="code" placeholder="select a plugin file to edit…" spellcheck="false"></textarea>
+      <button id="plSave" class="ok">save &amp; reload</button>
+      <p class="muted" id="plResult"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Attribution (per-strategy PnL)</h2>
+        <button id="loadAttr" class="ghost">refresh</button></div>
+      <table id="attribution"><thead><tr>
+        <th>strategy</th><th>round trips</th><th>attributed PnL</th>
+      </tr></thead><tbody></tbody></table>
     </section>
 
     <section class="card">

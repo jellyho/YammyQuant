@@ -157,6 +157,20 @@ default; `--execute` submits; `--type limit` rests live orders until `yq sync`
 settles them. Set `auto_trade=true` to let `yq cycle` / the scheduler call
 `decide --execute` automatically (paper unless `trade_mode=live`).
 
+## Position sizing
+
+`decide` sizes entries by the `sizing` setting:
+
+| `sizing` | Behaviour |
+|---|---|
+| `fixed` *(default)* | `weight` of equity. |
+| `volatility` | Scales **down** from `weight` when recent realized vol exceeds `target_vol` (volatility targeting); never above `weight`. |
+| `kelly` | A capped Kelly fraction from the realized win/loss record, capped by `weight`. |
+
+```bash
+yq risk set sizing=volatility target_vol=0.4    # or sizing=kelly
+```
+
 ## Strategy decay
 
 ```bash
