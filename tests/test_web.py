@@ -263,6 +263,9 @@ def test_backtest_returns_equity_curve(client):
     # buy-and-hold benchmark: anchored to the same start equity, with a return stat
     assert "benchmark_return" in body
     assert body["equity"][0]["bench"] == pytest.approx(body["equity"][0]["equity"])
+    # monthly returns breakdown for the calendar heatmap
+    assert "monthly" in body and "years" in body["monthly"] and "matrix" in body["monthly"]
+    assert all(len(row) == 12 for row in body["monthly"]["matrix"])
 
 
 def test_plugin_web_authoring(client, tmp_path, monkeypatch):

@@ -406,13 +406,15 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         eq = res.equity_curve
         step = max(1, len(eq) // 300)                 # downsample for the chart
         bench_return = None
+        monthly = {"years": [], "matrix": []}
         if len(eq):
-            from yammyquant.ops.operator import buy_hold_benchmark
+            from yammyquant.ops.operator import buy_hold_benchmark, monthly_returns
             running_max = eq["equity"].cummax()
             dd = (eq["equity"] / running_max - 1.0).fillna(0.0)   # underwater (≤ 0)
             # buy-and-hold benchmark: same start equity, just hold the asset
             bench, bench_return = buy_hold_benchmark(
                 candle, eq.index, float(eq["equity"].iloc[0]))
+            monthly = monthly_returns(eq["equity"])
             curve = [{"ts": str(ts), "equity": float(v), "dd": float(d), "bench": float(b)}
                      for ts, v, d, b in list(zip(eq.index, eq["equity"], dd, bench))[::step]]
         else:
@@ -425,7 +427,8 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
                    for t, s, pr in zip(tr["time"], tr["action"], tr["price"])]
                   if len(tr) else [])
         return _json_safe({**res.stats, "benchmark_return": bench_return,
-                           "equity": curve, "price": price, "trades": trades})
+                           "equity": curve, "price": price, "trades": trades,
+                           "monthly": monthly})
 
     @app.post("/api/portfolio")
     def run_portfolio(payload: dict):

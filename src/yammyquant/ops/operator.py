@@ -252,6 +252,27 @@ def backtest(
     return stats
 
 
+def monthly_returns(equity) -> dict:
+    """Calendar month-by-month returns from an equity series.
+
+    Returns ``{"years": [...], "matrix": [[ret|None x12], ...]}`` where each row
+    is a year and each column a month (Jan..Dec); cells with no data are None.
+    Reveals consistency/seasonality at a glance (a heatmap in the dashboard).
+    """
+    import pandas as pd
+    s = pd.Series(getattr(equity, "values", equity), dtype=float)
+    s.index = pd.to_datetime(getattr(equity, "index", s.index))
+    if len(s) < 2:
+        return {"years": [], "matrix": []}
+    monthly = s.resample("ME").last().pct_change().dropna()
+    years = sorted({ts.year for ts in monthly.index})
+    matrix = [[None] * 12 for _ in years]
+    yi = {y: i for i, y in enumerate(years)}
+    for ts, val in monthly.items():
+        matrix[yi[ts.year]][ts.month - 1] = round(float(val), 4)
+    return {"years": years, "matrix": matrix}
+
+
 # headline columns surfaced by the strategy leaderboard
 _COMPARE_FIELDS = ("total_return", "excess_return", "sharpe", "sortino",
                    "max_drawdown", "win_rate", "num_trades")
