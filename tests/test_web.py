@@ -152,6 +152,13 @@ def test_manual_trade_validates(client):
     assert c.post("/api/trade", json={"ticker": "BTCUSDT"}).status_code == 400
 
 
+def test_correlation_endpoint(client):
+    c, _ = client
+    # one symbol seeded -> need >=2 -> 502
+    assert c.post("/api/correlation", json={"symbols": ["BTCUSDT"]}).status_code == 502
+    assert c.post("/api/correlation", json={}).status_code == 400
+
+
 def test_risk_parity_endpoint(client):
     c, state = client
     r = c.post("/api/target/risk-parity", json={"symbols": ["BTCUSDT"]})

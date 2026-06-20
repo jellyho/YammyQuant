@@ -227,6 +227,17 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         state.set("targets", targets)
         return {"targets": targets}
 
+    @app.post("/api/correlation")
+    def correlation(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            return _json_safe(ops.correlation(store(), p["symbols"], p.get("interval", "1d")))
+        except KeyError:
+            raise HTTPException(400, "symbols are required")
+        except Exception as e:
+            raise HTTPException(502, f"correlation failed: {e}")
+
     @app.post("/api/target/risk-parity")
     def risk_parity(payload: dict):
         from yammyquant.ops import operator as ops

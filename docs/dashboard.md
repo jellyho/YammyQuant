@@ -48,6 +48,7 @@ flips between **live** and **reconnecting…**.
 | **Strategy weights** | Each strategy toggle has an inline **ensemble vote weight** input (`strategy.<name>.weight`). |
 | **Plugins authoring** | Scaffold a new strategy/indicator/skill, then edit it in an in-browser editor and **save & reload** — author your own toolbox from the web. |
 | **Attribution** | Per-strategy realized-PnL attribution across closed round-trips. |
+| **Correlation** | Return-correlation **heatmap** (red→green) across a set of symbols — a quick diversification check before sizing a basket. |
 
 Pending approvals now show the **"why"** — the rationale and contributing
 strategies behind each queued order — so you can approve with full context.

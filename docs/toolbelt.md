@@ -54,6 +54,7 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq report` | Realized PnL, drawdown, per-symbol. |
 | `yq attribution` | Per-strategy PnL attribution (closed round-trips). |
 | `yq portfolio A B C --strategy macross [--risk-parity]` | Multi-symbol portfolio backtest (equal or inverse-vol weights). |
+| `yq correlate A B C` | Return-correlation matrix (diversification check). |
 | `yq reconcile` | Local positions vs exchange balances. |
 | `yq doctor` | Data freshness / config / account health. |
 | `yq status` | Full cockpit state snapshot (JSON). |

@@ -854,6 +854,34 @@ def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str
             "portfolio": stats, "per_symbol": per_symbol, "equity": points[::step]}
 
 
+def correlation(store: DuckDBStore, symbols, interval: str = "1d",
+                lookback: int = 120) -> dict:
+    """Return-correlation matrix across symbols — a diversification check.
+
+    Aligns each symbol's daily returns on a common index and correlates the most
+    recent ``lookback`` overlapping bars. Symbols without data are skipped.
+    """
+    import pandas as pd
+
+    symbols = [s for s in symbols if s]
+    if len(symbols) < 2:
+        raise ValueError("need at least two symbols")
+    cols = {}
+    for sym in symbols:
+        try:
+            candle = store.read(sym, interval)
+        except Exception:
+            continue
+        cols[sym] = pd.Series(candle.close, index=candle.index, dtype=float).pct_change()
+    if len(cols) < 2:
+        raise ValueError("need at least two symbols with data")
+    df = pd.DataFrame(cols).dropna().tail(lookback)
+    corr = df.corr()
+    syms = list(corr.columns)
+    matrix = [[round(float(corr.loc[a, b]), 3) for b in syms] for a in syms]
+    return {"symbols": syms, "matrix": matrix, "lookback": lookback, "bars": len(df)}
+
+
 def risk_parity_weights(store: DuckDBStore, symbols, interval: str = "1d",
                         lookback: int = 60) -> dict:
     """Inverse-volatility ('risk parity') target weights across symbols.

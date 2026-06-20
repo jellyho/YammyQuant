@@ -98,6 +98,29 @@ $ yq target --risk-parity BTCUSDT ETHUSDT SOLUSDT
 $ yq rebalance --execute     # then move holdings toward those weights
 ```
 
+## Correlation matrix (diversification check)
+
+Before committing weight to a basket, check that the legs aren't all the same
+bet. Low/negative off-diagonals mean real diversification; values near +1 mean
+you're doubling down on one factor.
+
+```console
+$ yq correlate BTCUSDT ETHUSDT SOLUSDT
+{
+  "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+  "matrix": [
+    [ 1.0,   -0.059,  0.109],
+    [-0.059,  1.0,    0.057],
+    [ 0.109,  0.057,  1.0  ]
+  ],
+  "lookback": 120, "bars": 120
+}
+```
+
+In a terminal the matrix renders as a colored table; the dashboard **Correlation**
+panel draws the same numbers as a red→green heatmap. Pearson correlation of daily
+returns over the last `lookback` bars (default 120).
+
 ## Trade (paper) and report
 
 ```console

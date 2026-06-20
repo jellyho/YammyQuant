@@ -198,6 +198,15 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><h2>Correlation</h2></div>
+      <div class="inbox-compose">
+        <input id="corrSymbols" placeholder="BTCUSDT ETHUSDT SOLUSDT" />
+        <button id="corrRun" class="ghost">heatmap</button>
+      </div>
+      <div id="corrPlot" class="plot"></div>
+    </section>
+
+    <section class="card">
       <div class="card-head"><h2>Attribution (per-strategy PnL)</h2>
         <button id="loadAttr" class="ghost">refresh</button></div>
       <table id="attribution"><thead><tr>
