@@ -80,3 +80,9 @@ th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: upp
 .strat-row { display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0; }
 .strat-row .wt { width: 42px; padding: 2px 4px; font-size: 11px; text-align: center;
   background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; }
+
+/* plugin editor */
+textarea.code { width: 100%; min-height: 180px; margin: 6px 0; padding: 10px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px;
+  background: #0a0d12; color: #cdd9e5; border: 1px solid var(--line); border-radius: 8px;
+  resize: vertical; }

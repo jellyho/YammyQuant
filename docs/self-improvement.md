@@ -78,6 +78,13 @@ Skills are the operator's own playbooks (the [Claude Code skill](https://code.cl
 format). `yq new skill weekly_review` scaffolds `.claude/skills/weekly_review/SKILL.md`
 with frontmatter — write the steps you want future-you to follow.
 
+## …or from the dashboard
+
+The **Plugins** panel in the [dashboard](dashboard.md) does the same without the
+CLI: pick a kind + name and hit **new**, then pick the file, edit it in the
+in-browser editor, and **save & reload** — the strategy/indicator is registered
+live and the load result (or any error) is shown inline.
+
 ## The self-improvement loop
 
 1. **Hypothesize** → `yq new strategy <idea>` and edit it.

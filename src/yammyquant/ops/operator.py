@@ -611,14 +611,21 @@ def decide(
                 continue
             qty = round((equity * target_w) / price, 8)
             if qty > 0:
+                from yammyquant.ops.sizing import position_size
+                method = state.get("sizing", "fixed")
+                qty = position_size(method, equity, price, target_w, candle=candle,
+                                    trades=state.trades(limit=200),
+                                    target_vol=float(state.get("target_vol", 0.5)))
+            if qty > 0:
                 buyers = sum(v == "BUY" for v in votes)
                 reason = (f"entry signal — {rule} vote score {agg['score']} "
-                          f"({buyers} of {len(votes)} buy); size {target_w:.0%} of equity "
-                          f"(≈{equity * target_w:,.0f})")
+                          f"({buyers} of {len(votes)} buy); {method} size "
+                          f"{qty * price / equity:.1%} of equity (≈{qty * price:,.0f})")
                 if gate is not None:
                     reason += f"; sentiment {senti}"
                     context["sentiment"] = senti
                 context["weight"] = target_w
+                context["sizing"] = method
                 decision = {"symbol": sym, "side": "BUY", "quantity": qty, "price": price,
                             "reason": reason, "context": context}
         if decision is None:
@@ -799,6 +806,39 @@ def notify_status(state: LiveState) -> dict:
     message = "📊 status — " + " · ".join(str(p) for p in parts)
     sent = notify(state, message, "info")
     return {"message": message, "sent": sent, "channels": channels()}
+
+
+def attribution(state: LiveState) -> dict:
+    """Per-strategy performance attribution from executed trades.
+
+    `decide` enters/exits a symbol all-at-once, so each symbol is one open
+    round-trip at a time: a closed SELL's realized PnL is credited to the
+    strategies that voted to *enter* (the last BUY's voters). Approximate but
+    honest — only trades carrying decision context are attributed.
+    """
+    trades = sorted(state.trades(limit=2000), key=lambda t: t["id"])
+    entry_voters: dict[str, list] = {}
+    by: dict[str, dict] = {}
+    for t in trades:
+        if t.get("status") != "filled":
+            continue
+        meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+        voters = (meta.get("decision") or {}).get("voters") or {}
+        sym, side = t["ticker"], t["side"]
+        if side == "BUY":
+            entry_voters[sym] = [n for n, v in voters.items() if v == "BUY"] or list(voters)
+        elif side == "SELL":
+            pnl = float(t.get("realized_pnl") or 0.0)
+            credit = entry_voters.pop(sym, None) or \
+                [n for n, v in voters.items() if v == "SELL"] or list(voters)
+            for name in credit:
+                row = by.setdefault(name, {"strategy": name, "round_trips": 0, "pnl": 0.0})
+                row["round_trips"] += 1
+                row["pnl"] += pnl / len(credit)
+    ranked = sorted(by.values(), key=lambda d: -d["pnl"])
+    for row in ranked:
+        row["pnl"] = round(row["pnl"], 4)
+    return {"by_strategy": ranked}
 
 
 def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:

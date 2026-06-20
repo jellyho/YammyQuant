@@ -59,6 +59,7 @@ yq cycle                                    # one maintenance cycle: refresh→s
 yq schedule --interval 300                  # run cycles forever (or cron `yq cycle`)
 yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrails
 yq report                                   # realized PnL, drawdown, per-symbol
+yq attribution                               # per-strategy PnL attribution (round-trips)
 yq reconcile                                # local positions vs exchange balances
 yq doctor                                   # data freshness / config / account health
 yq journal "why I entered BTC ..." --tag thesis --importance 8   # cross-session memory
@@ -83,8 +84,9 @@ or let the keyword scorer auto-tag sentiment. Set a `sentiment_gate` (state
 setting) to have `decide` veto entries when recent news is strongly negative.
 
 **Signal → order.** `yq decide` aggregates enabled-strategy signals per watchlist
-symbol into concrete, risk-sized orders (entry sized to a fraction of equity;
-exits flatten). Dry-run by default; `--execute` submits; `--type limit` rests
+symbol into concrete, risk-sized orders. Entry sizing follows the `sizing` setting
+— `fixed` (fraction of equity, default), `volatility` (de-risk when realized vol >
+`target_vol`), or `kelly` (capped Kelly from the realized record); exits flatten. Dry-run by default; `--execute` submits; `--type limit` rests
 live orders until `yq sync` settles them (handles partial fills). Set
 `auto_trade=true` (state setting) to have `yq cycle` / the scheduler call
 `decide --execute` automatically (paper unless `trade_mode=live`).
