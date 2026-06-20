@@ -334,6 +334,21 @@ async function research(path, extra) {
   const d = await r.json();
   if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`${body.strategy} ${body.ticker} ${body.interval}`, d);
+  // walk-forward: grouped bars of in-sample vs out-of-sample score per fold
+  if (d.folds && d.folds.length) {
+    const x = d.folds.map(f => "fold " + f.fold);
+    const metric = d.metric || "sharpe";
+    Plotly.react("researchPlot", [
+      { type: "bar", name: "in-sample", x, y: d.folds.map(f => f.in_sample_score),
+        marker: { color: "#4da3ff" } },
+      { type: "bar", name: "out-of-sample",
+        x, y: d.folds.map(f => (f.out_of_sample || {})[metric] ?? null),
+        marker: { color: "#3fb950" } },
+    ], { ...layout(`walk-forward ${metric}: in-sample vs out-of-sample`), barmode: "group",
+      showlegend: true }, { displayModeBar: false, responsive: true });
+    Plotly.purge("researchSignals");
+    return;
+  }
   if (d.equity && d.equity.length) {
     Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),

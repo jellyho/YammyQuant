@@ -175,6 +175,32 @@ def test_optimize_endpoint(client):
     assert r.status_code == 200 and "best_params" in r.json()
 
 
+def test_optimize_walkforward_returns_folds(tmp_path):
+    # walk-forward needs enough bars per fold, so build a larger local store
+    store = DuckDBStore(tmp_path / "store")
+    rng = np.random.default_rng(1)
+    close = 100 * np.exp(np.cumsum(rng.normal(0.0005, 0.02, 600)))
+    idx = pd.date_range("2022-01-01", periods=600, freq="1D")
+    store.write(Candle("BTCUSDT", pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+         "volume": rng.uniform(800, 2200, 600)}, index=idx), interval="1d"))
+    app = create_app(state_path=str(tmp_path / "s.db"), store_path=str(tmp_path / "store"))
+    c = TestClient(app)
+    r = c.post("/api/optimize", json={"ticker": "BTCUSDT", "interval": "1d",
+                                      "strategy": "macross", "walk_forward": 3})
+    body = r.json()
+    assert r.status_code == 200 and body["n_folds"] >= 1
+    assert all({"fold", "in_sample_score", "out_of_sample"} <= set(f) for f in body["folds"])
+
+
+def test_optimize_walkforward_insufficient_data_errors(client):
+    # too few bars per fold -> clear 502, not a crash
+    c, _ = client
+    r = c.post("/api/optimize", json={"ticker": "BTCUSDT", "interval": "1d",
+                                      "strategy": "macross", "walk_forward": 3})
+    assert r.status_code == 502
+
+
 def test_backtest_requires_fields(client):
     c, _ = client
     assert c.post("/api/backtest", json={"interval": "1d"}).status_code == 400
