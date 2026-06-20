@@ -768,6 +768,26 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
     return out
 
 
+def notify_status(state: LiveState) -> dict:
+    """Build a compact status digest and push it to Discord/Slack."""
+    from yammyquant.ops.notify import notify, channels
+
+    rep = report(state)
+    positions = state.positions()
+    pending = state.trades(status="pending")
+    parts = [
+        f"equity {rep.get('equity_now')}",
+        f"return {rep.get('total_return')}",
+        f"realized PnL {rep.get('realized_pnl')}",
+        f"positions {len(positions)}",
+    ]
+    if pending:
+        parts.append(f"⏳ {len(pending)} pending approval(s)")
+    message = "📊 status — " + " · ".join(str(p) for p in parts)
+    sent = notify(state, message, "info")
+    return {"message": message, "sent": sent, "channels": channels()}
+
+
 def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:
     """Poll exchange status of submitted (live) orders and settle them locally.
 
