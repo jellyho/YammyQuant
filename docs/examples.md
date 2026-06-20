@@ -26,6 +26,12 @@ $ yq backtest BTCUSDT 1d keltner_breakout
     round-trips. A trend strategy that ends holding a winning long can show a
     positive return with few/no closed wins — the gains are still on the book.
 
+!!! tip "Drawdown"
+    The dashboard Research panel draws an **underwater chart** beneath the equity
+    curve — equity as a percentage below its running peak. Its trough is exactly
+    the `max_drawdown` stat, so you can *see* how long and how deep each
+    drawdown ran, not just its worst point.
+
 ## Optimize parameters
 
 ```console

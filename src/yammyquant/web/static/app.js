@@ -357,7 +357,7 @@ async function research(path, extra) {
         marker: { color: "#3fb950" } },
     ], { ...layout(`walk-forward ${metric}: in-sample vs out-of-sample`), barmode: "group",
       showlegend: true }, { displayModeBar: false, responsive: true });
-    Plotly.purge("researchSignals");
+    Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown");
     return;
   }
   if (d.equity && d.equity.length) {
@@ -365,7 +365,16 @@ async function research(path, extra) {
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
       line: { color: "#3fb950", width: 2 }, fill: "tozeroy", fillcolor: "rgba(63,185,80,0.08)" }],
       layout("backtest equity"), { displayModeBar: false, responsive: true });
-  } else { Plotly.purge("researchPlot"); }
+    // underwater (drawdown) chart: how far below the running peak, in %
+    if (d.equity[0].dd !== undefined) {
+      Plotly.react("researchDrawdown", [{ type: "scatter", mode: "lines",
+        x: d.equity.map(e => e.ts), y: d.equity.map(e => (e.dd * 100)),
+        line: { color: "#f85149", width: 1.3 }, fill: "tozeroy",
+        fillcolor: "rgba(248,81,73,0.12)" }],
+        { ...layout("drawdown (% below peak)"), yaxis: { ticksuffix: "%" } },
+        { displayModeBar: false, responsive: true });
+    } else { Plotly.purge("researchDrawdown"); }
+  } else { Plotly.purge("researchPlot"); Plotly.purge("researchDrawdown"); }
   // price with buy/sell markers overlay
   if (d.price && d.price.length) {
     const tr = d.trades || [];
@@ -397,7 +406,7 @@ $("rsPortfolio").onclick = async () => {
   const d = await r.json();
   if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);
-  Plotly.purge("researchSignals");
+  Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown");
   if (d.equity && d.equity.length) {
     Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
