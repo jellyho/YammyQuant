@@ -365,6 +365,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--risk-parity", action="store_true",
                    help="size by inverse volatility instead of equal weight")
 
+    p = sub.add_parser("correlate", help="return-correlation matrix across symbols")
+    p.add_argument("symbols", nargs="+")
+    p.add_argument("--interval", default="1d")
+
     p = sub.add_parser("notify", help="push a message / status digest to Discord & Slack")
     p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
     p.add_argument("--status", action="store_true", help="send the status digest")
@@ -629,6 +633,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "attribution":
         _print(ops.attribution(state)["by_strategy"])
+        return 0
+
+    if args.cmd == "correlate":
+        _print(ops.correlation(DuckDBStore(args.store), args.symbols, args.interval))
         return 0
 
     if args.cmd == "portfolio":

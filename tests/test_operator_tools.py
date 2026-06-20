@@ -224,3 +224,24 @@ def test_portfolio_risk_parity_weights(tmp_path):
     w = {s: v["weight"] for s, v in out["per_symbol"].items()}
     assert w["CALM"] > w["WILD"]                      # inverse-vol sizing
     assert abs(sum(w.values()) - 1.0) < 1e-6
+
+
+def test_correlation_matrix(tmp_path):
+    import numpy as np
+    import pandas as pd
+    store = DuckDBStore(tmp_path / "store")
+    rng = np.random.default_rng(0)
+    base = rng.normal(0, 0.02, 200)
+    series = {"AAA": base, "BBB": base + rng.normal(0, 0.001, 200),  # ~ +corr with AAA
+              "CCC": -base + rng.normal(0, 0.001, 200)}              # ~ -corr with AAA
+    for sym, rets in series.items():
+        close = 100 * np.exp(np.cumsum(rets))
+        idx = pd.date_range("2023-01-01", periods=200, freq="1D")
+        store.write(Candle(sym, pd.DataFrame(
+            {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+             "volume": np.full(200, 1000.0)}, index=idx), interval="1d"))
+    out = ops.correlation(store, ["AAA", "BBB", "CCC"], "1d")
+    i = {s: n for n, s in enumerate(out["symbols"])}
+    assert out["matrix"][i["AAA"]][i["AAA"]] == 1.0          # diagonal
+    assert out["matrix"][i["AAA"]][i["BBB"]] > 0.8           # positively correlated
+    assert out["matrix"][i["AAA"]][i["CCC"]] < -0.8          # anti-correlated

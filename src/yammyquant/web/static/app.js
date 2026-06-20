@@ -443,6 +443,21 @@ $("plSave").onclick = async () => {
   loadPlugins();
 };
 
+$("corrRun").onclick = async () => {
+  const symbols = $("corrSymbols").value.trim().toUpperCase().split(/[\s,]+/).filter(Boolean);
+  if (symbols.length < 2) { alert("enter at least two symbols"); return; }
+  const r = await fetch("/api/correlation", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols }) });
+  const d = await r.json();
+  if (!r.ok) { alert(d.detail || "failed"); Plotly.purge("corrPlot"); return; }
+  Plotly.react("corrPlot", [{
+    type: "heatmap", z: d.matrix, x: d.symbols, y: d.symbols,
+    zmin: -1, zmax: 1, colorscale: [[0, "#f85149"], [0.5, "#0e1116"], [1, "#3fb950"]],
+    text: d.matrix, texttemplate: "%{text}", textfont: { size: 11 },
+  }], { ...layout(`return correlation (${d.bars} bars)`) },
+    { displayModeBar: false, responsive: true });
+};
+
 async function loadAttribution() {
   const r = await fetch("/api/attribution"); if (!r.ok) return;
   const rows = (await r.json()).by_strategy || [];
