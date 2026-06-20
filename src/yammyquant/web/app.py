@@ -370,7 +370,14 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         step = max(1, len(eq) // 300)                 # downsample for the chart
         curve = [{"ts": str(ts), "equity": float(v)}
                  for ts, v in list(zip(eq.index, eq["equity"]))[::step]] if len(eq) else []
-        return _json_safe({**res.stats, "equity": curve})
+        pstep = max(1, len(candle) // 400)
+        price = [{"ts": str(ts), "close": float(c)}
+                 for ts, c in list(zip(candle.index, candle.close))[::pstep]]
+        tr = res.trades
+        trades = ([{"ts": str(t), "side": s, "price": float(pr)}
+                   for t, s, pr in zip(tr["time"], tr["action"], tr["price"])]
+                  if len(tr) else [])
+        return _json_safe({**res.stats, "equity": curve, "price": price, "trades": trades})
 
     @app.post("/api/portfolio")
     def run_portfolio(payload: dict):
