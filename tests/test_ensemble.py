@@ -94,3 +94,17 @@ def test_decide_unanimous_is_stricter(tmp_path, fake_exchange):
     out = ops.decide(store, state, weight=0.2, execute=False)
     # unanimous may suppress the entry; whatever it returns must be self-consistent
     assert isinstance(out["proposals"], list)
+
+
+def test_weighted_ensemble_trades_not_flat(sine_candle):
+    """Regression: persistent stances mean a weighted blend actually trades.
+    Members fire on different bars, so instantaneous votes never agreed and the
+    weighted equity used to be a dead-flat line (zero trades)."""
+    from yammyquant.backtest.engine import Backtest
+    from yammyquant.strategy.ensemble import Ensemble
+    from yammyquant.strategy.builtin import MACross, EMACross, RSIReversion
+
+    e = Ensemble([MACross(5, 20), EMACross(9, 21), RSIReversion(14)],
+                 rule="weighted", threshold=0.4)
+    res = Backtest(sine_candle, e, cash=10_000).run()
+    assert res.stats["num_trades"] >= 1
