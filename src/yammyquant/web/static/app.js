@@ -309,6 +309,17 @@ $("setTargets").onclick = async () => {
   const d = await r.json();
   $("targetResult").textContent = r.ok ? "targets: " + JSON.stringify(d.targets) : "failed";
 };
+$("riskParity").onclick = async () => {
+  // parse symbols from the spec box: bare symbols, or the keys of SYM=w pairs
+  const symbols = $("targetSpec").value.trim().toUpperCase().split(/[\s,]+/)
+    .map(t => t.split("=")[0]).filter(Boolean);
+  if (!symbols.length) { $("targetResult").textContent = "enter symbols"; return; }
+  const r = await fetch("/api/target/risk-parity", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols }) });
+  const d = await r.json();
+  $("targetResult").textContent = r.ok
+    ? "risk-parity targets: " + JSON.stringify(d.targets) : (d.detail || "failed");
+};
 $("rebalanceBtn").onclick = async () => {
   const r = await fetch("/api/rebalance", { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ execute: true }) });

@@ -152,6 +152,14 @@ def test_manual_trade_validates(client):
     assert c.post("/api/trade", json={"ticker": "BTCUSDT"}).status_code == 400
 
 
+def test_risk_parity_endpoint(client):
+    c, state = client
+    r = c.post("/api/target/risk-parity", json={"symbols": ["BTCUSDT"]})
+    assert r.status_code == 200
+    assert r.json()["targets"]["BTCUSDT"] == 1.0   # single symbol -> all weight
+    assert state.get("targets")["BTCUSDT"] == 1.0
+
+
 def test_targets_and_cycle_and_status(client):
     c, state = client
     assert c.post("/api/target", json={"BTCUSDT": 0.5}).json()["targets"]["BTCUSDT"] == 0.5

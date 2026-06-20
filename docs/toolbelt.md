@@ -34,6 +34,7 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq decide --weight 0.1` | Signals → risk-sized orders (dry-run). |
 | `yq decide --weight 0.1 --execute` | …actually submit (paper; `--mode live` queues). |
 | `yq target BTCUSDT=0.5 ETHUSDT=0.3` | Set portfolio target weights. |
+| `yq target --risk-parity A B C` | Auto-set inverse-volatility (risk-parity) weights. |
 | `yq rebalance --execute` | Move holdings toward targets. |
 | `yq trade SYM BUY 0.1 --price 65000 --mode paper` | Paper fills now. |
 | `yq approve N` / `yq reject N` | Act on a pending live trade. |

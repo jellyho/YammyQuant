@@ -42,7 +42,7 @@ flips between **live** and **reconnecting…**.
 | **Operator activity / Journal** | The live activity log and the cross-session journal. |
 | **Control center** | Edit blend/flags (`auto_trade`, `trade_mode`, `ensemble_rule/threshold`, `sentiment_gate`, `exchange`) or any setting key; **run a cycle** or **send a status** push on demand. |
 | **Manual trade** | Submit a paper/live order straight from the dashboard. |
-| **Targets & rebalance** | Set portfolio target weights and **rebalance** toward them. |
+| **Targets & rebalance** | Set portfolio target weights (or **risk parity** = inverse-vol auto-weights) and **rebalance** toward them. |
 | **Plugins** | The operator-authored strategies/indicators currently loaded (+ any load errors). |
 | **Research** | Run a **backtest** (with an equity-curve chart), **optimize** (grid / walk-forward), or a **multi-symbol portfolio backtest** on any ticker(s) + strategy — research without leaving the dashboard. |
 | **Strategy weights** | Each strategy toggle has an inline **ensemble vote weight** input (`strategy.<name>.weight`). |

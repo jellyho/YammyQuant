@@ -406,6 +406,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     p = sub.add_parser("target", help="view/set portfolio target weights")
     p.add_argument("assignments", nargs="*", help="SYMBOL=weight ... (empty = show)")
+    p.add_argument("--risk-parity", nargs="+", metavar="SYMBOL",
+                   help="auto-set inverse-volatility weights for these symbols")
+    p.add_argument("--interval", default="1d")
 
     p = sub.add_parser("expect", help="record a backtest baseline for decay tracking")
     p.add_argument("ticker")
@@ -700,6 +703,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "target":
+        if args.risk_parity:
+            weights = ops.risk_parity_weights(DuckDBStore(args.store), args.risk_parity,
+                                              interval=args.interval)
+            state.set("targets", weights)
+            _print(weights)
+            return 0
         if args.assignments:
             targets = state.get("targets", {})
             for kv in args.assignments:

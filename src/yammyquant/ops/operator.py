@@ -848,6 +848,37 @@ def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str
             "portfolio": stats, "per_symbol": per_symbol, "equity": points[::step]}
 
 
+def risk_parity_weights(store: DuckDBStore, symbols, interval: str = "1d",
+                        lookback: int = 60) -> dict:
+    """Inverse-volatility ('risk parity') target weights across symbols.
+
+    Each symbol's weight is proportional to 1/realized-vol so every holding
+    contributes roughly equal risk; weights are normalized to sum to 1. Symbols
+    with no data (or zero vol) are skipped.
+    """
+    import pandas as pd
+
+    symbols = [s for s in symbols if s]
+    if not symbols:
+        raise ValueError("need at least one symbol")
+    inv_vol = {}
+    for sym in symbols:
+        try:
+            candle = store.read(sym, interval)
+        except Exception:
+            continue
+        rets = pd.Series(candle.close, dtype=float).pct_change().dropna()
+        if len(rets) < 2:
+            continue
+        vol = float(rets.tail(lookback).std()) * (252 ** 0.5)
+        if vol > 0:
+            inv_vol[sym] = 1.0 / vol
+    total = sum(inv_vol.values())
+    if not total:
+        raise ValueError("no symbols with usable volatility")
+    return {sym: round(w / total, 4) for sym, w in inv_vol.items()}
+
+
 def attribution(state: LiveState) -> dict:
     """Per-strategy performance attribution from executed trades.
 

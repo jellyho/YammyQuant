@@ -51,6 +51,7 @@ yq decide --weight 0.1                      # signals → risk-sized orders (dry
 yq decide --weight 0.1 --execute            # ...actually submit (paper; --mode live to queue)
 yq decide --execute --type limit            # limit orders (live ones rest until synced)
 yq target BTCUSDT=0.5 ETHUSDT=0.3           # set portfolio target weights
+yq target --risk-parity BTCUSDT ETHUSDT SOLUSDT   # inverse-vol (risk-parity) weights
 yq rebalance --execute                      # move holdings toward targets
 yq expect BTCUSDT 1d macross               # record a backtest baseline
 yq decay                                    # realized vs baseline (strategy-decay alert)

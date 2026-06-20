@@ -87,6 +87,17 @@ $ yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy keltner_breakout
 }
 ```
 
+## Risk-parity target weights
+
+Size holdings by inverse volatility so each contributes roughly equal risk:
+
+```console
+$ yq target --risk-parity BTCUSDT ETHUSDT SOLUSDT
+{"BTCUSDT": 0.3667, "ETHUSDT": 0.3131, "SOLUSDT": 0.3202}
+
+$ yq rebalance --execute     # then move holdings toward those weights
+```
+
 ## Trade (paper) and report
 
 ```console
