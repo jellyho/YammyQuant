@@ -394,15 +394,12 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         step = max(1, len(eq) // 300)                 # downsample for the chart
         bench_return = None
         if len(eq):
-            import pandas as pd
+            from yammyquant.ops.operator import buy_hold_benchmark
             running_max = eq["equity"].cummax()
             dd = (eq["equity"] / running_max - 1.0).fillna(0.0)   # underwater (≤ 0)
             # buy-and-hold benchmark: same start equity, just hold the asset
-            close_s = pd.Series(candle.close, index=candle.index, dtype=float)
-            bh = close_s.reindex(eq.index).ffill()
-            start_eq = float(eq["equity"].iloc[0])
-            bench = (bh / bh.iloc[0]) * start_eq if bh.iloc[0] else bh * 0.0
-            bench_return = round(float(bench.iloc[-1] / start_eq - 1.0), 4) if start_eq else None
+            bench, bench_return = buy_hold_benchmark(
+                candle, eq.index, float(eq["equity"].iloc[0]))
             curve = [{"ts": str(ts), "equity": float(v), "dd": float(d), "bench": float(b)}
                      for ts, v, d, b in list(zip(eq.index, eq["equity"], dd, bench))[::step]]
         else:

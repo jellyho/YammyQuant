@@ -207,6 +207,22 @@ def collect(
     return result
 
 
+def buy_hold_benchmark(candle, index, start_equity: float):
+    """Buy-and-hold equity over ``index``, anchored to ``start_equity``.
+
+    Returns ``(series, total_return)`` — holding the asset across the same
+    window the strategy traded, so its return is an apples-to-apples bar to
+    clear. ``total_return`` is None when there's no usable price.
+    """
+    import pandas as pd
+    close = pd.Series(candle.close, index=candle.index, dtype=float)
+    bh = close.reindex(index).ffill()
+    if len(bh) == 0 or not bh.iloc[0] or not start_equity:
+        return bh * 0.0, None
+    series = (bh / bh.iloc[0]) * start_equity
+    return series, round(float(series.iloc[-1] / start_equity - 1.0), 4)
+
+
 def backtest(
     store: DuckDBStore,
     ticker: str,
@@ -219,13 +235,21 @@ def backtest(
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
 ) -> dict:
-    """Run a backtest and return its headline stats."""
+    """Run a backtest and return its headline stats (+ buy-and-hold benchmark)."""
     candle = store.read(ticker, interval, start=start, end=end)
     strat = build_strategy(strategy, **(params or {}))
     result = Backtest(candle, strat, cash=cash, fee=fee).run()
+    stats = dict(result.stats)
+    eq = result.equity_curve
+    if len(eq):
+        _, bench = buy_hold_benchmark(candle, eq.index, float(eq["equity"].iloc[0]))
+        stats["benchmark_return"] = bench
+        tr = stats.get("total_return")
+        stats["excess_return"] = (round(tr - bench, 4)
+                                  if bench is not None and tr is not None else None)
     if state:
-        state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **result.stats)
-    return result.stats
+        state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **stats)
+    return stats
 
 
 def features(
