@@ -44,20 +44,36 @@ BANNER = r"""
 """
 
 _ANSI = re.compile(r"\033\[[0-9;]*m")
-_SPARK = "▁▂▃▄▅▆▇█"
+# Unicode box/sparkline look best, but their glyphs are East-Asian "Ambiguous":
+# some CJK terminals render them two columns wide, breaking alignment. Set
+# YQ_ASCII=1 for a pure-ASCII layout (every structural glyph is exactly 1 cell).
+_ASCII = os.getenv("YQ_ASCII", "") not in ("", "0", "false", "no")
+_SPARK = " .:-=+*#" if _ASCII else "▁▂▃▄▅▆▇█"
+_BOX = (dict(tl="+", tr="+", bl="+", br="+", h="-", v="|") if _ASCII
+        else dict(tl="╭", tr="╮", bl="╰", br="╯", h="─", v="│"))
+
+
+# Truecolor palette — matches the web cockpit (#4da3ff / #3fb950 / #f85149 / …).
+def _rgb(r: int, g: int, b: int) -> str:
+    return f"\033[38;2;{r};{g};{b}m"
 
 
 class _Hue:
     R = "\033[0m"
     B = "\033[1m"
     DIM = "\033[2m"
-    CYAN = "\033[36m"
-    GREEN = "\033[32m"
-    RED = "\033[31m"
-    YEL = "\033[33m"
-    BLUE = "\033[34m"
-    MAG = "\033[35m"
-    GREY = "\033[90m"
+    ACCENT = _rgb(77, 163, 255)    # #4da3ff
+    GREEN = _rgb(63, 185, 80)      # #3fb950
+    RED = _rgb(248, 81, 73)        # #f85149
+    AMBER = _rgb(210, 153, 34)     # #d29922
+    PURPLE = _rgb(163, 113, 247)   # #a371f7
+    LABEL = _rgb(121, 192, 255)    # #79c0ff  (soft blue for keys)
+    GREY = _rgb(110, 118, 129)     # #6e7681
+    # backwards-compatible aliases
+    CYAN = ACCENT
+    YEL = AMBER
+    BLUE = ACCENT
+    MAG = PURPLE
 
 
 def _c(text, color: str) -> str:
@@ -65,7 +81,7 @@ def _c(text, color: str) -> str:
 
 
 def _dwidth(s: str) -> int:
-    """Visible width: strip ANSI, count CJK/full-width glyphs as 2 columns."""
+    """Visible width: strip ANSI, count East-Asian wide/full-width glyphs as 2."""
     s = _ANSI.sub("", s)
     return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in s)
 
@@ -88,19 +104,20 @@ def _sparkline(values) -> str:
         return ""
     lo, hi = min(nums), max(nums)
     rng = (hi - lo) or 1.0
-    bars = "".join(_SPARK[min(7, int((v - lo) / rng * 7))] for v in nums[-40:])
+    n = len(_SPARK) - 1
+    bars = "".join(_SPARK[min(n, int((v - lo) / rng * n))] for v in nums[-40:])
     trend = _Hue.GREEN if nums[-1] >= nums[0] else _Hue.RED
     return _c(bars, trend)
 
 
 def _plain(value) -> str:
     if value is None:
-        return "–"
+        return "-"
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, float):
         if value != value:                       # NaN
-            return "–"
+            return "-"
         a = abs(value)
         if a != 0 and (a >= 1e7 or a < 1e-4):
             return f"{value:.4g}"
@@ -141,21 +158,22 @@ def _cell(key, value) -> str:
 
 
 def _box(title: str, body: str) -> str:
-    """Wrap multi-line body in a rounded box with a colored title header."""
+    """Wrap multi-line body in a box with a colored title header."""
     lines = body.split("\n")
     inner = max([_dwidth(title) + 1, *(_dwidth(ln) for ln in lines)])
-    g = _Hue.GREY
-    top = (_c("╭─ ", g) + _c(title, _Hue.B + _Hue.CYAN)
-           + _c(" " + "─" * max(0, inner - _dwidth(title) - 1) + "╮", g))
-    mid = "\n".join(_c("│ ", g) + _pad(ln, inner) + _c(" │", g) for ln in lines)
-    bot = _c("╰" + "─" * (inner + 2) + "╯", g)
+    g, bx = _Hue.GREY, _BOX
+    top = (_c(bx["tl"] + bx["h"] + " ", g) + _c(title, _Hue.B + _Hue.ACCENT)
+           + _c(" " + bx["h"] * max(0, inner - _dwidth(title) - 1) + bx["tr"], g))
+    mid = "\n".join(_c(bx["v"] + " ", g) + _pad(ln, inner) + _c(" " + bx["v"], g)
+                    for ln in lines)
+    bot = _c(bx["bl"] + bx["h"] * (inner + 2) + bx["br"], g)
     return f"{top}\n{mid}\n{bot}"
 
 
 def _table(rows: list[dict]) -> str:
     cols = list({k: None for r in rows for k in r})  # union, order-preserving
     widths = {c: max(_dwidth(c), *(_dwidth(_plain(r.get(c))) for r in rows)) for c in cols}
-    head = "  ".join(_c(_pad(c, widths[c]), _Hue.B + _Hue.CYAN) for c in cols)
+    head = "  ".join(_c(_pad(c, widths[c]), _Hue.B + _Hue.LABEL) for c in cols)
     sep = _c("  ".join("─" * widths[c] for c in cols), _Hue.GREY)
     body = []
     for r in rows:
@@ -168,7 +186,7 @@ def _kv(obj: dict) -> str:
     width = max((_dwidth(str(k)) for k in obj), default=0)
     lines = []
     for k, v in obj.items():
-        label = _c(_pad(str(k), width), _Hue.CYAN)
+        label = _c(_pad(str(k), width), _Hue.LABEL)
         if isinstance(v, list) and len(v) >= 2 and all(isinstance(x, (int, float)) for x in v):
             val = f"{_sparkline(v)} {_c(_plain(v[-1]), _Hue.DIM)}"
         elif isinstance(v, (dict, list)):
@@ -187,13 +205,13 @@ def _print(obj) -> None:
         return
     title = _TITLE or "yammyquant"
     if isinstance(obj, list) and obj and all(isinstance(x, dict) for x in obj):
-        print(_c(f"{title} ", _Hue.B + _Hue.CYAN) + _c(f"· {len(obj)} rows", _Hue.GREY))
+        print(_c(f"{title} ", _Hue.B + _Hue.ACCENT) + _c(f"({len(obj)} rows)", _Hue.GREY))
         print(_table(obj))
     elif isinstance(obj, dict):
         print(_box(title, _kv(obj)))
     elif isinstance(obj, list):
-        print(_c(f"{title}", _Hue.B + _Hue.CYAN))
-        print("\n".join(f"  {_c('•', _Hue.CYAN)} {x}" for x in obj)
+        print(_c(f"{title}", _Hue.B + _Hue.ACCENT))
+        print("\n".join(f"  {_c('-', _Hue.ACCENT)} {x}" for x in obj)
               or _c("  (empty)", _Hue.GREY))
     else:
         print(obj)
