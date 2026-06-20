@@ -159,9 +159,10 @@ function renderPending(rows) {
   $("pending").querySelector("tbody").innerHTML = rows.map(t => `<tr>
     <td>${t.id}</td><td>${t.mode}</td><td class="${t.side.toLowerCase()}">${t.side}</td>
     <td>${t.ticker}</td><td>${fmt(t.quantity, 6)}</td><td>${fmt(t.price)}</td>
+    <td class="muted" title="${escapeHtml(t.rationale || "")}">${escapeHtml((t.rationale || "").slice(0, 60))}</td>
     <td><button class="ok" onclick="approve(${t.id})">approve</button>
         <button class="danger" onclick="reject(${t.id})">reject</button></td>
-  </tr>`).join("") || `<tr><td colspan="7" class="muted">none</td></tr>`;
+  </tr>`).join("") || `<tr><td colspan="8" class="muted">none</td></tr>`;
 }
 
 function renderPositions(rows) {
@@ -238,7 +239,87 @@ function drawEquity(eq) {
   }], layout("equity"), { displayModeBar: false, responsive: true });
 }
 
+// ---- control center ------------------------------------------------------
+const CONTROL_FIELDS = ["auto_trade", "trade_mode", "ensemble_rule",
+  "ensemble_threshold", "sentiment_gate", "exchange"];
+
+function parseVal(v) {
+  if (v === "") return null;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  const n = Number(v);
+  return (!isNaN(n) && v !== "") ? n : v;
+}
+
+async function loadControl() {
+  const r = await fetch("/api/settings"); if (!r.ok) return;
+  const s = await r.json();
+  $("control").innerHTML = CONTROL_FIELDS.map(f =>
+    `<label>${f}<input id="ctl_${f}" value="${s[f] ?? ""}" placeholder="unset" /></label>`).join("");
+}
+$("saveControl").onclick = async () => {
+  for (const f of CONTROL_FIELDS) {
+    await post("/api/settings", { key: f, value: parseVal($("ctl_" + f).value.trim()) });
+  }
+  loadControl();
+};
+$("setAdd").onclick = async () => {
+  const k = $("setKey").value.trim(); if (!k) return;
+  if (await post("/api/settings", { key: k, value: parseVal($("setVal").value.trim()) })) {
+    $("setKey").value = ""; $("setVal").value = ""; loadControl();
+  }
+};
+$("runCycle").onclick = async () => {
+  const r = await fetch("/api/cycle", { method: "POST" });
+  alert(r.ok ? "cycle complete" : (await r.json()).detail || "cycle failed");
+};
+$("sendStatus").onclick = async () => {
+  const r = await fetch("/api/notify", { method: "POST" });
+  const d = await r.json();
+  alert(r.ok ? "status sent to: " + ((d.channels || []).join(", ") || "(log only)") : "failed");
+};
+
+$("trSubmit").onclick = async () => {
+  const body = { ticker: $("trTicker").value.trim(), side: $("trSide").value,
+    quantity: $("trQty").value, price: $("trPrice").value, mode: $("trMode").value };
+  const r = await fetch("/api/trade", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $("trResult").textContent = r.ok ? `#${d.id} → ${d.status}` : (d.detail || "failed");
+};
+
+$("setTargets").onclick = async () => {
+  const t = {};
+  $("targetSpec").value.trim().split(/\s+/).forEach(p => {
+    const [k, v] = p.split("="); if (k && v) t[k] = parseFloat(v);
+  });
+  const r = await fetch("/api/target", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
+  const d = await r.json();
+  $("targetResult").textContent = r.ok ? "targets: " + JSON.stringify(d.targets) : "failed";
+};
+$("rebalanceBtn").onclick = async () => {
+  const r = await fetch("/api/rebalance", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ execute: true }) });
+  const d = await r.json();
+  $("targetResult").textContent = r.ok
+    ? `rebalanced: ${(d.orders || d.proposals || []).length} order(s)` : (d.detail || "failed");
+};
+
+async function loadPlugins() {
+  const r = await fetch("/api/plugins"); if (!r.ok) return;
+  const d = await r.json();
+  const cell = (k, v) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`;
+  $("plugins").innerHTML =
+    cell("strategies", (d.strategies || []).join(", ") || "–") +
+    cell("indicators", (d.indicators || []).join(", ") || "–") +
+    cell("errors", (d.errors || []).length || 0);
+}
+$("reloadPlugins").onclick = loadPlugins;
+
 connect();
 loadChart();
 loadRisk();
 loadReport();
+loadControl();
+loadPlugins();

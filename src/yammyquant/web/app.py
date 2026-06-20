@@ -133,6 +133,10 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
             raise HTTPException(404, f"no open position for {ticker}")
         return result
 
+    @app.get("/api/settings")
+    def get_settings():
+        return _json_safe(state.settings())
+
     @app.post("/api/settings")
     def set_setting(payload: dict):
         key, value = (payload or {}).get("key"), (payload or {}).get("value")
@@ -140,6 +144,56 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
             raise HTTPException(400, "key is required")
         state.set(key, value)
         return {"key": key, "value": value}
+
+    @app.get("/api/plugins")
+    def get_plugins():
+        from yammyquant.plugins import load_plugins
+        return _json_safe(load_plugins())
+
+    @app.post("/api/trade")
+    def manual_trade(payload: dict):
+        p = payload or {}
+        try:
+            ticker = p["ticker"].strip()
+            side = p["side"]
+            quantity = float(p["quantity"])
+            price = float(p["price"])
+        except (KeyError, ValueError, AttributeError):
+            raise HTTPException(400, "ticker, side, quantity, price are required")
+        result = TradeManager(state).submit(
+            ticker, side, quantity, price, mode=p.get("mode", "paper"),
+            rationale=p.get("rationale", "manual (dashboard)"))
+        return _json_safe(result)
+
+    @app.post("/api/target")
+    def set_targets(payload: dict):
+        """Set portfolio target weights, e.g. {"BTCUSDT": 0.5, "ETHUSDT": 0.3}."""
+        targets = {k: float(v) for k, v in (payload or {}).items()}
+        state.set("targets", targets)
+        return {"targets": targets}
+
+    @app.post("/api/rebalance")
+    def rebalance(payload: dict):
+        from yammyquant.ops import operator as ops
+        execute = bool((payload or {}).get("execute", False))
+        try:
+            return _json_safe(ops.rebalance(store(), state, execute=execute,
+                                            mode=state.get("trade_mode", "paper")))
+        except Exception as e:
+            raise HTTPException(502, f"rebalance failed: {e}")
+
+    @app.post("/api/cycle")
+    def run_cycle():
+        from yammyquant.ops import operator as ops
+        try:
+            return _json_safe(ops.run_cycle(store(), state))
+        except Exception as e:
+            raise HTTPException(502, f"cycle failed: {e}")
+
+    @app.post("/api/notify")
+    def push_status():
+        from yammyquant.ops import operator as ops
+        return _json_safe(ops.notify_status(state))
 
     @app.post("/api/journal")
     def post_journal(payload: dict):

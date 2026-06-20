@@ -572,7 +572,7 @@ def decide(
             state.log("decide", f"read failed for {sym}: {exc}")
             continue
         actions = set()
-        votes, vote_weights = [], []
+        votes, vote_weights, voters = [], [], {}
         for name in enabled:
             strat = build_strategy(name)
             if len(candle) < strat.warmup:
@@ -581,6 +581,7 @@ def decide(
             vote = orders[0].action.value if orders else "HOLD"
             votes.append(vote)
             vote_weights.append(float(state.get(f"strategy.{name}.weight", 1.0)))
+            voters[name] = vote
             if orders:
                 actions.add(vote)
 
@@ -591,10 +592,16 @@ def decide(
 
         price = float(candle.close[-1])
         held = sym in positions and positions[sym]["quantity"] > 0
+        active = {n: v for n, v in voters.items() if v != "HOLD"}  # who actually fired
+        context = {"voters": active or voters, "rule": rule, "score": agg["score"],
+                   "equity": round(equity, 2)}
         decision = None
         if agg["sell"] and held:
             decision = {"symbol": sym, "side": "SELL", "quantity": positions[sym]["quantity"],
-                        "price": price, "reason": f"exit signal ({rule}, score={agg['score']})"}
+                        "price": price,
+                        "reason": f"exit signal — {rule} vote score {agg['score']} "
+                                  f"({sum(v == 'SELL' for v in votes)} of {len(votes)} sell)",
+                        "context": context}
         elif agg["buy"] and not agg["sell"] and not held and price > 0:
             # optional sentiment gate: veto entries when recent news is strongly negative
             gate = state.get("sentiment_gate")
@@ -604,16 +611,22 @@ def decide(
                 continue
             qty = round((equity * target_w) / price, 8)
             if qty > 0:
-                reason = f"entry signal (weight={target_w}"
-                reason += f", sentiment={senti})" if gate is not None else ")"
+                buyers = sum(v == "BUY" for v in votes)
+                reason = (f"entry signal — {rule} vote score {agg['score']} "
+                          f"({buyers} of {len(votes)} buy); size {target_w:.0%} of equity "
+                          f"(≈{equity * target_w:,.0f})")
+                if gate is not None:
+                    reason += f"; sentiment {senti}"
+                    context["sentiment"] = senti
+                context["weight"] = target_w
                 decision = {"symbol": sym, "side": "BUY", "quantity": qty, "price": price,
-                            "reason": reason}
+                            "reason": reason, "context": context}
         if decision is None:
             continue
         if execute:
             res = tm.submit(decision["symbol"], decision["side"], decision["quantity"],
                             decision["price"], mode=mode, rationale=decision["reason"],
-                            order_type=order_type)
+                            order_type=order_type, context=decision["context"])
             decision["status"] = res["status"]
             decision["trade_id"] = res["id"]
         proposals.append(decision)

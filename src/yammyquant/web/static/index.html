@@ -37,7 +37,7 @@
     <section class="card">
       <div class="card-head"><h2>Pending approvals</h2></div>
       <table id="pending"><thead><tr>
-        <th>#</th><th>mode</th><th>side</th><th>ticker</th><th>qty</th><th>price</th><th></th>
+        <th>#</th><th>mode</th><th>side</th><th>ticker</th><th>qty</th><th>price</th><th>why</th><th></th>
       </tr></thead><tbody></tbody></table>
 
       <div class="card-head"><h2>Positions</h2></div>
@@ -120,6 +120,51 @@
     <section class="card">
       <div class="card-head"><h2>News</h2><button id="collectNews" class="ghost">collect</button></div>
       <ul id="news" class="feed"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Control center</h2>
+        <span>
+          <button id="runCycle" class="ghost">run cycle</button>
+          <button id="sendStatus" class="ghost">send status</button>
+        </span>
+      </div>
+      <div id="control" class="risk-grid"></div>
+      <div class="card-head"><h3>Blend &amp; flags</h3><button id="saveControl" class="ok">save</button></div>
+      <div class="inbox-compose">
+        <input id="setKey" placeholder="setting key e.g. exchange" style="max-width:160px" />
+        <input id="setVal" placeholder="value (json ok)" />
+        <button id="setAdd">set</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Manual trade</h2></div>
+      <div class="inbox-compose">
+        <input id="trTicker" placeholder="ticker" style="max-width:120px" />
+        <select id="trSide"><option>BUY</option><option>SELL</option></select>
+        <input id="trQty" placeholder="qty" style="max-width:80px" />
+        <input id="trPrice" placeholder="price" style="max-width:90px" />
+        <select id="trMode"><option>paper</option><option>live</option></select>
+        <button id="trSubmit" class="ok">submit</button>
+      </div>
+      <p class="muted" id="trResult"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Targets &amp; rebalance</h2>
+        <button id="rebalanceBtn" class="ok">rebalance (paper)</button></div>
+      <div class="inbox-compose">
+        <input id="targetSpec" placeholder="BTCUSDT=0.5 ETHUSDT=0.3" />
+        <button id="setTargets">set targets</button>
+      </div>
+      <p class="muted" id="targetResult"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Plugins</h2><button id="reloadPlugins" class="ghost">reload</button></div>
+      <div id="plugins" class="report"></div>
     </section>
 
     <section class="card">
