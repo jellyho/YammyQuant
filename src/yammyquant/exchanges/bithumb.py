@@ -1,24 +1,28 @@
-"""Bithumb (빗썸) — major Korean crypto exchange (classic public/private API).
+"""Bithumb (빗썸) — major Korean crypto exchange, **API 2.0**.
 
-Public candlesticks need no auth. Private endpoints (balance, order) sign with
-HMAC-SHA512 over ``endpoint + \\0 + urlencoded_params + \\0 + nonce``, the digest
-hex-then-base64 encoded. Docs: https://apidocs.bithumb.com
+Bithumb retired its classic ``/public`` + HMAC-SHA512 ``/info`` ``/trade`` API in
+favour of an Upbit-compatible REST 2.0: public quotation endpoints under
+``/v1/candles/*`` (no auth) and private endpoints (``/v1/accounts``,
+``/v1/orders``, ``/v1/order``) authenticated with a JWT (HS256) carrying a
+SHA512 ``query_hash`` over the request parameters — the exact scheme Upbit uses.
+Markets are ``KRW-BTC`` style. Docs: https://apidocs.bithumb.com
 """
 
 from __future__ import annotations
 
-import base64
+import hashlib
 import os
-import time
+import uuid
 from typing import Optional
 from urllib.parse import urlencode
 
 from yammyquant.data.candle import Candle
-from yammyquant.exchanges.base import Exchange, candle_from_records, hmac_sha512_hex
+from yammyquant.exchanges.base import Exchange, candle_from_records, jwt_hs256
 
-# canonical interval -> Bithumb chart interval
-_INTERVALS = {"1m": "1m", "3m": "3m", "5m": "5m", "10m": "10m", "30m": "30m",
-              "1h": "1h", "6h": "6h", "12h": "12h", "1d": "24h"}
+# canonical interval -> Bithumb (Upbit-compatible) minute unit / non-minute path
+_MINUTE_UNITS = {"1m": 1, "3m": 3, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
+                 "1h": 60, "4h": 240}
+_NON_MINUTE = {"1d": "days", "1w": "weeks", "1M": "months"}
 
 
 class BithumbExchange(Exchange):
@@ -28,76 +32,89 @@ class BithumbExchange(Exchange):
     BASE = "https://api.bithumb.com"
 
     def __init__(self, api_key: Optional[str] = None, secret_key: Optional[str] = None):
+        # JWT "access_key" — kept as api_key to match the central config field name.
         self.api_key = api_key or os.getenv("BITHUMB_API_KEY")
         self.secret_key = secret_key or os.getenv("BITHUMB_SECRET_KEY")
 
     @staticmethod
-    def _split(ticker: str) -> tuple[str, str]:
-        """``"BTC"`` -> (BTC, KRW); ``"BTC_KRW"`` / ``"BTC/KRW"`` -> (BTC, KRW)."""
-        t = ticker.replace("/", "_").upper()
-        if "_" in t:
-            order, payment = t.split("_", 1)
-        else:
-            order, payment = t, "KRW"
-        return order, payment
+    def _market(ticker: str) -> str:
+        """Normalise to Bithumb market format ``KRW-BTC``.
+
+        Accepts ``KRW-BTC`` / ``BTC`` / ``BTC_KRW`` / ``BTC/KRW`` (defaults the
+        payment currency to KRW when only the base asset is given).
+        """
+        t = ticker.upper().replace("/", "-").replace("_", "-")
+        if "-" not in t:
+            return f"KRW-{t}"
+        a, b = t.split("-", 1)
+        quotes = ("KRW", "USDT")
+        if a in quotes:
+            return t                  # already quote-first (KRW-BTC)
+        if b in quotes:
+            return f"{b}-{a}"         # base-first (BTC-KRW) -> flip
+        return t                      # crypto-crypto pair, leave as given
 
     # -- market data -------------------------------------------------------
     def read(self, ticker: str, interval: str = "1d", count: int = 200,
              start=None, end=None) -> Candle:
-        if interval not in _INTERVALS:
-            raise ValueError(f"unsupported Bithumb interval {interval!r}")
-        order, payment = self._split(ticker)
-        url = f"{self.BASE}/public/candlestick/{order}_{payment}/{_INTERVALS[interval]}"
-        raw = self._request("GET", url)
-        return self._parse_candles(f"{order}{payment}", interval, raw, count)
+        market = self._market(ticker)
+        path, params = self._candle_request(market, interval, count, end)
+        raw = self._request("GET", self.BASE + path, params=params)
+        return self._parse_candles(market, interval, raw)
 
     @staticmethod
-    def _parse_candles(ticker: str, interval: str, raw: dict, count: int = 200) -> Candle:
-        # data rows: [timestamp_ms, open, close, high, low, volume]
-        data = raw.get("data", [])
+    def _candle_request(market: str, interval: str, count: int, end) -> tuple[str, dict]:
+        params: dict = {"market": market, "count": min(count, 200)}
+        if end is not None:
+            params["to"] = end if isinstance(end, str) else end.strftime("%Y-%m-%d %H:%M:%S")
+        if interval in _MINUTE_UNITS:
+            return f"/v1/candles/minutes/{_MINUTE_UNITS[interval]}", params
+        if interval in _NON_MINUTE:
+            return f"/v1/candles/{_NON_MINUTE[interval]}", params
+        raise ValueError(f"unsupported Bithumb interval {interval!r}")
+
+    @staticmethod
+    def _parse_candles(market: str, interval: str, raw: list) -> Candle:
         records = [
-            {"time": int(r[0]) * 1_000_000,  # ms -> ns for pandas to_datetime
-             "open": float(r[1]), "close": float(r[2]), "high": float(r[3]),
-             "low": float(r[4]), "volume": float(r[5])}
-            for r in data
+            {"time": r["candle_date_time_kst"], "open": r["opening_price"],
+             "high": r["high_price"], "low": r["low_price"],
+             "close": r["trade_price"], "volume": r["candle_acc_trade_volume"]}
+            for r in raw
         ]
-        candle = candle_from_records(ticker, interval, records)
-        return candle[-count:] if count and len(candle) > count else candle
+        return candle_from_records(market.replace("-", ""), interval, records)
 
-    # -- auth --------------------------------------------------------------
-    def _sign(self, endpoint: str, params: dict, nonce: str) -> str:
-        query = urlencode(params)
-        message = endpoint + chr(0) + query + chr(0) + nonce
-        digest_hex = hmac_sha512_hex(self.secret_key, message)
-        return base64.b64encode(digest_hex.encode()).decode()
-
-    def _private(self, endpoint: str, params: dict) -> dict:
+    # -- auth (JWT HS256, Upbit-compatible) --------------------------------
+    def _auth_headers(self, params: Optional[dict] = None) -> dict:
         if not self.api_key or not self.secret_key:
             raise RuntimeError("Bithumb API keys required (BITHUMB_API_KEY / BITHUMB_SECRET_KEY)")
-        nonce = str(int(time.time() * 1000))
-        body = {"endpoint": endpoint, **params}
-        headers = {
-            "Api-Key": self.api_key,
-            "Api-Sign": self._sign(endpoint, body, nonce),
-            "Api-Nonce": nonce,
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
-        return self._request("POST", self.BASE + endpoint, headers=headers, data=body)
+        payload = {"access_key": self.api_key, "nonce": str(uuid.uuid4())}
+        if params:
+            query = urlencode(params)
+            payload["query_hash"] = hashlib.sha512(query.encode()).hexdigest()
+            payload["query_hash_alg"] = "SHA512"
+        return {"Authorization": f"Bearer {jwt_hs256(payload, self.secret_key)}"}
 
     # -- trading -----------------------------------------------------------
-    def balances(self, currency: str = "ALL") -> dict:
-        return self._private("/info/balance", {"currency": currency})
+    def balances(self) -> dict:
+        return self._request("GET", self.BASE + "/v1/accounts", headers=self._auth_headers())
 
     def create_order(self, ticker: str, side: str, quantity: float,
                      price: Optional[float] = None, order_type: str = "limit") -> dict:
-        order, payment = self._split(ticker)
-        if order_type == "market":
-            endpoint = "/trade/market_buy" if side.upper() == "BUY" else "/trade/market_sell"
-            return self._private(endpoint, {"order_currency": order, "payment_currency": payment,
-                                            "units": str(quantity)})
-        endpoint = "/trade/place"
-        return self._private(endpoint, {
-            "order_currency": order, "payment_currency": payment,
-            "type": "bid" if side.upper() == "BUY" else "ask",
-            "units": str(quantity), "price": str(price),
-        })
+        params = {"market": self._market(ticker),
+                  "side": "bid" if side.upper() == "BUY" else "ask"}
+        if order_type == "limit":
+            params.update(volume=str(quantity), price=str(price), ord_type="limit")
+        elif order_type == "market":
+            if side.upper() == "BUY":   # market-buy is by total KRW (price)
+                params.update(price=str(price), ord_type="price")
+            else:
+                params.update(volume=str(quantity), ord_type="market")
+        else:
+            raise ValueError(f"unsupported order_type {order_type!r}")
+        return self._request("POST", self.BASE + "/v1/orders",
+                             headers=self._auth_headers(params), json_body=params)
+
+    def order_status(self, order_id: str, ticker: str) -> dict:
+        params = {"uuid": order_id}
+        return self._request("GET", self.BASE + "/v1/order",
+                             headers=self._auth_headers(params), params=params)
