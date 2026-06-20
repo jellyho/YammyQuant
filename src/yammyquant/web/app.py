@@ -238,6 +238,19 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         except Exception as e:
             raise HTTPException(502, f"correlation failed: {e}")
 
+    @app.post("/api/compare")
+    def compare_strategies(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            return _json_safe(ops.compare(store(), p["ticker"], p.get("interval", "1d"),
+                                          strategies=p.get("strategies"),
+                                          metric=p.get("metric", "sharpe"), state=state))
+        except KeyError:
+            raise HTTPException(400, "ticker is required")
+        except Exception as e:
+            raise HTTPException(502, f"compare failed: {e}")
+
     @app.post("/api/target/risk-parity")
     def risk_parity(payload: dict):
         from yammyquant.ops import operator as ops

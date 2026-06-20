@@ -49,6 +49,7 @@ flips between **live** and **reconnecting…**.
 | **Plugins authoring** | Scaffold a new strategy/indicator/skill, then edit it in an in-browser editor and **save & reload** — author your own toolbox from the web. |
 | **Attribution** | Per-strategy realized-PnL attribution across closed round-trips. |
 | **Correlation** | Return-correlation **heatmap** (red→green) across a set of symbols — a quick diversification check before sizing a basket. |
+| **Strategy leaderboard** | Rank every strategy on a symbol by a chosen metric — a sorted **bar chart** + table with each strategy's return, excess vs buy&hold, drawdown, and trade count. |
 
 Pending approvals now show the **"why"** — the rationale and contributing
 strategies behind each queued order — so you can approve with full context.

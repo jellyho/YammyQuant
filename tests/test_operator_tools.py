@@ -241,6 +241,26 @@ def test_backtest_includes_buy_hold_benchmark(tmp_path):
         round(out["total_return"] - out["benchmark_return"], 4), abs=1e-9)
 
 
+def test_compare_ranks_strategies_by_metric(tmp_path):
+    store = DuckDBStore(tmp_path / "store")
+    rng = np.random.default_rng(3)
+    close = 100 * np.exp(np.cumsum(rng.normal(0.001, 0.02, 300)))
+    idx = pd.date_range("2023-01-01", periods=300, freq="1D")
+    store.write(Candle("BTCUSDT", pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+         "volume": np.full(300, 1000.0)}, index=idx), interval="1d"))
+    out = ops.compare(store, "BTCUSDT", "1d",
+                      strategies=["macross", "keltner_breakout", "donchian_breakout"],
+                      metric="sharpe")
+    names = {r["strategy"] for r in out["ranking"]}
+    assert names == {"macross", "keltner_breakout", "donchian_breakout"}
+    scores = [r["sharpe"] for r in out["ranking"]]
+    assert scores == sorted(scores, reverse=True)        # ranked best-first
+    assert "excess_return" in out["ranking"][0] and out["errors"] == {}
+    with pytest.raises(ValueError):
+        ops.compare(store, "BTCUSDT", "1d", strategies=["nope"])
+
+
 def test_correlation_matrix(tmp_path):
     import numpy as np
     import pandas as pd

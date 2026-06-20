@@ -159,6 +159,20 @@ def test_correlation_endpoint(client):
     assert c.post("/api/correlation", json={}).status_code == 400
 
 
+def test_compare_endpoint(client):
+    c, _ = client
+    r = c.post("/api/compare", json={"ticker": "BTCUSDT", "interval": "1d",
+                                     "strategies": ["macross", "donchian_breakout"],
+                                     "metric": "total_return"})
+    assert r.status_code == 200
+    body = r.json()
+    names = {row["strategy"] for row in body["ranking"]}
+    assert names == {"macross", "donchian_breakout"}
+    rets = [row["total_return"] for row in body["ranking"]]
+    assert rets == sorted(rets, reverse=True)
+    assert c.post("/api/compare", json={}).status_code == 400
+
+
 def test_risk_parity_endpoint(client):
     c, state = client
     r = c.post("/api/target/risk-parity", json={"symbols": ["BTCUSDT"]})
