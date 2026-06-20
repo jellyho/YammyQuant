@@ -42,7 +42,7 @@ source of truth for *what* each exchange needs is `SPECS` in
 | --- | --- | --- | :-: | :-: | --- |
 | **Binance** | `binance` | crypto | ✅ native | ✅ native | `BTCUSDT`; resumable backfill |
 | **Upbit** (업비트) | `upbit` | crypto | ✅ native | ✅ native | `KRW-BTC`; JWT auth |
-| **Bithumb** (빗썸) | `bithumb` | crypto | ✅ native | ✅ native | `BTC`/`BTC_KRW`; HMAC-SHA512 |
+| **Bithumb** (빗썸) | `bithumb` | crypto | ✅ native | ✅ native | `KRW-BTC`; API 2.0 (JWT) |
 | **Coinone** (코인원) | `coinone` | crypto | ✅ native | ⚙️ via ccxt | native public candles; orders via ccxt |
 | **Korbit** (코빗) | `korbit` | crypto | ✅ native | ⚙️ via ccxt | native public candles; orders via ccxt |
 | **한국투자증권** (KIS) | `kis` | stock | ✅ native | ✅ native | 6-digit codes; real & paper(모의) |
@@ -73,6 +73,7 @@ source of truth for *what* each exchange needs is `SPECS` in
 yq exchanges                                  # list what's supported + config file path
 yq collect 005930 1d --exchange kis           # Samsung Elec. daily via KIS
 yq collect KRW-BTC 1d 1h --exchange upbit
+yq collect KRW-BTC 1d --exchange bithumb      # Bithumb API 2.0 (also accepts BTC / BTC_KRW)
 ```
 
 Live orders still pass YammyQuant's money-safety gates (`YQ_ALLOW_LIVE=1` **and**

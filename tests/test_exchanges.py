@@ -128,26 +128,49 @@ def test_upbit_read_via_mock(monkeypatch):
     assert len(ex.read("KRW-BTC", "1d")) == 2
 
 
-# -- Bithumb ----------------------------------------------------------------
-def test_bithumb_split():
-    assert BithumbExchange._split("BTC") == ("BTC", "KRW")
-    assert BithumbExchange._split("eth_krw") == ("ETH", "KRW")
+# -- Bithumb (API 2.0, Upbit-compatible) ------------------------------------
+def test_bithumb_market_normalisation():
+    assert BithumbExchange._market("BTC") == "KRW-BTC"
+    assert BithumbExchange._market("KRW-BTC") == "KRW-BTC"
+    assert BithumbExchange._market("btc_krw") == "KRW-BTC"
+    assert BithumbExchange._market("ETH/KRW") == "KRW-ETH"
+
+
+def test_bithumb_interval_mapping():
+    assert BithumbExchange._candle_request("KRW-BTC", "1h", 200, None)[0] == "/v1/candles/minutes/60"
+    assert BithumbExchange._candle_request("KRW-BTC", "1d", 200, None)[0] == "/v1/candles/days"
+    with pytest.raises(ValueError):
+        BithumbExchange._candle_request("KRW-BTC", "2h", 200, None)
 
 
 def test_bithumb_parse_candles():
-    raw = {"status": "0000", "data": [
-        [1704067200000, "100", "105", "110", "95", "10.0"],
-        [1704153600000, "105", "108", "112", "104", "8.0"],
-    ]}
-    c = BithumbExchange._parse_candles("BTCKRW", "1d", raw)
-    assert len(c) == 2 and c.close[0] == 105.0 and c.high[1] == 112.0
+    raw = [
+        {"candle_date_time_kst": "2024-01-02T00:00:00", "opening_price": 105, "high_price": 112,
+         "low_price": 104, "trade_price": 108, "candle_acc_trade_volume": 8.0},
+        {"candle_date_time_kst": "2024-01-01T00:00:00", "opening_price": 100, "high_price": 110,
+         "low_price": 95, "trade_price": 105, "candle_acc_trade_volume": 10.0},
+    ]
+    c = BithumbExchange._parse_candles("KRW-BTC", "1d", raw)
+    assert len(c) == 2 and c.close[0] == 105.0 and c.high[1] == 112.0  # oldest first
+    assert c.ticker == "KRWBTC"
 
 
-def test_bithumb_signature_is_base64_of_hex():
+def test_bithumb_auth_headers_include_query_hash():
     ex = BithumbExchange(api_key="k", secret_key="s")
-    sign = ex._sign("/info/balance", {"endpoint": "/info/balance", "currency": "BTC"}, "123")
-    decoded = base64.b64decode(sign).decode()
-    assert len(decoded) == 128 and all(ch in "0123456789abcdef" for ch in decoded)
+    headers = ex._auth_headers({"market": "KRW-BTC", "side": "bid"})
+    token = headers["Authorization"].removeprefix("Bearer ")
+    payload = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "=="))
+    assert payload["query_hash_alg"] == "SHA512" and "query_hash" in payload
+    assert payload["access_key"] == "k"
+
+
+def test_bithumb_order_maps_side_and_calls_request(monkeypatch):
+    ex = BithumbExchange(api_key="k", secret_key="s")
+    captured = {}
+    monkeypatch.setattr(ex, "_request", lambda *a, **k: captured.update(k) or {"uuid": "x"})
+    ex.create_order("BTC", "SELL", 0.1, price=50000, order_type="limit")
+    assert captured["json_body"]["side"] == "ask"
+    assert captured["json_body"]["market"] == "KRW-BTC"
 
 
 # -- KIS (Korean stocks) ----------------------------------------------------
