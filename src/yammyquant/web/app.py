@@ -227,6 +227,19 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         state.set("targets", targets)
         return {"targets": targets}
 
+    @app.post("/api/target/risk-parity")
+    def risk_parity(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            weights = ops.risk_parity_weights(store(), p["symbols"], p.get("interval", "1d"))
+        except KeyError:
+            raise HTTPException(400, "symbols are required")
+        except Exception as e:
+            raise HTTPException(502, f"risk parity failed: {e}")
+        state.set("targets", weights)
+        return {"targets": weights}
+
     @app.post("/api/rebalance")
     def rebalance(payload: dict):
         from yammyquant.ops import operator as ops
