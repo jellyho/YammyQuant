@@ -195,7 +195,11 @@ def test_backtest_returns_equity_curve(client):
     c, _ = client
     r = c.post("/api/backtest", json={"ticker": "BTCUSDT", "interval": "1d",
                                       "strategy": "macross", "params": {"fast": 3, "slow": 8}})
-    assert r.status_code == 200 and isinstance(r.json().get("equity"), list)
+    body = r.json()
+    assert r.status_code == 200 and isinstance(body.get("equity"), list)
+    # price series + trade markers for the signals overlay
+    assert body["price"] and all({"ts", "close"} <= set(pt) for pt in body["price"])
+    assert all({"ts", "side", "price"} <= set(t) for t in body["trades"])
 
 
 def test_plugin_web_authoring(client, tmp_path, monkeypatch):

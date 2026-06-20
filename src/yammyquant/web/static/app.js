@@ -340,6 +340,23 @@ async function research(path, extra) {
       line: { color: "#3fb950", width: 2 }, fill: "tozeroy", fillcolor: "rgba(63,185,80,0.08)" }],
       layout("backtest equity"), { displayModeBar: false, responsive: true });
   } else { Plotly.purge("researchPlot"); }
+  // price with buy/sell markers overlay
+  if (d.price && d.price.length) {
+    const tr = d.trades || [];
+    const buys = tr.filter(t => t.side === "BUY"), sells = tr.filter(t => t.side === "SELL");
+    Plotly.react("researchSignals", [
+      { type: "scatter", mode: "lines", name: "price",
+        x: d.price.map(p => p.ts), y: d.price.map(p => p.close),
+        line: { color: "#7d8794", width: 1.3 } },
+      { type: "scatter", mode: "markers", name: "buy",
+        x: buys.map(t => t.ts), y: buys.map(t => t.price),
+        marker: { color: "#3fb950", size: 9, symbol: "triangle-up" } },
+      { type: "scatter", mode: "markers", name: "sell",
+        x: sells.map(t => t.ts), y: sells.map(t => t.price),
+        marker: { color: "#f85149", size: 9, symbol: "triangle-down" } },
+    ], { ...layout("price + signals"), showlegend: false },
+      { displayModeBar: false, responsive: true });
+  } else { Plotly.purge("researchSignals"); }
 }
 $("rsBacktest").onclick = () => research("/api/backtest", {});
 $("rsOptimize").onclick = () => research("/api/optimize", { walk_forward: parseInt($("rsWF").value) || 0 });
@@ -353,6 +370,7 @@ $("rsPortfolio").onclick = async () => {
   const d = await r.json();
   if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);
+  Plotly.purge("researchSignals");
   if (d.equity && d.equity.length) {
     Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
