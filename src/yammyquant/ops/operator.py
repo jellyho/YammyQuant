@@ -808,6 +808,46 @@ def notify_status(state: LiveState) -> dict:
     return {"message": message, "sent": sent, "channels": channels()}
 
 
+def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str,
+                       params: Optional[dict] = None, weights: Optional[list] = None,
+                       cash: float = 10_000.0, fee: float = 0.001) -> dict:
+    """Backtest a strategy across several symbols and combine into one portfolio.
+
+    Capital is split by ``weights`` (equal by default); each symbol runs its own
+    single-symbol backtest with its slice of cash, and the per-symbol equity
+    curves are aligned and summed into a portfolio curve + headline stats.
+    """
+    import pandas as pd
+    from yammyquant.metrics.performance import summary
+
+    symbols = [s for s in symbols if s]
+    if not symbols:
+        raise ValueError("need at least one symbol")
+    weights = weights or [1.0 / len(symbols)] * len(symbols)
+    if len(weights) != len(symbols):
+        raise ValueError("weights length must match symbols")
+    total = sum(weights) or 1.0
+    weights = [w / total for w in weights]
+
+    per_symbol, curves = {}, []
+    for sym, w in zip(symbols, weights):
+        candle = store.read(sym, interval)
+        res = Backtest(candle, build_strategy(strategy, **(params or {})),
+                       cash=cash * w, fee=fee).run()
+        per_symbol[sym] = {**res.stats, "weight": round(w, 4)}
+        eq = res.equity_curve["equity"].copy()
+        eq.name = sym
+        curves.append(eq)
+
+    combined = pd.concat(curves, axis=1).sort_index().ffill().bfill()
+    portfolio = combined.sum(axis=1)
+    stats = summary(pd.DataFrame({"equity": portfolio}), pd.DataFrame(), interval=interval)
+    points = [{"ts": str(ts), "equity": float(v)} for ts, v in portfolio.items()]
+    step = max(1, len(points) // 400)
+    return {"symbols": symbols, "interval": interval, "strategy": strategy,
+            "portfolio": stats, "per_symbol": per_symbol, "equity": points[::step]}
+
+
 def attribution(state: LiveState) -> dict:
     """Per-strategy performance attribution from executed trades.
 
