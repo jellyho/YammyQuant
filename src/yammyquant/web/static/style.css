@@ -75,3 +75,8 @@ th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: upp
 .pill { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); }
 .pill.filled { color: var(--green); } .pill.pending { color: var(--amber); }
 .pill.rejected { color: var(--red); }
+
+/* per-strategy weight inputs in the Strategies panel */
+.strat-row { display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0; }
+.strat-row .wt { width: 42px; padding: 2px 4px; font-size: 11px; text-align: center;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; }

@@ -292,9 +292,38 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         from yammyquant.ops.operator import STRATEGIES
         settings = state.settings()
         return [
-            {"name": name, "enabled": settings.get(f"strategy.{name}.enabled", True)}
+            {"name": name,
+             "enabled": settings.get(f"strategy.{name}.enabled", True),
+             "weight": float(settings.get(f"strategy.{name}.weight", 1.0))}
             for name in sorted(STRATEGIES)
         ]
+
+    @app.post("/api/backtest")
+    def run_backtest(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            return _json_safe(ops.backtest(
+                store(), p["ticker"], p.get("interval", "1d"), p["strategy"],
+                params=p.get("params") or None, state=state))
+        except KeyError:
+            raise HTTPException(400, "ticker and strategy are required")
+        except Exception as e:
+            raise HTTPException(502, f"backtest failed: {e}")
+
+    @app.post("/api/optimize")
+    def run_optimize(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            return _json_safe(ops.optimize(
+                store(), p["ticker"], p.get("interval", "1d"), p["strategy"],
+                metric=p.get("metric", "sharpe"),
+                walk_forward_splits=int(p.get("walk_forward", 0)), state=state))
+        except KeyError:
+            raise HTTPException(400, "ticker and strategy are required")
+        except Exception as e:
+            raise HTTPException(502, f"optimize failed: {e}")
 
     # -- WebSocket: push state snapshots -----------------------------------
     @app.websocket("/ws")

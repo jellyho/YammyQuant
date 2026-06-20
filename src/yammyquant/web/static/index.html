@@ -57,6 +57,19 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><h2>Research — backtest &amp; optimize</h2></div>
+      <div class="inbox-compose">
+        <input id="rsTicker" value="BTCUSDT" style="max-width:120px" />
+        <input id="rsInterval" value="1d" style="max-width:60px" />
+        <select id="rsStrategy"></select>
+        <button id="rsBacktest" class="ok">backtest</button>
+        <button id="rsOptimize" class="ghost">optimize</button>
+        <label style="font-size:11px;color:var(--muted)">WF<input id="rsWF" value="0" style="max-width:40px" /></label>
+      </div>
+      <div id="research" class="report"></div>
+    </section>
+
+    <section class="card">
       <div class="card-head"><h2>Signals</h2></div>
       <table id="signals"><thead><tr>
         <th>ts</th><th>ticker</th><th>strategy</th><th>action</th>

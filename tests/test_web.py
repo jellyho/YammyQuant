@@ -159,3 +159,27 @@ def test_targets_and_cycle_and_status(client):
     assert c.post("/api/notify").status_code == 200          # log-only (no webhook)
     state.add_watch("BTCUSDT", "", "1d")
     assert c.post("/api/cycle").status_code == 200
+
+
+def test_backtest_endpoint(client):
+    c, _ = client
+    r = c.post("/api/backtest", json={"ticker": "BTCUSDT", "interval": "1d",
+                                      "strategy": "macross", "params": {"fast": 3, "slow": 8}})
+    assert r.status_code == 200 and "sharpe" in r.json()
+
+
+def test_optimize_endpoint(client):
+    c, _ = client
+    r = c.post("/api/optimize", json={"ticker": "BTCUSDT", "interval": "1d",
+                                      "strategy": "macross"})
+    assert r.status_code == 200 and "best_params" in r.json()
+
+
+def test_backtest_requires_fields(client):
+    c, _ = client
+    assert c.post("/api/backtest", json={"interval": "1d"}).status_code == 400
+
+
+def test_strategies_endpoint_includes_weight(client):
+    c, _ = client
+    assert all("weight" in s for s in c.get("/api/strategies").json())

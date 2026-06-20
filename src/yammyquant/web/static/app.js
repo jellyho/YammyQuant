@@ -142,13 +142,24 @@ async function loadStrategies() {
   if (!r.ok) return;
   const items = await r.json();
   $("strategies").innerHTML = items.map(s =>
-    `<button class="${s.enabled ? 'ok' : 'ghost'}" onclick="toggleStrategy('${s.name}', ${!s.enabled})">
-       ${s.enabled ? '●' : '○'} ${s.name}
-     </button>`).join("");
+    `<span class="strat-row">
+       <button class="${s.enabled ? 'ok' : 'ghost'}" onclick="toggleStrategy('${s.name}', ${!s.enabled})">
+         ${s.enabled ? '●' : '○'} ${s.name}</button>
+       <input class="wt" title="ensemble vote weight" value="${s.weight}"
+              onchange="setWeight('${s.name}', this.value)" />
+     </span>`).join("");
+  // keep the Research strategy dropdown in sync
+  const sel = $("rsStrategy");
+  if (sel && sel.options.length !== items.length) {
+    sel.innerHTML = items.map(s => `<option>${s.name}</option>`).join("");
+  }
 }
 window.toggleStrategy = async (name, enable) => {
   await post("/api/settings", { key: `strategy.${name}.enabled`, value: enable });
   loadStrategies();
+};
+window.setWeight = async (name, value) => {
+  await post("/api/settings", { key: `strategy.${name}.weight`, value: parseFloat(value) || 0 });
 };
 
 function renderRows(id, rowsHtml) {
@@ -305,6 +316,27 @@ $("rebalanceBtn").onclick = async () => {
   $("targetResult").textContent = r.ok
     ? `rebalanced: ${(d.orders || d.proposals || []).length} order(s)` : (d.detail || "failed");
 };
+
+function renderResearch(title, obj) {
+  const cell = (k, v) => `<div class="stat"><span>${escapeHtml(k)}</span><b>${escapeHtml(
+    typeof v === "object" ? JSON.stringify(v) : v)}</b></div>`;
+  const flat = {};
+  Object.entries(obj).forEach(([k, v]) => { if (typeof v !== "object" || v === null) flat[k] = v; });
+  $("research").innerHTML = `<div class="stat"><span>—</span><b>${title}</b></div>` +
+    Object.entries(flat).map(([k, v]) => cell(k, v)).join("");
+}
+async function research(path, extra) {
+  const body = { ticker: $("rsTicker").value.trim().toUpperCase(),
+    interval: $("rsInterval").value.trim(), strategy: $("rsStrategy").value, ...extra };
+  $("research").innerHTML = `<div class="stat"><span>…</span><b>running</b></div>`;
+  const r = await fetch(path, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; return; }
+  renderResearch(`${body.strategy} ${body.ticker} ${body.interval}`, d);
+}
+$("rsBacktest").onclick = () => research("/api/backtest", {});
+$("rsOptimize").onclick = () => research("/api/optimize", { walk_forward: parseInt($("rsWF").value) || 0 });
 
 async function loadPlugins() {
   const r = await fetch("/api/plugins"); if (!r.ok) return;
