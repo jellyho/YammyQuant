@@ -39,6 +39,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Tutorial: tutorial.md
+  - Worked examples: examples.md
   - Operating:
       - The toolbelt: toolbelt.md
       - The dashboard: dashboard.md
