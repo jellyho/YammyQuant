@@ -392,7 +392,8 @@ $("rsPortfolio").onclick = async () => {
   $("research").innerHTML = `<div class="stat"><span>…</span><b>running</b></div>`;
   const r = await fetch("/api/portfolio", { method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbols, interval: $("rsInterval").value.trim(), strategy: $("rsStrategy").value }) });
+    body: JSON.stringify({ symbols, interval: $("rsInterval").value.trim(),
+      strategy: $("rsStrategy").value, risk_parity: $("rsRiskParity").checked }) });
   const d = await r.json();
   if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);

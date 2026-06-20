@@ -362,6 +362,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--interval", default="1d")
     p.add_argument("--strategy", default="macross")
     p.add_argument("--weights", help="comma list of floats matching symbols")
+    p.add_argument("--risk-parity", action="store_true",
+                   help="size by inverse volatility instead of equal weight")
 
     p = sub.add_parser("notify", help="push a message / status digest to Discord & Slack")
     p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
@@ -632,7 +634,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "portfolio":
         weights = [float(x) for x in args.weights.split(",")] if args.weights else None
         out = ops.portfolio_backtest(DuckDBStore(args.store), args.symbols, args.interval,
-                                     args.strategy, weights=weights)
+                                     args.strategy, weights=weights,
+                                     risk_parity=args.risk_parity)
         _print({"portfolio": out["portfolio"], "per_symbol": out["per_symbol"]})
         return 0
 

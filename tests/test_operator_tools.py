@@ -207,3 +207,20 @@ def test_risk_parity_weights_inverse_vol(tmp_path):
     w = ops.risk_parity_weights(store, ["CALM", "WILD"], "1d")
     assert abs(sum(w.values()) - 1.0) < 1e-6
     assert w["CALM"] > w["WILD"]          # lower vol -> larger weight
+
+
+def test_portfolio_risk_parity_weights(tmp_path):
+    import numpy as np
+    import pandas as pd
+    store = DuckDBStore(tmp_path / "store")
+    for sym, sig in (("CALM", 0.005), ("WILD", 0.05)):
+        rng = np.random.default_rng(2)
+        close = 100 * np.exp(np.cumsum(rng.normal(0.0003, sig, 200)))
+        idx = pd.date_range("2023-01-01", periods=200, freq="1D")
+        store.write(Candle(sym, pd.DataFrame(
+            {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+             "volume": np.full(200, 1000.0)}, index=idx), interval="1d"))
+    out = ops.portfolio_backtest(store, ["CALM", "WILD"], "1d", "macross", risk_parity=True)
+    w = {s: v["weight"] for s, v in out["per_symbol"].items()}
+    assert w["CALM"] > w["WILD"]                      # inverse-vol sizing
+    assert abs(sum(w.values()) - 1.0) < 1e-6
