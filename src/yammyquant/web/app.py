@@ -399,7 +399,8 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         try:
             return _json_safe(ops.portfolio_backtest(
                 store(), p["symbols"], p.get("interval", "1d"), p.get("strategy", "macross"),
-                params=p.get("params") or None, weights=p.get("weights")))
+                params=p.get("params") or None, weights=p.get("weights"),
+                risk_parity=bool(p.get("risk_parity", False))))
         except KeyError:
             raise HTTPException(400, "symbols are required")
         except Exception as e:

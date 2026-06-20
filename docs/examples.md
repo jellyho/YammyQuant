@@ -76,7 +76,7 @@ $ yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weigh
 ## Portfolio backtest
 
 ```console
-$ yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy keltner_breakout
+$ yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy keltner_breakout   # add --risk-parity for inverse-vol sizing
 {
   "portfolio": {"total_return": 0.1808, "sharpe": 2.254, "max_drawdown": -0.0333},
   "per_symbol": {

@@ -810,12 +810,14 @@ def notify_status(state: LiveState) -> dict:
 
 def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str,
                        params: Optional[dict] = None, weights: Optional[list] = None,
-                       cash: float = 10_000.0, fee: float = 0.001) -> dict:
+                       cash: float = 10_000.0, fee: float = 0.001,
+                       risk_parity: bool = False) -> dict:
     """Backtest a strategy across several symbols and combine into one portfolio.
 
-    Capital is split by ``weights`` (equal by default); each symbol runs its own
-    single-symbol backtest with its slice of cash, and the per-symbol equity
-    curves are aligned and summed into a portfolio curve + headline stats.
+    Capital is split by ``weights`` (equal by default, or inverse-volatility when
+    ``risk_parity=True``); each symbol runs its own single-symbol backtest with
+    its slice of cash, and the per-symbol equity curves are aligned and summed
+    into a portfolio curve + headline stats.
     """
     import pandas as pd
     from yammyquant.metrics.performance import summary
@@ -823,6 +825,10 @@ def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str
     symbols = [s for s in symbols if s]
     if not symbols:
         raise ValueError("need at least one symbol")
+    if risk_parity and weights is None:
+        wmap = risk_parity_weights(store, symbols, interval)
+        symbols = list(wmap)
+        weights = [wmap[s] for s in symbols]
     weights = weights or [1.0 / len(symbols)] * len(symbols)
     if len(weights) != len(symbols):
         raise ValueError("weights length must match symbols")
