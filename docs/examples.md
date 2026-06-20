@@ -40,11 +40,15 @@ $ yq backtest BTCUSDT 1d keltner_breakout
     the `max_drawdown` stat, so you can *see* how long and how deep each
     drawdown ran, not just its worst point.
 
+![Underwater drawdown chart](assets/drawdown.png)
+
 !!! tip "Monthly returns"
     The panel also renders a **calendar heatmap** of month-by-month returns
     (green positive / red negative). Compounding the cells reconciles with
     `total_return`; the grid makes consistency and seasonality obvious — a few
     big months vs a steady drip read very differently for the same total.
+
+![Monthly returns calendar heatmap](assets/monthly.png)
 
 ## Optimize parameters
 
@@ -67,6 +71,8 @@ just the top 5). When a grid varies exactly two parameters, the dashboard
 Research panel renders it as a **sensitivity heatmap** (e.g. `fast` × `slow` →
 Sharpe) — a robust plateau of good scores beats a lone spike that's likely
 overfit.
+
+![Sharpe sensitivity across a fast × slow grid](assets/sensitivity.png)
 
 ### Validate out-of-sample (walk-forward)
 
@@ -113,6 +119,8 @@ full window (a stable reference for every row); `--metric` accepts
 `win_rate`. The dashboard **Strategy leaderboard** panel plots the same ranking
 as a bar chart. Strategies that error (e.g. too little data) land in `errors`
 instead of failing the whole run.
+
+![Strategy leaderboard ranked by Sharpe](assets/leaderboard.png)
 
 ## Blend strategies (ensemble)
 
@@ -171,6 +179,8 @@ $ yq correlate BTCUSDT ETHUSDT SOLUSDT
 In a terminal the matrix renders as a colored table; the dashboard **Correlation**
 panel draws the same numbers as a red→green heatmap. Pearson correlation of daily
 returns over the last `lookback` bars (default 120).
+
+![Return-correlation heatmap](assets/correlation.png)
 
 ## Trade (paper) and report
 
