@@ -44,6 +44,8 @@ flips between **live** and **reconnecting…**.
 | **Manual trade** | Submit a paper/live order straight from the dashboard. |
 | **Targets & rebalance** | Set portfolio target weights and **rebalance** toward them. |
 | **Plugins** | The operator-authored strategies/indicators currently loaded (+ any load errors). |
+| **Research** | Run a **backtest** or **optimize** (grid / walk-forward) on any ticker + strategy and read the stats — research without leaving the dashboard. |
+| **Strategy weights** | Each strategy toggle has an inline **ensemble vote weight** input (`strategy.<name>.weight`). |
 
 Pending approvals now show the **"why"** — the rationale and contributing
 strategies behind each queued order — so you can approve with full context.
