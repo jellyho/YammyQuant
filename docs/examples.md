@@ -113,6 +113,15 @@ $ yq compare BTCUSDT 1d --strategies keltner_breakout,donchian_breakout,rsi_reve
 }
 ```
 
+Add `--optimize` to grid-search each strategy first and rank them at their
+**best** params (a fair, tuned comparison — a strategy whose defaults don't suit
+the symbol gets a fair shot; the chosen params land in each row's `params`):
+
+```console
+$ yq compare BTCUSDT 1d --strategies macross,donchian_breakout --optimize
+# macross: -0.15 sharpe at defaults -> 1.43 tuned {fast:20, slow:100}
+```
+
 Omit `--strategies` to rank all 19. `benchmark_return` is buy-and-hold over the
 full window (a stable reference for every row); `--metric` accepts
 `sharpe` / `total_return` / `excess_return` / `sortino` / `calmar` / `cagr` /

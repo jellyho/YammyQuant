@@ -289,13 +289,17 @@ def compare(
     metric: str = "sharpe",
     cash: float = 10_000.0,
     fee: float = 0.001,
+    optimize_each: bool = False,
     state: Optional[LiveState] = None,
 ) -> dict:
     """Backtest many strategies on one symbol and rank them by ``metric``.
 
-    Each strategy runs with its default parameters; rows carry the headline
-    stats plus ``excess_return`` vs buy-and-hold. Strategies that error (e.g.
-    too little data) are reported under ``errors`` rather than failing the run.
+    With ``optimize_each=False`` (default) each strategy runs at its default
+    parameters; with ``optimize_each=True`` each is grid-searched first and
+    ranked at its best params (a fair, tuned comparison) — the chosen params
+    land in each row's ``params``. Rows carry the headline stats plus
+    ``excess_return`` vs buy-and-hold. Strategies that error (e.g. too little
+    data) are reported under ``errors`` rather than failing the run.
     """
     names = list(strategies) if strategies else list(STRATEGIES)
     unknown = [n for n in names if n not in STRATEGIES]
@@ -315,13 +319,25 @@ def compare(
     rows, errors = [], {}
     for name in names:
         try:
-            stats = backtest(store, ticker, interval, name, cash=cash, fee=fee)
+            params = None
+            if optimize_each:
+                # excess_return isn't an engine stat the grid can rank on; tune
+                # on sharpe in that case, then report each strategy's excess.
+                opt_metric = "sharpe" if metric == "excess_return" else metric
+                opt = optimize(store, ticker, interval, name, metric=opt_metric,
+                               cash=cash, fee=fee)
+                params = opt.get("best_params") or {}
+            stats = backtest(store, ticker, interval, name, params=params,
+                             cash=cash, fee=fee)
         except Exception as e:  # noqa: BLE001 - surface per-strategy, keep going
             errors[name] = str(e)
             continue
-        rows.append({"strategy": name,
-                     **{f: stats.get(f) for f in _COMPARE_FIELDS},
-                     "calmar": stats.get("calmar"), "cagr": stats.get("cagr")})
+        row = {"strategy": name,
+               **{f: stats.get(f) for f in _COMPARE_FIELDS},
+               "calmar": stats.get("calmar"), "cagr": stats.get("cagr")}
+        if optimize_each:
+            row["params"] = params
+        rows.append(row)
 
     rows.sort(key=lambda r: (r.get(metric) is not None, r.get(metric) or 0.0), reverse=True)
     if state:

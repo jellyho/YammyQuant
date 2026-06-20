@@ -245,7 +245,8 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         try:
             return _json_safe(ops.compare(store(), p["ticker"], p.get("interval", "1d"),
                                           strategies=p.get("strategies"),
-                                          metric=p.get("metric", "sharpe"), state=state))
+                                          metric=p.get("metric", "sharpe"),
+                                          optimize_each=bool(p.get("optimize")), state=state))
         except KeyError:
             raise HTTPException(400, "ticker is required")
         except Exception as e:

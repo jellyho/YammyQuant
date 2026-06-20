@@ -37,6 +37,7 @@ yq backtest BTCUSDT 1d macross --fast 5 --slow 20
 yq optimize BTCUSDT 1d macross --metric sharpe          # grid search
 yq optimize BTCUSDT 1d macross --walk-forward 4         # out-of-sample validation
 yq compare BTCUSDT 1d --metric sharpe                   # rank all strategies (leaderboard + excess vs buy&hold)
+yq compare BTCUSDT 1d --optimize                        # ...tuning each strategy first (fair, best-params ranking)
 yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weighted  # blend strategies
 yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy macross   # multi-symbol portfolio backtest
 yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout   # emit signals
