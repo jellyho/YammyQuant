@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence, Type
+from typing import Sequence, Type
 
 from yammyquant.data.candle import Candle
 from yammyquant.strategy.base import Strategy

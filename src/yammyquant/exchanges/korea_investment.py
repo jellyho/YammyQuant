@@ -153,7 +153,11 @@ class KoreaInvestment(Exchange):
             headers=self._headers("FHKST01010100"),
             params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": ticker})
         out = raw.get("output", {})
-        pick = lambda k: float(out[k]) if out.get(k) not in (None, "") else None
+
+        def pick(k):
+            v = out.get(k)
+            return float(v) if v not in (None, "") else None
+
         return {"ticker": ticker, "price": pick("stck_prpr"), "per": pick("per"),
                 "pbr": pick("pbr"), "eps": pick("eps"), "bps": pick("bps"),
                 "market_cap": pick("hts_avls"), "week52_high": pick("w52_hgpr"),

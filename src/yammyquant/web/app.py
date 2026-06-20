@@ -21,10 +21,9 @@ import asyncio
 import json
 import math
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from yammyquant.state.store import LiveState

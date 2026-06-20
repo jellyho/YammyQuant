@@ -12,7 +12,7 @@ import json
 import pytest
 
 from yammyquant.data.candle import Candle
-from yammyquant.exchanges import get_exchange, list_exchanges, NATIVE
+from yammyquant.exchanges import get_exchange, list_exchanges
 from yammyquant.exchanges.base import jwt_hs256
 from yammyquant.exchanges.binance import BinanceExchange
 from yammyquant.exchanges.upbit import UpbitExchange

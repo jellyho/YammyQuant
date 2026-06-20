@@ -149,7 +149,7 @@ def test_sync_orders_settles_submitted(tmp_path):
 def test_scheduler_runs_n_cycles(tmp_path, fake_exchange):
     from yammyquant.ops.scheduler import run_loop
     state = LiveState(tmp_path / "s.db")
-    LiveState(tmp_path / "s.db").add_watch("BTCUSDT", "fake", "1d")
+    state.add_watch("BTCUSDT", "fake", "1d")
     calls = []
     n = run_loop(str(tmp_path / "s.db"), str(tmp_path / "store"),
                  interval_seconds=0, max_cycles=2, sleep=lambda s: calls.append(s))

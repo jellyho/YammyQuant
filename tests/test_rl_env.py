@@ -3,7 +3,7 @@ import pytest
 
 gym = pytest.importorskip("gymnasium")
 
-from yammyquant.rl.env import ChartFollowingEnv
+from yammyquant.rl.env import ChartFollowingEnv  # noqa: E402  (after importorskip)
 
 
 def _closes(n=200):

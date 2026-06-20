@@ -60,7 +60,9 @@ def test_options_resolve_with_default(cfg_file):
 
 def test_default_exchange(cfg_file):
     assert xcfg.default_exchange() == "binance"
-    cfg = xcfg.load_config(); cfg["default_exchange"] = "upbit"; xcfg.save_config(cfg)
+    cfg = xcfg.load_config()
+    cfg["default_exchange"] = "upbit"
+    xcfg.save_config(cfg)
     assert xcfg.default_exchange() == "upbit"
 
 
