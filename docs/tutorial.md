@@ -61,6 +61,10 @@ yq news --collect            # pull RSS headlines, tag watchlist, score sentimen
 yq brief BTCUSDT             # one-screen digest: price + features + news + position
 ```
 
+The 30+ indicators behind these features are all callable via `candle.ind.<name>`:
+
+![Indicator panel: Bollinger Bands, RSI, MACD](assets/indicators.png)
+
 `yq brief` is the command to read **before** you decide — it folds price action,
 the latest features, recent news sentiment, fundamentals (for stocks), and your
 current position into a single JSON blob.
@@ -76,6 +80,12 @@ yq backtest BTCUSDT 1d macross --fast 5 --slow 20
 ```json
 { "sharpe": 1.42, "max_drawdown": -0.18, "win_rate": 0.55, "num_trades": 24, ... }
 ```
+
+The crossover entries/exits and the resulting equity curve (vs buy-and-hold):
+
+![Buy/sell signals on price](assets/signals.png)
+
+![Strategy equity curve vs buy and hold](assets/equity.png)
 
 There are **19 strategies** across trend, breakout, and mean-reversion/scalping —
 see [Strategies & risk](strategies.md). Swap `macross` for any of them, e.g.
@@ -107,6 +117,8 @@ blend:
 ```bash
 yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weighted
 ```
+
+![Ensemble vs member equity curves](assets/ensemble.png)
 
 The **rule** decides how member votes combine:
 
@@ -249,7 +261,8 @@ yq dashboard          # → http://127.0.0.1:8000
 ```
 
 The cockpit shows price/equity charts, positions, the news feed, pending-trade
-approvals, and an inbox where the user leaves you instructions.
+approvals, and an inbox where the user leaves you instructions — see
+[The dashboard](dashboard.md) for a panel-by-panel tour.
 
 ---
 

@@ -103,6 +103,8 @@ candle.ind.macd(12, 26, 9)      # DataFrame: macd / signal / hist
 candle.ind.supertrend(10, 3)    # DataFrame: supertrend / direction
 ```
 
+![Bollinger Bands, RSI and MACD panels](assets/indicators.png)
+
 Multi-output indicators (`macd`, `stoch`, `stoch_rsi`, `bbands`, `adx`,
 `keltner`, `donchian`, `supertrend`) return a `DataFrame`; the rest return a
 `Series` aligned to the candle index.

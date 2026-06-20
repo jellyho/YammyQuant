@@ -41,6 +41,7 @@ nav:
   - Tutorial: tutorial.md
   - Operating:
       - The toolbelt: toolbelt.md
+      - The dashboard: dashboard.md
       - Information layer: information-layer.md
       - Memory & persistence: memory.md
       - Strategies & risk: strategies.md
