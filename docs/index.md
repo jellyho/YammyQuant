@@ -9,6 +9,10 @@ you watch everything live and leave instructions.
     The brain is your Claude Code session. The dashboard is the cockpit; the
     conversation happens in Claude Code. Nothing here calls a paid inference API.
 
+!!! example "New here? Start with the [**Tutorial**](tutorial.md)"
+    A hands-on, end-to-end walkthrough — collect → research → backtest → ensemble
+    → signal → risk → trade → automate, every step a real `yq` command.
+
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch: **[Getting started](getting-started.md)**

@@ -38,6 +38,7 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Tutorial: tutorial.md
   - Operating:
       - The toolbelt: toolbelt.md
       - Information layer: information-layer.md
