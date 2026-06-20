@@ -58,7 +58,10 @@ $ yq optimize BTCUSDT 1d macross --walk-forward 4
 ```
 
 The per-fold gap between `in_sample` and `oos_sharpe` is the overfitting tell —
-chase the `avg_out_of_sample`, not the grid's best in-sample score.
+chase the `avg_out_of_sample`, not the grid's best in-sample score. The dashboard
+Research panel plots exactly this, in-sample vs out-of-sample per fold:
+
+![Walk-forward in-sample vs out-of-sample per fold](assets/walkforward.png)
 
 ## Blend strategies (ensemble)
 

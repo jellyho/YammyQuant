@@ -144,12 +144,40 @@ def chart_ensemble(candle: Candle) -> None:
     _save(fig, "ensemble.png")
 
 
+def chart_walkforward(_candle: Candle) -> None:
+    """Per-fold in-sample vs out-of-sample score — the overfitting gap.
+
+    Uses a longer series so each train fold has enough bars for the grid's
+    slowest MA (otherwise folds score 0 and the demo looks empty).
+    """
+    from yammyquant.backtest.optimize import walk_forward
+
+    candle = make_candle(n=900, seed=11)
+    wf = walk_forward(candle, MACross, {"fast": [5, 10, 20], "slow": [30, 50]},
+                      n_splits=4, metric="sharpe")
+    folds = wf["folds"]
+    x = np.arange(len(folds))
+    is_ = [f["in_sample_score"] for f in folds]
+    oos = [f["out_of_sample"].get("sharpe", 0.0) for f in folds]
+    fig, ax = plt.subplots(figsize=(10, 4.2))
+    ax.bar(x - 0.2, is_, 0.4, color=ACCENT, label="in-sample")
+    ax.bar(x + 0.2, oos, 0.4, color=GREEN, label="out-of-sample")
+    ax.axhline(0, color=GRID, lw=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"fold {f['fold']}" for f in folds])
+    ax.set_ylabel("sharpe")
+    ax.set_title(f"walk-forward — avg OOS sharpe {wf['avg_out_of_sample']}")
+    ax.legend(loc="upper left")
+    _save(fig, "walkforward.png")
+
+
 def main() -> None:
     candle = make_candle()
     chart_signals(candle)
     chart_equity(candle)
     chart_indicators(candle)
     chart_ensemble(candle)
+    chart_walkforward(candle)
 
 
 if __name__ == "__main__":
