@@ -62,6 +62,12 @@ $ yq optimize BTCUSDT 1d macross --metric sharpe
 }
 ```
 
+The response also carries the **full grid** under `results` (every combo, not
+just the top 5). When a grid varies exactly two parameters, the dashboard
+Research panel renders it as a **sensitivity heatmap** (e.g. `fast` × `slow` →
+Sharpe) — a robust plateau of good scores beats a lone spike that's likely
+overfit.
+
 ### Validate out-of-sample (walk-forward)
 
 ```console

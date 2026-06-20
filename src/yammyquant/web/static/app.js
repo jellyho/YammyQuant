@@ -360,6 +360,29 @@ async function research(path, extra) {
     Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly");
     return;
   }
+  // optimize sensitivity: heatmap of the score over the two varying params
+  if (d.results && d.results.length) {
+    const keys = Object.keys(d.results[0].params || {});
+    const varying = keys.filter(k => new Set(d.results.map(r => r.params[k])).size > 1);
+    if (varying.length === 2) {
+      const [kx, ky] = varying;
+      const xs = [...new Set(d.results.map(r => r.params[kx]))].sort((a, b) => a - b);
+      const ys = [...new Set(d.results.map(r => r.params[ky]))].sort((a, b) => a - b);
+      const z = ys.map(yv => xs.map(xv => {
+        const hit = d.results.find(r => r.params[kx] === xv && r.params[ky] === yv);
+        return hit ? hit.score : null;
+      }));
+      Plotly.react("researchPlot", [{
+        type: "heatmap", z, x: xs.map(String), y: ys.map(String), colorscale: "Viridis",
+        text: z, texttemplate: "%{text}", textfont: { size: 10 }, hoverongaps: false,
+        xgap: 1, ygap: 1,
+      }], { ...layout(`${d.metric} sensitivity — ${kx} (x) × ${ky} (y)`),
+        xaxis: { title: kx, gridcolor: "#232a33" }, yaxis: { title: ky, gridcolor: "#232a33" } },
+        { displayModeBar: false, responsive: true });
+      Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly");
+      return;
+    }
+  }
   if (d.equity && d.equity.length) {
     const traces = [{ type: "scatter", mode: "lines", name: "strategy",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
