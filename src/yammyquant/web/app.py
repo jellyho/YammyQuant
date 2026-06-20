@@ -392,11 +392,19 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         res = Backtest(candle, strat).run()
         eq = res.equity_curve
         step = max(1, len(eq) // 300)                 # downsample for the chart
+        bench_return = None
         if len(eq):
+            import pandas as pd
             running_max = eq["equity"].cummax()
             dd = (eq["equity"] / running_max - 1.0).fillna(0.0)   # underwater (≤ 0)
-            curve = [{"ts": str(ts), "equity": float(v), "dd": float(d)}
-                     for ts, v, d in list(zip(eq.index, eq["equity"], dd))[::step]]
+            # buy-and-hold benchmark: same start equity, just hold the asset
+            close_s = pd.Series(candle.close, index=candle.index, dtype=float)
+            bh = close_s.reindex(eq.index).ffill()
+            start_eq = float(eq["equity"].iloc[0])
+            bench = (bh / bh.iloc[0]) * start_eq if bh.iloc[0] else bh * 0.0
+            bench_return = round(float(bench.iloc[-1] / start_eq - 1.0), 4) if start_eq else None
+            curve = [{"ts": str(ts), "equity": float(v), "dd": float(d), "bench": float(b)}
+                     for ts, v, d, b in list(zip(eq.index, eq["equity"], dd, bench))[::step]]
         else:
             curve = []
         pstep = max(1, len(candle) // 400)
@@ -406,7 +414,8 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         trades = ([{"ts": str(t), "side": s, "price": float(pr)}
                    for t, s, pr in zip(tr["time"], tr["action"], tr["price"])]
                   if len(tr) else [])
-        return _json_safe({**res.stats, "equity": curve, "price": price, "trades": trades})
+        return _json_safe({**res.stats, "benchmark_return": bench_return,
+                           "equity": curve, "price": price, "trades": trades})
 
     @app.post("/api/portfolio")
     def run_portfolio(payload: dict):

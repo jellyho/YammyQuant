@@ -246,6 +246,9 @@ def test_backtest_returns_equity_curve(client):
     dds = [pt["dd"] for pt in body["equity"]]
     assert all(d <= 1e-9 for d in dds)
     assert min(dds) == pytest.approx(body["max_drawdown"], abs=1e-4)
+    # buy-and-hold benchmark: anchored to the same start equity, with a return stat
+    assert "benchmark_return" in body
+    assert body["equity"][0]["bench"] == pytest.approx(body["equity"][0]["equity"])
 
 
 def test_plugin_web_authoring(client, tmp_path, monkeypatch):
