@@ -178,3 +178,16 @@ def test_portfolio_backtest(tmp_path):
     assert "sharpe" in out["portfolio"] and out["equity"]
     # combined start equity ≈ the 10k total cash
     assert abs(out["equity"][0]["equity"] - 10_000) < 1.0
+
+
+def test_attribution_credits_entry_voters(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    tm.submit("AAA", "BUY", 1.0, 100, context={"voters": {"macross": "BUY", "supertrend": "BUY"}})
+    tm.submit("AAA", "SELL", 1.0, 130, context={"voters": {"macross": "SELL"}})   # +30
+    attr = {r["strategy"]: r for r in ops.attribution(state)["by_strategy"]}
+    # +30 realized split across the two entry voters
+    assert attr["macross"]["pnl"] == pytest.approx(15.0)
+    assert attr["supertrend"]["pnl"] == pytest.approx(15.0)
+    assert attr["macross"]["round_trips"] == 1
