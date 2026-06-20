@@ -372,6 +372,19 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
                  for ts, v in list(zip(eq.index, eq["equity"]))[::step]] if len(eq) else []
         return _json_safe({**res.stats, "equity": curve})
 
+    @app.post("/api/portfolio")
+    def run_portfolio(payload: dict):
+        from yammyquant.ops import operator as ops
+        p = payload or {}
+        try:
+            return _json_safe(ops.portfolio_backtest(
+                store(), p["symbols"], p.get("interval", "1d"), p.get("strategy", "macross"),
+                params=p.get("params") or None, weights=p.get("weights")))
+        except KeyError:
+            raise HTTPException(400, "symbols are required")
+        except Exception as e:
+            raise HTTPException(502, f"portfolio backtest failed: {e}")
+
     @app.post("/api/optimize")
     def run_optimize(payload: dict):
         from yammyquant.ops import operator as ops

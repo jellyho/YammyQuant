@@ -37,6 +37,7 @@ yq backtest BTCUSDT 1d macross --fast 5 --slow 20
 yq optimize BTCUSDT 1d macross --metric sharpe          # grid search
 yq optimize BTCUSDT 1d macross --walk-forward 4         # out-of-sample validation
 yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weighted  # blend strategies
+yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy macross   # multi-symbol portfolio backtest
 yq scan BTCUSDT ETHUSDT --interval 1d --strategy donchian_breakout   # emit signals
 yq strategies --disable rsi_reversion   # list / toggle strategies
 yq train BTCUSDT 1d --timesteps 50000   # train an RL agent (needs .[rl])

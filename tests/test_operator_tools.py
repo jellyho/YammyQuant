@@ -154,3 +154,27 @@ def test_scheduler_runs_n_cycles(tmp_path, fake_exchange):
     n = run_loop(str(tmp_path / "s.db"), str(tmp_path / "store"),
                  interval_seconds=0, max_cycles=2, sleep=lambda s: calls.append(s))
     assert n == 2
+
+
+def test_portfolio_backtest(tmp_path):
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.sources.store import DuckDBStore
+    from yammyquant.data.candle import Candle
+    from yammyquant.ops import operator as ops
+
+    store = DuckDBStore(tmp_path / "store")
+    for sym, seed in (("AAA", 1), ("BBB", 2)):
+        rng = np.random.default_rng(seed)
+        close = 100 * np.exp(np.cumsum(rng.normal(0, 0.02, 150)))
+        idx = pd.date_range("2023-01-01", periods=150, freq="1D")
+        df = pd.DataFrame({"open": close, "high": close * 1.01, "low": close * 0.99,
+                           "close": close, "volume": np.full(150, 1000.0)}, index=idx)
+        store.write(Candle(sym, df, interval="1d"))
+
+    out = ops.portfolio_backtest(store, ["AAA", "BBB"], "1d", "macross")
+    assert set(out["per_symbol"]) == {"AAA", "BBB"}
+    assert abs(sum(s["weight"] for s in out["per_symbol"].values()) - 1.0) < 1e-9
+    assert "sharpe" in out["portfolio"] and out["equity"]
+    # combined start equity ≈ the 10k total cash
+    assert abs(out["equity"][0]["equity"] - 10_000) < 1.0

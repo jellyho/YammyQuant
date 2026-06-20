@@ -357,6 +357,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
     sub.add_parser("attribution", help="per-strategy performance attribution")
 
+    p = sub.add_parser("portfolio", help="multi-symbol portfolio backtest")
+    p.add_argument("symbols", nargs="+")
+    p.add_argument("--interval", default="1d")
+    p.add_argument("--strategy", default="macross")
+    p.add_argument("--weights", help="comma list of floats matching symbols")
+
     p = sub.add_parser("notify", help="push a message / status digest to Discord & Slack")
     p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
     p.add_argument("--status", action="store_true", help="send the status digest")
@@ -618,6 +624,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "attribution":
         _print(ops.attribution(state)["by_strategy"])
+        return 0
+
+    if args.cmd == "portfolio":
+        weights = [float(x) for x in args.weights.split(",")] if args.weights else None
+        out = ops.portfolio_backtest(DuckDBStore(args.store), args.symbols, args.interval,
+                                     args.strategy, weights=weights)
+        _print({"portfolio": out["portfolio"], "per_symbol": out["per_symbol"]})
         return 0
 
     if args.cmd == "notify":

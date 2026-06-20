@@ -215,3 +215,17 @@ def test_plugin_path_traversal_blocked(client, tmp_path, monkeypatch):
     c, _ = client
     monkeypatch.setenv("YQ_PLUGINS_DIR", str(tmp_path / "uplugins"))
     assert c.get("/api/plugins/file", params={"path": "../../etc/passwd"}).status_code == 400
+
+
+def test_portfolio_endpoint(client):
+    c, _ = client
+    r = c.post("/api/portfolio", json={"symbols": ["BTCUSDT"], "interval": "1d",
+                                       "strategy": "macross"})
+    assert r.status_code == 200
+    body = r.json()
+    assert "portfolio" in body and "BTCUSDT" in body["per_symbol"]
+
+
+def test_portfolio_requires_symbols(client):
+    c, _ = client
+    assert c.post("/api/portfolio", json={"strategy": "macross"}).status_code == 400

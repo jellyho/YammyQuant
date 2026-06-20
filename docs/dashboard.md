@@ -44,7 +44,7 @@ flips between **live** and **reconnecting…**.
 | **Manual trade** | Submit a paper/live order straight from the dashboard. |
 | **Targets & rebalance** | Set portfolio target weights and **rebalance** toward them. |
 | **Plugins** | The operator-authored strategies/indicators currently loaded (+ any load errors). |
-| **Research** | Run a **backtest** (with an equity-curve chart) or **optimize** (grid / walk-forward) on any ticker + strategy — research without leaving the dashboard. |
+| **Research** | Run a **backtest** (with an equity-curve chart), **optimize** (grid / walk-forward), or a **multi-symbol portfolio backtest** on any ticker(s) + strategy — research without leaving the dashboard. |
 | **Strategy weights** | Each strategy toggle has an inline **ensemble vote weight** input (`strategy.<name>.weight`). |
 | **Plugins authoring** | Scaffold a new strategy/indicator/skill, then edit it in an in-browser editor and **save & reload** — author your own toolbox from the web. |
 | **Attribution** | Per-strategy realized-PnL attribution across closed round-trips. |

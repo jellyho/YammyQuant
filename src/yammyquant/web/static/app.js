@@ -343,6 +343,23 @@ async function research(path, extra) {
 }
 $("rsBacktest").onclick = () => research("/api/backtest", {});
 $("rsOptimize").onclick = () => research("/api/optimize", { walk_forward: parseInt($("rsWF").value) || 0 });
+$("rsPortfolio").onclick = async () => {
+  const symbols = $("rsSymbols").value.trim().toUpperCase().split(/[\s,]+/).filter(Boolean);
+  if (!symbols.length) { $("research").innerHTML = `<div class="stat"><span>!</span><b>enter symbols</b></div>`; return; }
+  $("research").innerHTML = `<div class="stat"><span>…</span><b>running</b></div>`;
+  const r = await fetch("/api/portfolio", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbols, interval: $("rsInterval").value.trim(), strategy: $("rsStrategy").value }) });
+  const d = await r.json();
+  if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
+  renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);
+  if (d.equity && d.equity.length) {
+    Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
+      x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
+      line: { color: "#a371f7", width: 2 }, fill: "tozeroy", fillcolor: "rgba(163,113,247,0.08)" }],
+      layout("portfolio equity"), { displayModeBar: false, responsive: true });
+  }
+}
 
 // ---- plugin authoring & attribution --------------------------------------
 async function loadPluginFiles() {
