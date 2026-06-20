@@ -968,10 +968,22 @@ def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str
     combined = pd.concat(curves, axis=1).sort_index().ffill().bfill()
     portfolio = combined.sum(axis=1)
     stats = summary(pd.DataFrame({"equity": portfolio}), pd.DataFrame(), interval=interval)
-    points = [{"ts": str(ts), "equity": float(v)} for ts, v in portfolio.items()]
+
+    # weighted buy-and-hold benchmark: hold the basket (each leg w*cash) from
+    # the start over the same index — the bar the active portfolio must clear.
+    bench = pd.Series(0.0, index=portfolio.index)
+    for sym, w in zip(symbols, weights):
+        leg, _ = buy_hold_benchmark(store.read(sym, interval), portfolio.index, cash * w)
+        bench = bench.add(leg, fill_value=0.0)
+    bench_return = round(float(bench.iloc[-1] / cash - 1.0), 4) if len(bench) and cash else None
+    bmap = {ts: float(v) for ts, v in bench.items()}
+
+    points = [{"ts": str(ts), "equity": float(v), "bench": bmap.get(ts)}
+              for ts, v in portfolio.items()]
     step = max(1, len(points) // 400)
     return {"symbols": symbols, "interval": interval, "strategy": strategy,
-            "portfolio": stats, "per_symbol": per_symbol, "equity": points[::step]}
+            "portfolio": stats, "per_symbol": per_symbol,
+            "benchmark_return": bench_return, "equity": points[::step]}
 
 
 def correlation(store: DuckDBStore, symbols, interval: str = "1d",

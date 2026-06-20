@@ -178,6 +178,9 @@ def test_portfolio_backtest(tmp_path):
     assert "sharpe" in out["portfolio"] and out["equity"]
     # combined start equity ≈ the 10k total cash
     assert abs(out["equity"][0]["equity"] - 10_000) < 1.0
+    # weighted buy-and-hold benchmark, anchored to the same start
+    assert out["benchmark_return"] is not None
+    assert out["equity"][0]["bench"] == pytest.approx(out["equity"][0]["equity"], abs=1.0)
 
 
 def test_attribution_credits_entry_voters(tmp_path):

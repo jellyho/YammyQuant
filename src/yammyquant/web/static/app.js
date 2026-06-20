@@ -453,10 +453,18 @@ $("rsPortfolio").onclick = async () => {
   renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);
   Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly");
   if (d.equity && d.equity.length) {
-    Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
+    const traces = [{ type: "scatter", mode: "lines", name: "portfolio",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),
-      line: { color: "#a371f7", width: 2 }, fill: "tozeroy", fillcolor: "rgba(163,113,247,0.08)" }],
-      layout("portfolio equity"), { displayModeBar: false, responsive: true });
+      line: { color: "#a371f7", width: 2 }, fill: "tozeroy", fillcolor: "rgba(163,113,247,0.08)" }];
+    if (d.equity[0].bench != null) {
+      traces.push({ type: "scatter", mode: "lines", name: "buy & hold",
+        x: d.equity.map(e => e.ts), y: d.equity.map(e => e.bench),
+        line: { color: "#7d8794", width: 1.4, dash: "dot" } });
+    }
+    const pt = (d.benchmark_return != null)
+      ? `portfolio equity — vs buy & hold (${(d.benchmark_return * 100).toFixed(1)}%)` : "portfolio equity";
+    Plotly.react("researchPlot", traces,
+      { ...layout(pt), showlegend: true }, { displayModeBar: false, responsive: true });
   }
 }
 

@@ -147,6 +147,7 @@ $ yq ensemble BTCUSDT 1d --members macross,supertrend,rsi_reversion --rule weigh
 $ yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy keltner_breakout   # add --risk-parity for inverse-vol sizing
 {
   "portfolio": {"total_return": 0.1808, "sharpe": 2.254, "max_drawdown": -0.0333},
+  "benchmark_return": 0.7442,
   "per_symbol": {
     "BTCUSDT": {"total_return": 0.1139, "weight": 0.3333},
     "ETHUSDT": {"total_return": -0.0558, "weight": 0.3333},
@@ -154,6 +155,10 @@ $ yq portfolio BTCUSDT ETHUSDT SOLUSDT --strategy keltner_breakout   # add --ris
   }
 }
 ```
+
+`benchmark_return` is **holding the weighted basket** over the same window (the
+dashboard overlays it as a dashed line on the portfolio equity) — the same
+beat-the-market bar a single backtest gets.
 
 ## Risk-parity target weights
 
