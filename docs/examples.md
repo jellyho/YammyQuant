@@ -16,9 +16,17 @@ $ yq backtest BTCUSDT 1d keltner_breakout
 {
   "bars": 479, "start_equity": 10000.0, "end_equity": 10379.65,
   "total_return": 0.038, "sharpe": 1.732, "sortino": 1.908, "calmar": 4.22,
-  "max_drawdown": -0.0068, "num_trades": 24, "num_closed": 5, "win_rate": 0.0
+  "max_drawdown": -0.0068, "num_trades": 24, "num_closed": 5, "win_rate": 0.0,
+  "benchmark_return": 0.1174, "excess_return": -0.0794
 }
 ```
+
+!!! tip "vs buy & hold"
+    Every backtest now reports `benchmark_return` (holding the asset over the
+    same window) and `excess_return` (strategy minus benchmark). A *negative*
+    `excess_return` — as here — means buy-and-hold beat the strategy; the edge
+    has to clear that bar to be worth trading. The dashboard draws the same
+    benchmark as a dashed line on the equity curve.
 
 !!! tip "Reading it"
     `total_return` is equity-based (includes the **unrealized** mark-to-market of
@@ -31,12 +39,6 @@ $ yq backtest BTCUSDT 1d keltner_breakout
     curve — equity as a percentage below its running peak. Its trough is exactly
     the `max_drawdown` stat, so you can *see* how long and how deep each
     drawdown ran, not just its worst point.
-
-!!! tip "Beat the market?"
-    The equity chart also overlays a dashed **buy & hold** line — the same
-    starting equity, just holding the asset over the backtested window — and the
-    title shows its return. If your strategy curve sits below the dashed line,
-    you'd have done better doing nothing; that's the bar every edge has to clear.
 
 ## Optimize parameters
 

@@ -226,6 +226,21 @@ def test_portfolio_risk_parity_weights(tmp_path):
     assert abs(sum(w.values()) - 1.0) < 1e-6
 
 
+def test_backtest_includes_buy_hold_benchmark(tmp_path):
+    store = DuckDBStore(tmp_path / "store")
+    rng = np.random.default_rng(7)
+    close = 100 * np.exp(np.cumsum(rng.normal(0.001, 0.02, 300)))
+    idx = pd.date_range("2023-01-01", periods=300, freq="1D")
+    store.write(Candle("BTCUSDT", pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+         "volume": np.full(300, 1000.0)}, index=idx), interval="1d"))
+    out = ops.backtest(store, "BTCUSDT", "1d", "macross", {"fast": 5, "slow": 20})
+    assert "benchmark_return" in out and out["benchmark_return"] is not None
+    # excess return is strategy minus buy-and-hold, to 4dp
+    assert out["excess_return"] == pytest.approx(
+        round(out["total_return"] - out["benchmark_return"], 4), abs=1e-9)
+
+
 def test_correlation_matrix(tmp_path):
     import numpy as np
     import pandas as pd
