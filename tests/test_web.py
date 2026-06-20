@@ -201,7 +201,11 @@ def test_optimize_endpoint(client):
     c, _ = client
     r = c.post("/api/optimize", json={"ticker": "BTCUSDT", "interval": "1d",
                                       "strategy": "macross"})
-    assert r.status_code == 200 and "best_params" in r.json()
+    body = r.json()
+    assert r.status_code == 200 and "best_params" in body
+    # full grid is returned (for the sensitivity heatmap), not just top-5
+    assert len(body["results"]) >= len(body["top"])
+    assert all({"params", "score"} <= set(r) for r in body["results"])
 
 
 def test_optimize_walkforward_returns_folds(tmp_path):

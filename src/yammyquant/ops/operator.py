@@ -127,7 +127,10 @@ def optimize(
     out = {"metric": metric, "best_params": res.best_params,
            "best_score": round(res.best_score, 4),
            "top": [{"params": r["params"], "score": round(r["score"], 4)}
-                   for r in res.results[:5]]}
+                   for r in res.results[:5]],
+           # full grid (every param combo) for a sensitivity heatmap
+           "results": [{"params": r["params"], "score": round(r["score"], 4)}
+                       for r in res.results]}
     if state:
         state.log("optimize", f"optimized {strategy} on {ticker}/{interval}",
                   best_params=res.best_params, best_score=out["best_score"], metric=metric)
