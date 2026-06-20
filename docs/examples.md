@@ -40,6 +40,12 @@ $ yq backtest BTCUSDT 1d keltner_breakout
     the `max_drawdown` stat, so you can *see* how long and how deep each
     drawdown ran, not just its worst point.
 
+!!! tip "Monthly returns"
+    The panel also renders a **calendar heatmap** of month-by-month returns
+    (green positive / red negative). Compounding the cells reconciles with
+    `total_return`; the grid makes consistency and seasonality obvious — a few
+    big months vs a steady drip read very differently for the same total.
+
 ## Optimize parameters
 
 ```console

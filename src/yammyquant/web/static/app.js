@@ -357,7 +357,7 @@ async function research(path, extra) {
         marker: { color: "#3fb950" } },
     ], { ...layout(`walk-forward ${metric}: in-sample vs out-of-sample`), barmode: "group",
       showlegend: true }, { displayModeBar: false, responsive: true });
-    Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown");
+    Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly");
     return;
   }
   if (d.equity && d.equity.length) {
@@ -383,7 +383,20 @@ async function research(path, extra) {
         { ...layout("drawdown (% below peak)"), yaxis: { ticksuffix: "%" } },
         { displayModeBar: false, responsive: true });
     } else { Plotly.purge("researchDrawdown"); }
-  } else { Plotly.purge("researchPlot"); Plotly.purge("researchDrawdown"); }
+    // monthly returns heatmap (calendar consistency / seasonality)
+    const mo = d.monthly;
+    if (mo && mo.years && mo.years.length) {
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const pct = mo.matrix.map(row => row.map(v => v == null ? null : v * 100));
+      Plotly.react("researchMonthly", [{
+        type: "heatmap", z: pct, x: months, y: mo.years.map(String),
+        zmid: 0, colorscale: [[0, "#f85149"], [0.5, "#0e1116"], [1, "#3fb950"]],
+        text: pct.map(row => row.map(v => v == null ? "" : v.toFixed(1) + "%")),
+        texttemplate: "%{text}", textfont: { size: 10 }, hoverongaps: false,
+        xgap: 1, ygap: 1,
+      }], { ...layout("monthly returns (%)") }, { displayModeBar: false, responsive: true });
+    } else { Plotly.purge("researchMonthly"); }
+  } else { Plotly.purge("researchPlot"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly"); }
   // price with buy/sell markers overlay
   if (d.price && d.price.length) {
     const tr = d.trades || [];
@@ -415,7 +428,7 @@ $("rsPortfolio").onclick = async () => {
   const d = await r.json();
   if (!r.ok) { $("research").innerHTML = `<div class="stat"><span>error</span><b>${escapeHtml(d.detail || "failed")}</b></div>`; Plotly.purge("researchPlot"); return; }
   renderResearch(`portfolio (${symbols.join(", ")}) ${$("rsStrategy").value}`, d.portfolio);
-  Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown");
+  Plotly.purge("researchSignals"); Plotly.purge("researchDrawdown"); Plotly.purge("researchMonthly");
   if (d.equity && d.equity.length) {
     Plotly.react("researchPlot", [{ type: "scatter", mode: "lines",
       x: d.equity.map(e => e.ts), y: d.equity.map(e => e.equity),

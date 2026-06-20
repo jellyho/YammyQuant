@@ -241,6 +241,19 @@ def test_backtest_includes_buy_hold_benchmark(tmp_path):
         round(out["total_return"] - out["benchmark_return"], 4), abs=1e-9)
 
 
+def test_monthly_returns_matrix(tmp_path):
+    # 3 months of equity, +10% then -10% -> known cells
+    idx = pd.date_range("2023-01-31", periods=3, freq="ME")
+    eq = pd.Series([100.0, 110.0, 99.0], index=idx)
+    out = ops.monthly_returns(eq)
+    assert out["years"] == [2023]
+    row = out["matrix"][0]
+    assert row[0] is None                      # Jan: no prior month to diff
+    assert row[1] == pytest.approx(0.1)        # Feb: +10%
+    assert row[2] == pytest.approx(-0.1)       # Mar: -10%
+    assert all(row[m] is None for m in range(3, 12))
+
+
 def test_compare_ranks_strategies_by_metric(tmp_path):
     store = DuckDBStore(tmp_path / "store")
     rng = np.random.default_rng(3)
