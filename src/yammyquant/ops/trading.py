@@ -47,12 +47,16 @@ class TradeManager:
         mode: str = "paper",
         rationale: str = "",
         order_type: str = "market",
+        context: Optional[dict] = None,
     ) -> dict:
         """Submit an order. Paper fills now; live is queued for approval.
 
         The account-level risk policy is checked first and applies to both modes.
         ``order_type`` is ``"market"`` or ``"limit"`` — limit live orders rest as
         ``submitted`` after placement until ``sync_orders`` settles them.
+        ``context`` is an optional structured rationale (contributing strategies,
+        ensemble score, sentiment, sizing) — stored on the trade and surfaced in
+        the notification so the human sees *why* a trade happened.
         """
         side = side.upper()
         if side not in ("BUY", "SELL"):
@@ -60,32 +64,47 @@ class TradeManager:
         if quantity <= 0:
             raise ValueError("quantity must be positive")
 
+        meta = {"order_type": order_type}
+        if context:
+            meta["decision"] = context
+
         reason = self._risk_check(ticker, side, quantity, price)
         if reason is not None:
             trade_id = self.state.add_trade(ticker, side, quantity, price, mode, "rejected",
-                                            rationale, order_type=order_type)
+                                            rationale, **meta)
             self.state.log("trade", f"risk policy blocked #{trade_id}: {reason}", trade_id=trade_id)
-            self._notify(f"order blocked by risk policy: {side} {quantity} {ticker} — {reason}", "warn")
-            return self.state.get_trade(trade_id)
+            trade = self.state.get_trade(trade_id)
+            self._notify_trade(trade, context, headline=f"🚫 risk policy blocked — {reason}",
+                               level="warn")
+            return trade
 
         if mode == "live":
             trade_id = self.state.add_trade(
-                ticker, side, quantity, price, "live", "pending", rationale, order_type=order_type
+                ticker, side, quantity, price, "live", "pending", rationale, **meta
             )
             self.state.log(
                 "trade",
                 f"LIVE {order_type} {side} {quantity} {ticker} @ {price} queued for approval (#{trade_id})",
                 trade_id=trade_id,
             )
-            self._notify(f"⏳ LIVE {side} {quantity} {ticker} @ {price} needs approval (#{trade_id})", "action")
-            return self.state.get_trade(trade_id)
+            trade = self.state.get_trade(trade_id)
+            self._notify_trade(trade, context,
+                               headline=f"⏳ LIVE order needs approval — `yq approve {trade_id}`",
+                               level="action")
+            return trade
 
         # paper: fill immediately
         trade_id = self.state.add_trade(
-            ticker, side, quantity, price, "paper", "pending", rationale, order_type=order_type
+            ticker, side, quantity, price, "paper", "pending", rationale, **meta
         )
         self._fill(trade_id, ticker, side, quantity, price)
-        return self.state.get_trade(trade_id)
+        trade = self.state.get_trade(trade_id)
+        filled = trade["status"] == "filled"
+        self._notify_trade(
+            trade, context,
+            headline="✅ paper fill" if filled else "❌ paper order rejected (insufficient funds/holdings)",
+            level="info" if filled else "warn")
+        return trade
 
     # -- approval (live) ---------------------------------------------------
     def approve(self, trade_id: int, place_live: Optional[Callable] = None) -> dict:
@@ -200,6 +219,33 @@ class TradeManager:
     def _notify(self, message: str, level: str = "info") -> None:
         from yammyquant.ops.notify import notify
         notify(self.state, message, level)
+
+    def _notify_trade(self, trade: dict, context: Optional[dict], headline: str,
+                      level: str = "info") -> None:
+        """Send an information-rich trade alert: what, how big, and *why*."""
+        side = trade.get("side", "")
+        emoji = "🟢" if side == "BUY" else "🔴" if side == "SELL" else "•"
+        price = trade.get("price") or 0
+        qty = trade.get("quantity") or 0
+        notional = price * qty
+        lines = [
+            headline,
+            f"{emoji} {trade.get('mode', '').upper()} {side} {qty} {trade.get('ticker')} "
+            f"@ {price} (≈{notional:,.0f})",
+        ]
+        if trade.get("rationale"):
+            lines.append(f"↳ {trade['rationale']}")
+        ctx = context or {}
+        voters = ctx.get("voters")
+        if voters:
+            lines.append("voters: " + " · ".join(f"{k}={v}" for k, v in voters.items()))
+        facts = []
+        for key in ("rule", "score", "sentiment", "weight", "equity"):
+            if ctx.get(key) is not None:
+                facts.append(f"{key} {ctx[key]}")
+        if facts:
+            lines.append(" · ".join(facts))
+        self._notify("\n".join(lines), level)
 
     def _place_live_order(self, trade: dict) -> None:
         """Place a real order on the configured exchange. Only reached when allowed+approved.

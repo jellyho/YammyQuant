@@ -130,3 +130,32 @@ def test_approve_and_reject_pending(client):
     pending = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
     r = c.post(f"/api/trades/{pending['id']}/reject")
     assert r.status_code == 200 and r.json()["status"] == "rejected"
+
+
+def test_settings_get_and_plugins(client):
+    c, _ = client
+    assert c.get("/api/settings").status_code == 200
+    pj = c.get("/api/plugins").json()
+    assert "strategies" in pj and "errors" in pj
+
+
+def test_manual_trade_endpoint(client):
+    c, state = client
+    r = c.post("/api/trade", json={"ticker": "BTCUSDT", "side": "BUY",
+                                   "quantity": 0.1, "price": 100, "mode": "paper"})
+    assert r.status_code == 200 and r.json()["status"] == "filled"
+    assert state.positions()[0]["ticker"] == "BTCUSDT"
+
+
+def test_manual_trade_validates(client):
+    c, _ = client
+    assert c.post("/api/trade", json={"ticker": "BTCUSDT"}).status_code == 400
+
+
+def test_targets_and_cycle_and_status(client):
+    c, state = client
+    assert c.post("/api/target", json={"BTCUSDT": 0.5}).json()["targets"]["BTCUSDT"] == 0.5
+    assert state.get("targets") == {"BTCUSDT": 0.5}
+    assert c.post("/api/notify").status_code == 200          # log-only (no webhook)
+    state.add_watch("BTCUSDT", "", "1d")
+    assert c.post("/api/cycle").status_code == 200
