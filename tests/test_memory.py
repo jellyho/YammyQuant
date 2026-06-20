@@ -1,6 +1,5 @@
 """Agent memory: importance-weighted journal + recall (memory stream)."""
 
-from datetime import datetime, timezone, timedelta
 
 from yammyquant.state.store import LiveState
 from yammyquant.ops import operator as ops
@@ -21,7 +20,8 @@ def test_migration_adds_columns(tmp_path):
     con.executescript("CREATE TABLE journal (id INTEGER PRIMARY KEY AUTOINCREMENT,"
                       " ts TEXT NOT NULL, tag TEXT, text TEXT NOT NULL);")
     con.execute("INSERT INTO journal (ts, tag, text) VALUES ('2024-01-01T00:00:00+00:00','t','old note')")
-    con.commit(); con.close()
+    con.commit()
+    con.close()
     s = LiveState(db)                       # __init__ runs the migration
     assert s.add_journal("new", importance=5)  # importance column now exists
     assert all(k in s.journal()[0] for k in ("importance", "accessed"))

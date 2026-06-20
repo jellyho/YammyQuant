@@ -18,7 +18,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+import unicodedata
 from typing import Optional
 
 from yammyquant.state.store import LiveState
@@ -27,10 +29,11 @@ from yammyquant.ops import operator as ops
 from yammyquant.ops.trading import TradeManager
 
 # ---- cute output -----------------------------------------------------------
-# Pretty (colored, emoji, tables) when writing to a terminal; clean JSON when
-# piped or with --json, so machine consumers keep parsing exactly as before.
+# Pretty (colored, boxed, sparklines, CJK-aware) when writing to a terminal;
+# clean JSON when piped or with --json, so machine consumers parse as before.
 _COLOR = sys.stdout.isatty() and os.getenv("NO_COLOR") is None and os.getenv("TERM") != "dumb"
 _FORCE_JSON = False
+_TITLE = ""          # set per command in main(), used as the panel header
 
 BANNER = r"""
   __ _  __ _ _ __ ___  _ __ ___  _   _
@@ -40,19 +43,35 @@ BANNER = r"""
  |___/                           |___/
 """
 
+_ANSI = re.compile(r"\033\[[0-9;]*m")
+_SPARK = "▁▂▃▄▅▆▇█"
+
 
 class _Hue:
-    R = "\033[0m"; B = "\033[1m"; DIM = "\033[2m"
-    CYAN = "\033[36m"; GREEN = "\033[32m"; RED = "\033[31m"
-    YEL = "\033[33m"; BLUE = "\033[34m"; MAG = "\033[35m"; GREY = "\033[90m"
+    R = "\033[0m"
+    B = "\033[1m"
+    DIM = "\033[2m"
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    YEL = "\033[33m"
+    BLUE = "\033[34m"
+    MAG = "\033[35m"
+    GREY = "\033[90m"
 
 
 def _c(text, color: str) -> str:
     return f"{color}{text}{_Hue.R}" if _COLOR else str(text)
 
 
-def _emoji(s: str) -> str:
-    return s if _COLOR else ""
+def _dwidth(s: str) -> int:
+    """Visible width: strip ANSI, count CJK/full-width glyphs as 2 columns."""
+    s = _ANSI.sub("", s)
+    return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in s)
+
+
+def _pad(s: str, width: int) -> str:
+    return s + " " * max(0, width - _dwidth(s))
 
 
 def banner() -> str:
@@ -63,11 +82,31 @@ def banner() -> str:
     )
 
 
+def _sparkline(values) -> str:
+    nums = [float(x) for x in values if isinstance(x, (int, float))]
+    if len(nums) < 2:
+        return ""
+    lo, hi = min(nums), max(nums)
+    rng = (hi - lo) or 1.0
+    bars = "".join(_SPARK[min(7, int((v - lo) / rng * 7))] for v in nums[-40:])
+    trend = _Hue.GREEN if nums[-1] >= nums[0] else _Hue.RED
+    return _c(bars, trend)
+
+
 def _plain(value) -> str:
     if value is None:
         return "–"
     if isinstance(value, bool):
         return "yes" if value else "no"
+    if isinstance(value, float):
+        if value != value:                       # NaN
+            return "–"
+        a = abs(value)
+        if a != 0 and (a >= 1e7 or a < 1e-4):
+            return f"{value:.4g}"
+        return (f"{value:,.4f}".rstrip("0").rstrip(".")) or "0"
+    if isinstance(value, int) and abs(value) >= 1000:
+        return f"{value:,}"
     return str(value)
 
 
@@ -89,7 +128,7 @@ def _color_for(key, value) -> Optional[str]:
     if s in ("rejected", "error", "failed", "stale", "disabled"):
         return _Hue.RED
     if isinstance(value, (int, float)) and not isinstance(value, bool) and any(
-        k in low for k in ("pnl", "return", "sharpe", "sentiment", "score", "decay")
+        k in low for k in ("pnl", "return", "sharpe", "sentiment", "score", "decay", "drawdown")
     ):
         return _Hue.GREEN if value > 0 else _Hue.RED if value < 0 else _Hue.GREY
     return None
@@ -101,32 +140,43 @@ def _cell(key, value) -> str:
     return _c(text, color) if color else text
 
 
+def _box(title: str, body: str) -> str:
+    """Wrap multi-line body in a rounded box with a colored title header."""
+    lines = body.split("\n")
+    inner = max([_dwidth(title) + 1, *(_dwidth(ln) for ln in lines)])
+    g = _Hue.GREY
+    top = (_c("╭─ ", g) + _c(title, _Hue.B + _Hue.CYAN)
+           + _c(" " + "─" * max(0, inner - _dwidth(title) - 1) + "╮", g))
+    mid = "\n".join(_c("│ ", g) + _pad(ln, inner) + _c(" │", g) for ln in lines)
+    bot = _c("╰" + "─" * (inner + 2) + "╯", g)
+    return f"{top}\n{mid}\n{bot}"
+
+
 def _table(rows: list[dict]) -> str:
     cols = list({k: None for r in rows for k in r})  # union, order-preserving
-    widths = {c: max(len(c), *(len(_plain(r.get(c))) for r in rows)) for c in cols}
-    head = "  ".join(_c(c.ljust(widths[c]), _Hue.B + _Hue.CYAN) for c in cols)
+    widths = {c: max(_dwidth(c), *(_dwidth(_plain(r.get(c))) for r in rows)) for c in cols}
+    head = "  ".join(_c(_pad(c, widths[c]), _Hue.B + _Hue.CYAN) for c in cols)
     sep = _c("  ".join("─" * widths[c] for c in cols), _Hue.GREY)
     body = []
     for r in rows:
-        cells = []
-        for c in cols:
-            raw = _plain(r.get(c))
-            pad = " " * (widths[c] - len(raw))
-            cells.append(_cell(c, r.get(c)) + pad)
+        cells = [_pad(_cell(c, r.get(c)), widths[c]) for c in cols]
         body.append("  ".join(cells))
     return "\n".join([head, sep, *body])
 
 
 def _kv(obj: dict) -> str:
-    width = max((len(str(k)) for k in obj), default=0)
+    width = max((_dwidth(str(k)) for k in obj), default=0)
     lines = []
     for k, v in obj.items():
-        if isinstance(v, (dict, list)):
+        label = _c(_pad(str(k), width), _Hue.CYAN)
+        if isinstance(v, list) and len(v) >= 2 and all(isinstance(x, (int, float)) for x in v):
+            val = f"{_sparkline(v)} {_c(_plain(v[-1]), _Hue.DIM)}"
+        elif isinstance(v, (dict, list)):
             blob = json.dumps(v, default=str, ensure_ascii=False)
-            lines.append(f"  {_c(str(k).rjust(width), _Hue.CYAN)}  "
-                         f"{_c(blob if len(blob) <= 80 else blob[:77] + '…', _Hue.GREY)}")
+            val = _c(blob if len(blob) <= 72 else blob[:69] + "…", _Hue.GREY)
         else:
-            lines.append(f"  {_c(str(k).rjust(width), _Hue.CYAN)}  {_cell(k, v)}")
+            val = _cell(k, v)
+        lines.append(f"{label}  {val}")
     return "\n".join(lines)
 
 
@@ -135,12 +185,16 @@ def _print(obj) -> None:
     if _FORCE_JSON or not _COLOR:
         print(json.dumps(obj, indent=2, default=str))
         return
+    title = _TITLE or "yammyquant"
     if isinstance(obj, list) and obj and all(isinstance(x, dict) for x in obj):
+        print(_c(f"{title} ", _Hue.B + _Hue.CYAN) + _c(f"· {len(obj)} rows", _Hue.GREY))
         print(_table(obj))
     elif isinstance(obj, dict):
-        print(_kv(obj))
+        print(_box(title, _kv(obj)))
     elif isinstance(obj, list):
-        print("\n".join(f"  {_c('•', _Hue.CYAN)} {x}" for x in obj) or _c("  (empty)", _Hue.GREY))
+        print(_c(f"{title}", _Hue.B + _Hue.CYAN))
+        print("\n".join(f"  {_c('•', _Hue.CYAN)} {x}" for x in obj)
+              or _c("  (empty)", _Hue.GREY))
     else:
         print(obj)
 
@@ -342,8 +396,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
-    global _FORCE_JSON
+    global _FORCE_JSON, _TITLE
     _FORCE_JSON = args.json
+    _TITLE = args.cmd or ""
     if not args.cmd:                       # `yq` with no command → cute home screen
         print(banner())
         parser.print_help()
@@ -383,13 +438,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             _print({"config_file": str(xcfg.config_path(for_write=True))})
         elif args.action == "default":
             if not args.args:
-                print("usage: yq config default <exchange>"); return 1
-            cfg = xcfg.load_config(); cfg["default_exchange"] = args.args[0].lower()
+                print("usage: yq config default <exchange>")
+                return 1
+            cfg = xcfg.load_config()
+            cfg["default_exchange"] = args.args[0].lower()
             path = xcfg.save_config(cfg)
             _print({"default_exchange": args.args[0].lower(), "saved": str(path)})
         elif args.action == "set":
             if len(args.args) < 2 or any("=" not in a for a in args.args[1:]):
-                print("usage: yq config set <exchange> field=value [field=value ...]"); return 1
+                print("usage: yq config set <exchange> field=value [field=value ...]")
+                return 1
             exchange = args.args[0].lower()
             for assignment in args.args[1:]:
                 field_name, value = assignment.split("=", 1)
@@ -519,7 +577,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             policy = AccountRiskPolicy.load(state)
             for assignment in args.args:
                 if "=" not in assignment:
-                    print("usage: yq risk set field=value ..."); return 1
+                    print("usage: yq risk set field=value ...")
+                    return 1
                 field_name, value = assignment.split("=", 1)
                 setattr(policy, field_name,
                         None if value.lower() in ("", "none") else float(value))
@@ -543,11 +602,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "watch":
         if args.action == "add":
             if not args.symbol:
-                print("usage: yq watch add SYMBOL [--exchange --interval --note]"); return 1
+                print("usage: yq watch add SYMBOL [--exchange --interval --note]")
+                return 1
             state.add_watch(args.symbol, args.exchange, args.interval, args.note)
         elif args.action == "rm":
             if not args.symbol:
-                print("usage: yq watch rm SYMBOL"); return 1
+                print("usage: yq watch rm SYMBOL")
+                return 1
             state.remove_watch(args.symbol)
         _print(state.watchlist())
         return 0
@@ -568,7 +629,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             targets = state.get("targets", {})
             for kv in args.assignments:
                 if "=" not in kv:
-                    print("usage: yq target SYMBOL=weight ..."); return 1
+                    print("usage: yq target SYMBOL=weight ...")
+                    return 1
                 sym, w = kv.split("=", 1)
                 targets[sym] = float(w)
             state.set("targets", targets)

@@ -16,6 +16,7 @@ metrics module can summarize.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -25,6 +26,9 @@ from yammyquant.backtest.order import Action, Order
 from yammyquant.backtest.portfolio import Portfolio
 from yammyquant.strategy.base import Strategy
 from yammyquant.metrics.performance import summary
+
+if TYPE_CHECKING:
+    from yammyquant.backtest.risk import RiskConfig
 
 
 @dataclass

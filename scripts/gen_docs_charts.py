@@ -114,12 +114,14 @@ def chart_indicators(candle: Candle) -> None:
     a1.set_title("candle.ind — Bollinger Bands · RSI · MACD")
     a1.legend(loc="upper left")
     a2.plot(rsi.index, rsi, color=AMBER, lw=1.0)
-    a2.axhline(70, color=RED, lw=0.7, ls="--"); a2.axhline(30, color=GREEN, lw=0.7, ls="--")
+    a2.axhline(70, color=RED, lw=0.7, ls="--")
+    a2.axhline(30, color=GREEN, lw=0.7, ls="--")
     a2.set_ylabel("RSI")
     a3.plot(macd.index, macd["macd"], color=ACCENT, lw=1.0, label="macd")
     a3.plot(macd.index, macd["signal"], color=AMBER, lw=1.0, label="signal")
     a3.bar(macd.index, macd["hist"], color=GRID, width=1.0)
-    a3.set_ylabel("MACD"); a3.legend(loc="upper left", ncol=2)
+    a3.set_ylabel("MACD")
+    a3.legend(loc="upper left", ncol=2)
     _save(fig, "indicators.png")
 
 
