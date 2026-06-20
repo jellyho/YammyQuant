@@ -144,6 +144,110 @@ def chart_ensemble(candle: Candle) -> None:
     _save(fig, "ensemble.png")
 
 
+def chart_drawdown(candle: Candle) -> None:
+    """Underwater (drawdown) chart — equity below its running peak."""
+    res = Backtest(candle, MACross(10, 30), cash=10_000, fee=0.001).run()
+    eq = res.equity_curve["equity"]
+    dd = (eq / eq.cummax() - 1.0) * 100.0
+    fig, ax = plt.subplots(figsize=(10, 3.4))
+    ax.fill_between(dd.index, dd, 0, color=RED, alpha=0.25)
+    ax.plot(dd.index, dd, color=RED, lw=1.1)
+    ax.set_ylabel("% below peak")
+    ax.set_title(f"Underwater drawdown — trough {round(float(dd.min()), 2)}%")
+    _save(fig, "drawdown.png")
+
+
+def chart_monthly(candle: Candle) -> None:
+    """Calendar heatmap of month-by-month returns."""
+    from yammyquant.ops.operator import monthly_returns
+
+    res = Backtest(candle, MACross(10, 30), cash=10_000, fee=0.001).run()
+    mo = monthly_returns(res.equity_curve["equity"])
+    z = np.array([[np.nan if v is None else v * 100 for v in row] for row in mo["matrix"]])
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    fig, ax = plt.subplots(figsize=(10, 1.4 + 0.5 * len(mo["years"])))
+    vmax = np.nanmax(np.abs(z)) or 1.0
+    im = ax.imshow(z, cmap="RdYlGn", vmin=-vmax, vmax=vmax, aspect="auto")
+    ax.set_xticks(range(12), months)
+    ax.set_yticks(range(len(mo["years"])), [str(y) for y in mo["years"]])
+    for i in range(z.shape[0]):
+        for j in range(z.shape[1]):
+            if not np.isnan(z[i, j]):
+                ax.text(j, i, f"{z[i, j]:.1f}", ha="center", va="center",
+                        color=BG, fontsize=8)
+    ax.set_title("Monthly returns (%)")
+    fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    ax.grid(False)
+    _save(fig, "monthly.png")
+
+
+def chart_leaderboard(candle: Candle) -> None:
+    """Strategy leaderboard — Sharpe ranking across strategies on one symbol."""
+    from yammyquant.ops.operator import build_strategy
+
+    names = ["keltner_breakout", "donchian_breakout", "bollinger_breakout",
+             "macross", "ema_cross", "supertrend", "rsi_reversion", "macd_momentum"]
+    rows = []
+    for n in names:
+        s = Backtest(candle, build_strategy(n), cash=10_000, fee=0.001).run().stats
+        rows.append((n, s.get("sharpe") or 0.0))
+    rows.sort(key=lambda r: r[1])
+    fig, ax = plt.subplots(figsize=(10, 4.4))
+    colors = [GREEN if v >= 0 else RED for _, v in rows]
+    ax.barh([n for n, _ in rows], [v for _, v in rows], color=colors)
+    ax.set_xlabel("sharpe")
+    ax.set_title("yq compare — strategy leaderboard (by Sharpe)")
+    ax.grid(axis="y", alpha=0)
+    _save(fig, "leaderboard.png")
+
+
+def chart_sensitivity(_candle: Candle) -> None:
+    """Parameter-sensitivity heatmap — Sharpe across a fast × slow grid."""
+    from yammyquant.backtest.optimize import grid_search
+
+    candle = make_candle(n=600, seed=5)
+    fast, slow = [5, 10, 15, 20, 30], [40, 60, 80, 100]
+    res = grid_search(candle, MACross, {"fast": fast, "slow": slow}, metric="sharpe")
+    lut = {(r["params"]["fast"], r["params"]["slow"]): r["score"] for r in res.results}
+    z = np.array([[lut.get((f, s), np.nan) for f in fast] for s in slow])
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    im = ax.imshow(z, cmap="viridis", aspect="auto", origin="lower")
+    ax.set_xticks(range(len(fast)), [str(f) for f in fast])
+    ax.set_yticks(range(len(slow)), [str(s) for s in slow])
+    ax.set_xlabel("fast")
+    ax.set_ylabel("slow")
+    for i in range(z.shape[0]):
+        for j in range(z.shape[1]):
+            if not np.isnan(z[i, j]):
+                ax.text(j, i, f"{z[i, j]:.2f}", ha="center", va="center",
+                        color="w", fontsize=8)
+    ax.set_title("yq optimize — Sharpe sensitivity (fast × slow)")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+    ax.grid(False)
+    _save(fig, "sensitivity.png")
+
+
+def chart_correlation(_candle: Candle) -> None:
+    """Return-correlation heatmap across a few synthetic symbols."""
+    seeds = {"BTCUSDT": 7, "ETHUSDT": 11, "SOLUSDT": 21, "BNBUSDT": 3}
+    rets = {s: pd.Series(make_candle(seed=sd).close).pct_change() for s, sd in seeds.items()}
+    corr = pd.DataFrame(rets).dropna().corr()
+    syms = list(corr.columns)
+    z = corr.to_numpy()
+    fig, ax = plt.subplots(figsize=(5.6, 5))
+    im = ax.imshow(z, cmap="RdYlGn", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(syms)), syms, rotation=45, ha="right")
+    ax.set_yticks(range(len(syms)), syms)
+    for i in range(len(syms)):
+        for j in range(len(syms)):
+            ax.text(j, i, f"{z[i, j]:.2f}", ha="center", va="center", color=BG, fontsize=9)
+    ax.set_title("yq correlate — return correlation")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+    ax.grid(False)
+    _save(fig, "correlation.png")
+
+
 def chart_walkforward(_candle: Candle) -> None:
     """Per-fold in-sample vs out-of-sample score — the overfitting gap.
 
@@ -177,6 +281,11 @@ def main() -> None:
     chart_equity(candle)
     chart_indicators(candle)
     chart_ensemble(candle)
+    chart_drawdown(candle)
+    chart_monthly(candle)
+    chart_leaderboard(candle)
+    chart_sensitivity(candle)
+    chart_correlation(candle)
     chart_walkforward(candle)
 
 
