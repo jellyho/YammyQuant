@@ -177,7 +177,9 @@ class SuperTrendFollow(Strategy):
 
     def __init__(self, period: int = 10, mult: float = 3.0, size: float = 1.0):
         self.period, self.mult, self.size = period, mult, size
-        self.warmup = period * 3 + 2
+        # ATR is an EWM, so the SuperTrend bands/direction only stabilize after
+        # several multiples of the period — too small a window never flips.
+        self.warmup = period * 5 + 2
 
     def on_bar(self, window: Candle) -> List[Order]:
         d = window.ind.supertrend(self.period, self.mult)["direction"].to_numpy()
@@ -190,7 +192,15 @@ class SuperTrendFollow(Strategy):
 
 
 class ADXTrend(Strategy):
-    """Directional-movement crossover, gated by ADX trend strength."""
+    """Directional trend, filtered by ADX strength.
+
+    A *state* rule rather than an instantaneous crossover: ADX dips toward zero
+    exactly at a +DI/-DI crossover (the trend is just turning), so gating the
+    crossover bar by ``ADX > threshold`` essentially never fires. Instead we
+    track the "strong uptrend" state (``+DI > -DI`` **and** ``ADX > threshold``)
+    and trade when it turns on/off — catching trends that build strength after
+    the cross, or DI flips that happen while a trend is already strong.
+    """
 
     def __init__(self, period: int = 14, threshold: float = 25.0, size: float = 1.0):
         self.period, self.threshold, self.size = period, threshold, size
@@ -201,11 +211,13 @@ class ADXTrend(Strategy):
         plus, minus, strength = (
             a["plus_di"].to_numpy(), a["minus_di"].to_numpy(), a["adx"].to_numpy())
         price, time = float(window.close[-1]), window.index[-1]
-        if strength[-1] < self.threshold:
+        if any(v != v for v in (plus[-2], minus[-2], strength[-2], plus[-1], minus[-1], strength[-1])):
             return []
-        if plus[-1] > minus[-1] and plus[-2] <= minus[-2]:
+        bull_now = plus[-1] > minus[-1] and strength[-1] > self.threshold
+        bull_prev = plus[-2] > minus[-2] and strength[-2] > self.threshold
+        if bull_now and not bull_prev:
             return [Order(Action.BUY, window.ticker, self.size, price, time)]
-        if minus[-1] > plus[-1] and minus[-2] <= plus[-2]:
+        if bull_prev and not bull_now:
             return [Order(Action.SELL, window.ticker, self.size, price, time)]
         return []
 
@@ -355,7 +367,9 @@ class CCIReversion(Strategy):
 
     def __init__(self, period: int = 20, threshold: float = 100.0, size: float = 1.0):
         self.period, self.threshold, self.size = period, threshold, size
-        self.warmup = period + 2
+        # CCI chains two rolling(period) windows (mean, then mean-abs-dev), so it
+        # needs ~2*period bars before the latest value is non-NaN.
+        self.warmup = period * 2 + 2
 
     def on_bar(self, window: Candle) -> List[Order]:
         c = window.ind.cci(self.period).to_numpy()

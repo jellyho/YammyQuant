@@ -868,7 +868,7 @@ def attribution(state: LiveState) -> dict:
         if side == "BUY":
             entry_voters[sym] = [n for n, v in voters.items() if v == "BUY"] or list(voters)
         elif side == "SELL":
-            pnl = float(t.get("realized_pnl") or 0.0)
+            pnl = float(meta.get("realized") or 0.0)   # realized PnL lives in meta
             credit = entry_voters.pop(sym, None) or \
                 [n for n, v in voters.items() if v == "SELL"] or list(voters)
             for name in credit:
