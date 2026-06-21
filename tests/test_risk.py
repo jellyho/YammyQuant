@@ -20,6 +20,38 @@ def test_volatility_sizing_capped():
     assert qty == 50.0  # 0.5 * 10000 / 100
 
 
+def test_kelly_fraction_formula():
+    import numpy as np
+    rm = RiskManager(RiskConfig(sizing="kelly", kelly_min_trades=4))
+    # 60% win rate, payoff 2:1 -> f = 0.6 - 0.4/2 = 0.4
+    pnls = np.array([2.0, 2.0, 2.0, -1.0, -1.0, 2.0, 2.0, 2.0, -1.0, -1.0])
+    assert rm.kelly_fraction(pnls) == pytest.approx(0.4, abs=1e-9)
+
+
+def test_kelly_half_scale_and_cap():
+    import numpy as np
+    rm = RiskManager(RiskConfig(sizing="kelly", kelly_scale=0.5, kelly_min_trades=4))
+    pnls = np.array([2.0, 2.0, 2.0, -1.0, -1.0, 2.0])   # ~ same edge
+    assert rm.kelly_fraction(pnls) < 0.4                # half-Kelly is smaller
+    capped = RiskManager(RiskConfig(sizing="kelly", max_position_fraction=0.1,
+                                    kelly_min_trades=4))
+    assert capped.kelly_fraction(pnls) <= 0.1
+
+
+def test_kelly_falls_back_before_min_trades():
+    rm = RiskManager(RiskConfig(sizing="kelly", risk_fraction=0.2, kelly_min_trades=10))
+    assert rm.kelly_fraction([1.0, -1.0]) == pytest.approx(0.2)   # too few -> risk_fraction
+    assert rm.kelly_fraction(None) == pytest.approx(0.2)
+
+
+def test_kelly_sizing_runs_end_to_end(sine_candle):
+    # the engine should gather closed-trade PnLs and size with Kelly without error
+    risk = RiskConfig(sizing="kelly", risk_fraction=0.2, kelly_min_trades=2,
+                      max_position_fraction=0.5)
+    res = Backtest(sine_candle, MACross(5, 20), cash=10_000, fee=0.0, risk=risk).run()
+    assert not res.equity_curve.empty and res.stats["num_trades"] > 0
+
+
 def test_stop_loss_triggers_on_low():
     rm = RiskManager(RiskConfig(stop_loss=0.05))
     assert rm.exit_price(avg_entry=100, bar_high=101, bar_low=94) == pytest.approx(95.0)
