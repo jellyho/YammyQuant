@@ -1063,7 +1063,15 @@ def decide(
         threshold = float(state.get("ensemble_threshold", 0.5))
         agg = aggregate_votes(votes, vote_weights, rule, threshold)
 
+        # signals come from closed bars (no look-ahead), but sizing and fills use
+        # the live market price so paper mirrors live — the last close is stale.
         price = float(candle.close[-1])
+        try:
+            live = float(ex.last_price(sym, iv))
+            if live > 0:
+                price = live
+        except Exception:
+            pass
         held = sym in positions and positions[sym]["quantity"] > 0
         active = {n: v for n, v in voters.items() if v != "HOLD"}  # who actually fired
         context = {"voters": active or voters, "rule": rule, "score": agg["score"],
