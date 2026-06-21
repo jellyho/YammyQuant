@@ -390,6 +390,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--threshold", type=float, help="vote threshold for weighted/majority")
     p.add_argument("--weight", action="append", metavar="NAME=VAL",
                    help="per-strategy vote weight, e.g. --weight macross=2")
+    p.add_argument("--session-days", type=int, nargs="*", metavar="D",
+                   help="gate live entries to these weekdays (Mon=0..Sun=6); empty clears")
+    p.add_argument("--session-hours", type=int, nargs="*", metavar="H",
+                   help="gate live entries to these hours of day (0-23); empty clears")
 
     p = sub.add_parser("new", help="scaffold your own strategy / indicator / skill")
     p.add_argument("kind", choices=["strategy", "indicator", "skill"])
@@ -712,13 +716,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         for pair in (args.weight or []):
             name, _, val = pair.partition("=")
             state.set(f"strategy.{name.strip()}.weight", float(val))
+        if args.session_days is not None:
+            state.set("session_days", args.session_days or None)
+        if args.session_hours is not None:
+            state.set("session_hours", args.session_hours or None)
         _print({"available": sorted(ops.STRATEGIES),
                 "enabled": ops.enabled_strategies(state),
                 "blend": {"rule": state.get("ensemble_rule", "any"),
                           "threshold": float(state.get("ensemble_threshold", 0.5)),
                           "weights": {n: state.get(f"strategy.{n}.weight", 1.0)
                                       for n in ops.STRATEGIES
-                                      if state.get(f"strategy.{n}.weight") is not None}}})
+                                      if state.get(f"strategy.{n}.weight") is not None}},
+                "session": {"days": state.get("session_days"),
+                            "hours": state.get("session_hours")}})
         return 0
 
     if args.cmd == "ensemble":

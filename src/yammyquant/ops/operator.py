@@ -1065,6 +1065,11 @@ def decide(
                                   f"({sum(v == 'SELL' for v in votes)} of {len(votes)} sell)",
                         "context": context}
         elif agg["buy"] and not agg["sell"] and not held and price > 0:
+            # session gate: veto entries outside configured weekdays/hours (scalping)
+            if not in_session(candle.index[-1], state.get("session_days"),
+                              state.get("session_hours")):
+                state.log("decide", f"vetoed BUY {sym}: outside trading session")
+                continue
             # optional sentiment gate: veto entries when recent news is strongly negative
             gate = state.get("sentiment_gate")
             senti = news_sentiment(state, sym)["avg_sentiment"] if gate is not None else 0.0
@@ -1466,6 +1471,28 @@ def diversified_weights(store: DuckDBStore, symbols, interval: str = "1d",
     if total <= 0:
         raise ValueError("no symbols with usable volatility")
     return {sym: round(float(w) / total, 4) for sym, w in raw.items()}
+
+
+def in_session(ts, weekdays=None, hours=None) -> bool:
+    """True if timestamp ``ts`` falls in the allowed live trading session.
+
+    ``weekdays`` (Mon=0..Sun=6) and ``hours`` (0-23) are optional allow-lists;
+    ``None``/empty means unrestricted. Mirrors the backtest SessionFilter so live
+    ``decide`` entries can be gated to the same window.
+    """
+    if weekdays:
+        try:
+            if ts.weekday() not in set(weekdays):
+                return False
+        except Exception:
+            return True
+    if hours:
+        try:
+            if ts.hour not in set(hours):
+                return False
+        except Exception:
+            return True
+    return True
 
 
 def correlation_scale(store: DuckDBStore, held: list, symbol: str, interval: str,

@@ -564,3 +564,28 @@ def test_decide_correlation_sizing_reduces_qty(tmp_path, fake_exchange):
     buys = [p for p in out["proposals"] if p["side"] == "BUY"]
     if buys:   # if a buy is proposed, it should carry a correlation_scale < 1
         assert buys[0]["context"].get("correlation_scale", 1.0) <= 1.0
+
+
+def test_in_session_gating():
+    import pandas as pd
+    wed_14 = pd.Timestamp("2023-01-04 14:00")   # Wednesday (weekday 2), hour 14
+    assert ops.in_session(wed_14, None, None) is True            # unrestricted
+    assert ops.in_session(wed_14, [0, 1, 2, 3, 4], [13, 14, 15]) is True
+    assert ops.in_session(wed_14, [0, 1, 2, 3, 4], [9, 10]) is False     # wrong hour
+    sat = pd.Timestamp("2023-01-07 14:00")      # Saturday (weekday 5)
+    assert ops.in_session(sat, [0, 1, 2, 3, 4], None) is False           # weekend
+
+
+def test_decide_session_gate_vetoes_entry(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.add_watch("BTCUSDT", "fake", "1d")
+    # fake candle's last bar is 2023-03-01 (a Wednesday); allow only weekends -> veto
+    state.set("session_days", [5, 6])
+    out = ops.decide(store, state, weight=0.2, execute=False)
+    assert not [p for p in out["proposals"] if p["side"] == "BUY"]   # entry vetoed
+    # clearing the gate lets the entry through again
+    state.set("session_days", None)
+    out2 = ops.decide(store, state, weight=0.2, execute=False)
+    assert [p for p in out2["proposals"] if p["side"] == "BUY"]
