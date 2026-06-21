@@ -212,6 +212,26 @@ def test_attribution_credits_entry_voters(tmp_path):
     assert attr["macross"]["pnl"] == pytest.approx(15.0)
     assert attr["supertrend"]["pnl"] == pytest.approx(15.0)
     assert attr["macross"]["round_trips"] == 1
+    # single winning round-trip -> 100% win rate, expectancy == per-trip credit
+    assert attr["macross"]["win_rate"] == pytest.approx(1.0)
+    assert attr["macross"]["expectancy"] == pytest.approx(15.0)
+
+
+def test_attribution_win_rate_and_expectancy(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    ctx = {"voters": {"macross": "BUY"}}
+    tm.submit("AAA", "BUY", 1.0, 100, context=ctx)
+    tm.submit("AAA", "SELL", 1.0, 130, context={"voters": {"macross": "SELL"}})  # +30 win
+    tm.submit("AAA", "BUY", 1.0, 100, context=ctx)
+    tm.submit("AAA", "SELL", 1.0, 90, context={"voters": {"macross": "SELL"}})   # -10 loss
+    row = ops.attribution(state)["by_strategy"][0]
+    assert row["strategy"] == "macross"
+    assert row["round_trips"] == 2
+    assert row["pnl"] == pytest.approx(20.0)
+    assert row["win_rate"] == pytest.approx(0.5)
+    assert row["expectancy"] == pytest.approx(10.0)   # (30 - 10) / 2
 
 
 def test_risk_parity_weights_inverse_vol(tmp_path):

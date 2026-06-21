@@ -1075,13 +1075,21 @@ def attribution(state: LiveState) -> dict:
             pnl = float(meta.get("realized") or 0.0)   # realized PnL lives in meta
             credit = entry_voters.pop(sym, None) or \
                 [n for n, v in voters.items() if v == "SELL"] or list(voters)
+            share = pnl / len(credit)
             for name in credit:
-                row = by.setdefault(name, {"strategy": name, "round_trips": 0, "pnl": 0.0})
+                row = by.setdefault(
+                    name, {"strategy": name, "round_trips": 0, "pnl": 0.0, "_pnls": []})
                 row["round_trips"] += 1
-                row["pnl"] += pnl / len(credit)
+                row["pnl"] += share
+                row["_pnls"].append(share)   # per-round-trip credit, for win_rate/expectancy
     ranked = sorted(by.values(), key=lambda d: -d["pnl"])
     for row in ranked:
+        pnls = row.pop("_pnls")
+        wins = [p for p in pnls if p > 0]
         row["pnl"] = round(row["pnl"], 4)
+        # which strategies actually carry a positive edge, not just total PnL
+        row["win_rate"] = round(len(wins) / len(pnls), 4) if pnls else 0.0
+        row["expectancy"] = round(row["pnl"] / len(pnls), 4) if pnls else 0.0
     return {"by_strategy": ranked}
 
 
