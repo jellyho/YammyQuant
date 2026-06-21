@@ -547,3 +547,83 @@ class MicroPullback(Strategy):
         if ef[-1] < es[-1]:                                                  # trend broke -> exit
             return [Order(Action.SELL, window.ticker, self.size, price, time)]
         return []
+
+
+class RSI2Reversion(Strategy):
+    """Connors RSI(2) mean-reversion scalp with a trend filter.
+
+    Buy a deep oversold RSI(2) dip (``< lower``) *while price is above its long
+    ``trend`` SMA* (only buy dips in an up-trend); exit when RSI(2) recovers above
+    ``upper``. A short, fast oscillator on a slow trend — the classic Connors edge.
+    """
+
+    def __init__(self, period: int = 2, trend: int = 50, lower: float = 10.0,
+                 upper: float = 60.0, size: float = 1.0):
+        self.period, self.trend = period, trend
+        self.lower, self.upper, self.size = lower, upper, size
+        self.warmup = trend + period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        r = window.ind.rsi(self.period).to_numpy()
+        sma = window.ind.sma(self.trend).to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if r[-1] < self.lower and close[-1] > sma[-1]:        # oversold dip in an up-trend
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if r[-1] > self.upper:                                # mean reverted -> take it
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class KeltnerSqueezeBreakout(Strategy):
+    """TTM-style squeeze breakout (intraday momentum ignition).
+
+    A *squeeze* is when the Bollinger Bands sit inside the Keltner channels (low
+    volatility coiling). Go long when the squeeze releases (bands expand back
+    outside Keltner) *and* price breaks above the upper Bollinger band; exit on a
+    close back below the Bollinger middle (the basis).
+    """
+
+    def __init__(self, period: int = 20, bb_std: float = 2.0, kc_mult: float = 1.5,
+                 size: float = 1.0):
+        self.period, self.bb_std, self.kc_mult, self.size = period, bb_std, kc_mult, size
+        self.warmup = period + 3
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        bb = window.ind.bbands(self.period, self.bb_std)
+        kc = window.ind.keltner(self.period, self.kc_mult)
+        bu, bl, bm = bb["upper"].to_numpy(), bb["lower"].to_numpy(), bb["middle"].to_numpy()
+        ku, kl = kc["upper"].to_numpy(), kc["lower"].to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        squeezed_prev = bu[-2] <= ku[-2] and bl[-2] >= kl[-2]   # bands inside Keltner last bar
+        released = bu[-1] > ku[-1] or bl[-1] < kl[-1]           # expanding now
+        if squeezed_prev and released and close[-1] > bu[-1]:   # release + upside break
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < bm[-1]:                                  # lost the basis -> exit
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class StochMomentum(Strategy):
+    """Trend-aligned stochastic momentum (not a reversal).
+
+    Unlike :class:`StochasticScalp` (which fades extremes), this rides momentum:
+    go long on a %K/%D bullish cross that happens **above** the midline
+    (``trigger``, default 50) — confirming the move is with the trend, not an
+    oversold bounce — and exit when %K crosses back below %D.
+    """
+
+    def __init__(self, k: int = 14, d: int = 3, trigger: float = 50.0, size: float = 1.0):
+        self.k, self.d, self.trigger, self.size = k, d, trigger, size
+        self.warmup = k + d + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        st = window.ind.stoch(self.k, self.d)
+        kk, dd = st["k"].to_numpy(), st["d"].to_numpy()
+        price, time = float(window.close[-1]), window.index[-1]
+        if kk[-1] > dd[-1] and kk[-2] <= dd[-2] and kk[-1] > self.trigger:   # bullish cross, in-trend
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if kk[-1] < dd[-1] and kk[-2] >= dd[-2]:                             # momentum fading -> exit
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []

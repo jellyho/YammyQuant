@@ -9,6 +9,13 @@ from yammyquant.ops import operator as ops
 from yammyquant.ops.trading import TradeManager
 
 
+def _pin_strategies(state, *names):
+    """Enable only the named strategies so a decide test's voter set is
+    deterministic and independent of the growing strategy registry."""
+    for n in ops.STRATEGIES:
+        state.set(f"strategy.{n}.enabled", n in names)
+
+
 class FakeExchange:
     name = "fake"
 
@@ -142,8 +149,9 @@ def test_decide_proposes_buy_dry_run(tmp_path, fake_exchange):
     state = LiveState(tmp_path / "s.db")
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
+    _pin_strategies(state, "volatility_breakout")
     out = ops.decide(store, state, weight=0.2, execute=False)
-    # rising series -> donchian/macross give a BUY; flat book -> entry proposed
+    # rising series -> volatility_breakout gives a BUY; flat book -> entry proposed
     buys = [p for p in out["proposals"] if p["side"] == "BUY"]
     assert buys and buys[0]["symbol"] == "BTCUSDT"
     assert out["proposals"][0].get("status") is None  # dry run, not executed
@@ -155,6 +163,7 @@ def test_decide_executes_paper(tmp_path, fake_exchange):
     state = LiveState(tmp_path / "s.db")
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
+    _pin_strategies(state, "volatility_breakout")
     out = ops.decide(store, state, weight=0.2, execute=True, mode="paper")
     assert any(p.get("status") == "filled" for p in out["proposals"])
     assert state.positions()  # a position was opened
@@ -504,6 +513,7 @@ def test_decide_sets_bracket_on_entry_and_protect_uses_it(tmp_path, fake_exchang
     state = LiveState(tmp_path / "s.db")
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
+    _pin_strategies(state, "volatility_breakout")
     ProtectPolicy(stop_loss=0.05, take_profit=0.10).save(state)
     # rising series -> a BUY entry; the fill uses the live price (120), not the
     # stale last close, so entry and the protect "current price" stay consistent
@@ -584,6 +594,7 @@ def test_decide_session_gate_vetoes_entry(tmp_path, fake_exchange):
     state = LiveState(tmp_path / "s.db")
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
+    _pin_strategies(state, "volatility_breakout")
     # fake candle's last bar is 2023-03-01 (a Wednesday); allow only weekends -> veto
     state.set("session_days", [5, 6])
     out = ops.decide(store, state, weight=0.2, execute=False)

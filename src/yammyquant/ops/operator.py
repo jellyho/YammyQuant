@@ -36,6 +36,9 @@ from yammyquant.strategy.builtin import (
     VWAPBandScalp,
     VolumeSpikeBreakout,
     MicroPullback,
+    RSI2Reversion,
+    KeltnerSqueezeBreakout,
+    StochMomentum,
 )
 from yammyquant.state.store import LiveState
 
@@ -66,6 +69,9 @@ STRATEGIES = {
     "vwap_band_scalp": VWAPBandScalp,
     "volume_spike_breakout": VolumeSpikeBreakout,
     "micro_pullback": MicroPullback,
+    "rsi2_reversion": RSI2Reversion,
+    "keltner_squeeze_breakout": KeltnerSqueezeBreakout,
+    "stoch_momentum": StochMomentum,
 }
 
 
@@ -103,6 +109,10 @@ DEFAULT_GRIDS = {
     "vwap_band_scalp": {"band": [1.0, 1.5, 2.0], "std_period": [14, 20]},
     "volume_spike_breakout": {"lookback": [10, 20], "vol_mult": [1.5, 2.0]},
     "micro_pullback": {"fast": [5, 9], "slow": [21, 34]},
+    "rsi2_reversion": {"period": [2, 3], "trend": [50, 100], "lower": [5.0, 10.0],
+                       "upper": [60.0, 70.0]},
+    "keltner_squeeze_breakout": {"period": [14, 20], "bb_std": [2.0], "kc_mult": [1.5]},
+    "stoch_momentum": {"k": [9, 14], "d": [3], "trigger": [50.0]},
 }
 
 
