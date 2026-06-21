@@ -66,10 +66,60 @@ def gbm_candles():
     return out
 
 
-@pytest.mark.parametrize("name", sorted(STRATEGIES))
+# intraday-only strategies can't trade on the daily fixture (each bar is its own
+# session); they're exercised by dedicated intraday tests instead
+_INTRADAY_ONLY = {"opening_range_breakout"}
+
+
+@pytest.mark.parametrize("name", sorted(set(STRATEGIES) - _INTRADAY_ONLY))
 def test_strategy_trades_on_realistic_data(name, gbm_candles):
     """Every registered strategy must produce >=1 trade on a long realistic
     series — a near-flat equity from zero trades is the bug we keep catching."""
     counts = [Backtest(c, STRATEGIES[name](), cash=10_000, fee=0.001).run().stats["num_trades"]
               for c in gbm_candles]
     assert min(counts) >= 1, f"{name} made 0 trades on some seed: {counts}"
+
+
+def _intraday_candle(days=5, bars_per_day=24):
+    """Synthetic 1h bars spanning several days, with an intraday breakout each day."""
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    n = days * bars_per_day
+    idx = pd.date_range("2023-01-01 00:00", periods=n, freq="1h")
+    rng = np.random.default_rng(0)
+    close = []
+    for d in range(days):
+        base = 100 + 5 * d
+        # flat open then a strong ramp up later in the session -> breaks the range
+        intraday = base + np.concatenate([rng.normal(0, 0.2, 6),
+                                          np.linspace(0.3, 8.0, bars_per_day - 6)])
+        close.extend(intraday)
+    close = np.array(close)
+    df = pd.DataFrame({"open": close, "high": close + 0.5, "low": close - 0.5,
+                       "close": close, "volume": np.full(n, 100.0)}, index=idx)
+    return Candle("X", df, interval="1h")
+
+
+def test_opening_range_breakout_trades_intraday():
+    from yammyquant.strategy.builtin import OpeningRangeBreakout
+    candle = _intraday_candle()
+    res = Backtest(candle, OpeningRangeBreakout(opening_bars=6), cash=10_000, fee=0.0).run()
+    assert res.stats["num_trades"] >= 1   # breaks the opening range on the ramp
+
+
+def test_session_vwap_resets_each_day():
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    # two days; day 2 trades at a higher level — session VWAP must jump (reset),
+    # while cumulative vwap stays dragged down by day 1
+    idx = pd.date_range("2023-01-01 00:00", periods=48, freq="1h")
+    close = np.concatenate([np.full(24, 100.0), np.full(24, 200.0)])
+    df = pd.DataFrame({"open": close, "high": close, "low": close, "close": close,
+                       "volume": np.full(48, 10.0)}, index=idx)
+    c = Candle("X", df, interval="1h")
+    sv = c.ind.session_vwap().to_numpy()
+    cum = c.ind.vwap().to_numpy()
+    assert sv[-1] == pytest.approx(200.0, abs=1e-6)     # day-2 session VWAP == day-2 price
+    assert cum[-1] < 200.0                               # cumulative still dragged by day 1

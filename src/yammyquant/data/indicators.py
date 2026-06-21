@@ -170,6 +170,18 @@ def vwap(candle) -> pd.Series:
     return ((tp * v).cumsum() / v.cumsum().replace(0.0, np.nan)).rename("vwap")
 
 
+@_register
+def session_vwap(candle) -> pd.Series:
+    """Volume-weighted average price that **resets each calendar day** — the VWAP
+    intraday traders actually use (5m/15m bars). The plain ``vwap`` accumulates
+    from the start of the data, which drifts and never resets across days."""
+    tp, v = _typical(candle), _vol(candle)
+    day = pd.Index(pd.DatetimeIndex(candle.index).normalize())
+    pv = (tp * v).groupby(day).cumsum()
+    cv = v.groupby(day).cumsum().replace(0.0, np.nan)
+    return (pv / cv).rename("session_vwap")
+
+
 # --------------------------------------------------------------------------
 # Momentum / oscillators
 # --------------------------------------------------------------------------

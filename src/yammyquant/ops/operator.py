@@ -32,6 +32,7 @@ from yammyquant.strategy.builtin import (
     CCIReversion,
     MFIReversion,
     VWAPReversion,
+    OpeningRangeBreakout,
 )
 from yammyquant.state.store import LiveState
 
@@ -58,6 +59,7 @@ STRATEGIES = {
     "cci_reversion": CCIReversion,
     "mfi_reversion": MFIReversion,
     "vwap_reversion": VWAPReversion,
+    "opening_range_breakout": OpeningRangeBreakout,
 }
 
 
@@ -91,6 +93,7 @@ DEFAULT_GRIDS = {
     "cci_reversion": {"period": [14, 20], "threshold": [100.0, 150.0]},
     "mfi_reversion": {"period": [14], "oversold": [20.0], "overbought": [80.0]},
     "vwap_reversion": {"period": [14, 20], "threshold": [0.005, 0.01, 0.02]},
+    "opening_range_breakout": {"opening_bars": [3, 6, 12]},
 }
 
 
