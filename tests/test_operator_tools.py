@@ -461,3 +461,38 @@ def test_protect_no_policy_is_noop(tmp_path, fake_exchange):
     state.upsert_position("BTCUSDT", 1.0, 100.0)
     out = ops.protect(store, state)
     assert out["checked"] == 0 and out["proposals"] == []
+
+
+def test_protect_atr_stop(tmp_path, fake_exchange):
+    # fake exchange: price 120, and read() returns rising 100..159 (TR≈1 -> ATR≈1)
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    # write candles so ATR resolves from the store (interval 1d)
+    n = 40
+    idx = pd.date_range("2023-01-01", periods=n, freq="1D")
+    close = 100 + np.arange(n, dtype=float)
+    store.write(Candle("ETHUSDT", pd.DataFrame(
+        {"open": close, "high": close + 1, "low": close - 1, "close": close,
+         "volume": [1.0] * n}, index=idx), interval="1d"))
+    state.upsert_position("ETHUSDT", 1.0, 130.0)        # entry 130, price 120, ATR≈2
+    ProtectPolicy(atr_stop=2.0).save(state)              # stop ≈ 130 - 2*2 = 126 -> 120 breaches
+    out = ops.protect(store, state)
+    assert out["proposals"] and out["proposals"][0]["reason"] == "atr_stop"
+
+
+def test_protect_scale_out_partial_then_disarms(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.upsert_position("BTCUSDT", 2.0, 100.0)         # entry 100, price 120
+    ProtectPolicy(take_profit=0.10, scale_out=0.5).save(state)  # target 110 -> 120 breaches
+
+    out = ops.protect(store, state, execute=True)
+    assert out["proposals"][0]["reason"] == "take_profit (scale-out)"
+    assert out["proposals"][0]["quantity"] == pytest.approx(1.0)   # half of 2 units
+    # remaining position still open, take-profit disarmed -> next pass proposes nothing
+    again = ops.protect(store, state)
+    assert again["proposals"] == []

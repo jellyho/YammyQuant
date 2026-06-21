@@ -808,11 +808,19 @@ def main(argv: Optional[list[str]] = None) -> int:
             policy = ProtectPolicy.load(state)
             for assignment in args.args:
                 if "=" not in assignment:
-                    print("usage: yq protect set stop_loss=0.05 take_profit=0.1 trailing_stop=0.08")
+                    print("usage: yq protect set stop_loss=0.05 take_profit=0.1 "
+                          "trailing_stop=0.08 atr_stop=2 atr_take=4 atr_interval=1d scale_out=0.5")
                     return 1
                 field_name, value = assignment.split("=", 1)
-                setattr(policy, field_name,
-                        None if value.lower() in ("", "none") else float(value))
+                if value.lower() in ("", "none"):
+                    coerced = None
+                elif field_name == "atr_interval":
+                    coerced = value
+                elif field_name == "atr_lookback":
+                    coerced = int(value)
+                else:
+                    coerced = float(value)
+                setattr(policy, field_name, coerced)
             policy.save(state)
             _print(asdict(ProtectPolicy.load(state)))
         elif args.action == "show":

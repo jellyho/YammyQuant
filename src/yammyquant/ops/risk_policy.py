@@ -31,10 +31,16 @@ class ProtectPolicy:
     stop_loss: Optional[float] = None       # exit if price falls this fraction below entry
     take_profit: Optional[float] = None     # exit if price rises this fraction above entry
     trailing_stop: Optional[float] = None   # exit on this give-back from the peak since entry
+    atr_stop: Optional[float] = None        # stop at N×ATR from entry (volatility-scaled)
+    atr_take: Optional[float] = None        # take-profit at N×ATR from entry
+    atr_lookback: int = 14                  # ATR period
+    atr_interval: str = "1d"                # which stored interval to compute ATR from
+    scale_out: Optional[float] = None       # close this fraction at take-profit; rest rides stops
 
     @property
     def active(self) -> bool:
-        return any(v is not None for v in (self.stop_loss, self.take_profit, self.trailing_stop))
+        return any(v is not None for v in (self.stop_loss, self.take_profit,
+                                           self.trailing_stop, self.atr_stop, self.atr_take))
 
     @classmethod
     def load(cls, state: LiveState) -> "ProtectPolicy":
