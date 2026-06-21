@@ -60,6 +60,65 @@ def expectancy(pnl: pd.Series) -> float:
     return float(pnl.mean())
 
 
+def trade_analytics(equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict:
+    """Trade-level analytics: holding period, win/loss streaks, exposure, turnover.
+
+    - ``avg_holding_bars`` — mean bars held per round-trip (entry until flat).
+    - ``max_consecutive_wins`` / ``max_consecutive_losses`` — longest streaks of
+      winning / losing closes (psychological + risk-of-ruin relevance).
+    - ``exposure`` — fraction of bars with an open position (time in market).
+    - ``turnover`` — total traded notional relative to ending equity.
+    """
+    out = {"avg_holding_bars": None, "max_consecutive_wins": 0,
+           "max_consecutive_losses": 0, "exposure": 0.0, "turnover": 0.0}
+    if (equity_curve is None or equity_curve.empty
+            or trades is None or trades.empty):
+        return out
+
+    n_bars = len(equity_curve)
+    pos_of = {t: k for k, t in enumerate(equity_curve.index)}
+
+    # round-trips from position_qty transitions through zero
+    holding, in_bars, entry_bar = [], 0, None
+    for _, row in trades.iterrows():
+        bar = pos_of.get(row["time"])
+        if bar is None:
+            continue
+        open_after = abs(float(row.get("position_qty", 0.0) or 0.0)) > 1e-12
+        if entry_bar is None and open_after:
+            entry_bar = bar
+        elif entry_bar is not None and not open_after:
+            holding.append(bar - entry_bar)
+            in_bars += bar - entry_bar
+            entry_bar = None
+    if entry_bar is not None:                       # still open at the end
+        in_bars += (n_bars - 1) - entry_bar
+
+    # win/loss streaks over closing trades
+    closes = trades[trades["closing"]] if "closing" in trades.columns \
+        else trades[trades["action"] == "SELL"]
+    sw = sl = mw = ml = 0
+    for pnl in (closes["realized_pnl"] if not closes.empty else []):
+        if pnl > 0:
+            sw, sl = sw + 1, 0
+        elif pnl < 0:
+            sl, sw = sl + 1, 0
+        else:
+            sw = sl = 0
+        mw, ml = max(mw, sw), max(ml, sl)
+
+    notional = float((trades["price"] * trades["quantity"]).sum())
+    end_eq = float(equity_curve["equity"].iloc[-1])
+    out.update(
+        avg_holding_bars=round(float(np.mean(holding)), 2) if holding else None,
+        max_consecutive_wins=mw,
+        max_consecutive_losses=ml,
+        exposure=round(in_bars / n_bars, 4) if n_bars else 0.0,
+        turnover=round(notional / end_eq, 3) if end_eq else 0.0,
+    )
+    return out
+
+
 def summary(
     equity_curve: pd.DataFrame,
     trades: pd.DataFrame,
@@ -93,7 +152,7 @@ def summary(
     gross_win = float(wins.sum()) if n_closed else 0.0
     gross_loss = float(-losses.sum()) if n_closed else 0.0
 
-    return {
+    stats = {
         "bars": len(equity),
         "start_equity": round(start, 2),
         "end_equity": round(end, 2),
@@ -115,3 +174,5 @@ def summary(
         "best_trade": round(float(pnl.max()), 4) if n_closed else 0.0,
         "worst_trade": round(float(pnl.min()), 4) if n_closed else 0.0,
     }
+    stats.update(trade_analytics(equity_curve, trades))
+    return stats

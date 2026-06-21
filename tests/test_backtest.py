@@ -125,6 +125,42 @@ def test_short_stop_loss_triggers_above_entry():
     assert rm.exit_price(100.0, bar_high=101.0, bar_low=99.0, is_short=True) is None
 
 
+def test_trade_analytics_holding_streaks_exposure():
+    from yammyquant.metrics.performance import trade_analytics
+
+    idx = pd.date_range("2023-01-01", periods=5, freq="1D")  # t0..t4
+    eq = pd.DataFrame({"equity": [100, 100, 110, 110, 105]}, index=idx)
+    # enter t1 (qty 1), exit t2 (flat, +10 win); enter t3, exit t4 (flat, -5 loss)
+    trades = pd.DataFrame([
+        {"time": idx[1], "action": "BUY",  "price": 100, "quantity": 1,
+         "realized_pnl": 0.0, "closing": False, "position_qty": 1.0},
+        {"time": idx[2], "action": "SELL", "price": 110, "quantity": 1,
+         "realized_pnl": 10.0, "closing": True, "position_qty": 0.0},
+        {"time": idx[3], "action": "BUY",  "price": 110, "quantity": 1,
+         "realized_pnl": 0.0, "closing": False, "position_qty": 1.0},
+        {"time": idx[4], "action": "SELL", "price": 105, "quantity": 1,
+         "realized_pnl": -5.0, "closing": True, "position_qty": 0.0},
+    ])
+    a = trade_analytics(eq, trades)
+    assert a["avg_holding_bars"] == 1.0          # (t2-t1) and (t4-t3) each 1 bar
+    assert a["exposure"] == round(2 / 5, 4)      # 2 of 5 bars in market
+    assert a["max_consecutive_wins"] == 1
+    assert a["max_consecutive_losses"] == 1
+
+
+def test_trade_analytics_empty_is_safe():
+    from yammyquant.metrics.performance import trade_analytics
+    import pandas as pd
+    assert trade_analytics(pd.DataFrame(), pd.DataFrame())["exposure"] == 0.0
+
+
+def test_summary_includes_trade_analytics(sine_candle):
+    res = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
+    for key in ["avg_holding_bars", "max_consecutive_wins",
+                "max_consecutive_losses", "exposure", "turnover"]:
+        assert key in res.stats
+
+
 def test_engine_shorts_through_full_loop():
     candle = _ohlc_candle()  # opens 100,110,120,130 (rising)
     # SELL on bar0 -> short opens at bar1 open (110); BUY on bar2 -> cover at bar3 open (130)
