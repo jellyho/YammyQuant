@@ -688,12 +688,13 @@ def resample(store: DuckDBStore, ticker: str, source: str, target: str,
 
 
 def integrity(store: DuckDBStore, ticker: Optional[str] = None,
-              interval: Optional[str] = None) -> dict:
+              interval: Optional[str] = None, continuous: bool = True) -> dict:
     """Audit stored candles for gaps, duplicates, bad OHLC and NaNs.
 
     With no ``ticker`` it scans every stored series; with a ``ticker`` (and
-    optional ``interval``) it narrows the scan. Returns a per-series report and
-    the list of series that flagged problems.
+    optional ``interval``) it narrows the scan. ``continuous=False`` (stocks)
+    treats overnight/weekend gaps as expected session breaks, not missing data.
+    Returns a per-series report and the list of series that flagged problems.
     """
     from yammyquant.data.integrity import candle_integrity
 
@@ -714,7 +715,7 @@ def integrity(store: DuckDBStore, ticker: Optional[str] = None,
             series.append({"ticker": tk, "interval": iv, "error": str(exc), "ok": False})
             problems.append(f"{tk}/{iv}")
             continue
-        rep = candle_integrity(candle, _INTERVAL_SECONDS.get(iv))
+        rep = candle_integrity(candle, _INTERVAL_SECONDS.get(iv), continuous=continuous)
         rep.update(ticker=tk, interval=iv)
         series.append(rep)
         if not rep["ok"]:

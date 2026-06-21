@@ -447,6 +447,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p = sub.add_parser("integrity", help="audit stored candles (gaps, dups, bad OHLC)")
     p.add_argument("ticker", nargs="?", help="limit to one symbol (default: all)")
     p.add_argument("--interval", help="limit to one interval")
+    p.add_argument("--sessions", action="store_true",
+                   help="stock market: treat overnight/weekend gaps as expected (not missing)")
     sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
     sub.add_parser("attribution", help="per-strategy performance attribution")
 
@@ -780,7 +782,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "integrity":
-        _print(ops.integrity(DuckDBStore(args.store), args.ticker, args.interval))
+        _print(ops.integrity(DuckDBStore(args.store), args.ticker, args.interval,
+                             continuous=not args.sessions))
         return 0
 
     if args.cmd == "doctor":

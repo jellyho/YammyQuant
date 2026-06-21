@@ -31,6 +31,29 @@ def test_detects_gap():
     assert not rep["ok"]
 
 
+def test_intraday_session_breaks_not_counted_for_stocks():
+    # 5-minute stock bars: a clean morning, then overnight to the next morning,
+    # plus one genuine intraday hole (10:15 missing between 10:10 and 10:20)
+    idx = pd.to_datetime([
+        "2023-01-02 09:00", "2023-01-02 09:05", "2023-01-02 09:10",
+        "2023-01-02 09:15",                       # 09:20..15:25 omitted for brevity
+        "2023-01-03 09:00", "2023-01-03 09:05",   # overnight gap (different date)
+        "2023-01-03 09:20",                        # intraday hole: 09:10/09:15 missing
+    ])
+    c = np.arange(len(idx), dtype=float) + 100
+    df = pd.DataFrame({"open": c, "high": c + 1, "low": c - 1, "close": c,
+                       "volume": [1.0] * len(idx)}, index=idx)
+    candle = Candle("005930", df, interval="5m")
+    # crypto-style (continuous): every gap counts -> not ok
+    cont = candle_integrity(candle, interval_seconds=300, continuous=True)
+    assert cont["gaps"] == 2 and cont["session_breaks"] == 0
+    # stock-style: the overnight gap is an expected session break, only the
+    # intraday hole is a real gap
+    sess = candle_integrity(candle, interval_seconds=300, continuous=False)
+    assert sess["gaps"] == 1 and sess["session_breaks"] == 1
+    assert not sess["ok"]  # the intraday hole still flags
+
+
 def test_detects_duplicate_and_disorder():
     idx = pd.to_datetime(["2023-01-01", "2023-01-01", "2023-01-03"])  # dup
     c = np.array([100.0, 100, 101])
