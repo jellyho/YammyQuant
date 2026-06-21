@@ -458,6 +458,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("action", choices=["show", "set"])
     p.add_argument("args", nargs="*", help="set: field=value ...")
 
+    p = sub.add_parser("protect", help="protective exits (stop/take/trail) on open positions")
+    p.add_argument("action", nargs="?", default="check", choices=["check", "show", "set"])
+    p.add_argument("args", nargs="*", help="set: stop_loss=.. take_profit=.. trailing_stop=..")
+    p.add_argument("--execute", action="store_true", help="submit the protective exits")
+
     p = sub.add_parser("journal", help="operator journal: add a note, or list")
     p.add_argument("text", nargs="?", help="note text (omit to list)")
     p.add_argument("--tag", default="")
@@ -794,6 +799,26 @@ def main(argv: Optional[list[str]] = None) -> int:
             policy.save(state)
         from dataclasses import asdict
         _print(asdict(AccountRiskPolicy.load(state)))
+        return 0
+
+    if args.cmd == "protect":
+        from yammyquant.ops.risk_policy import ProtectPolicy
+        from dataclasses import asdict
+        if args.action == "set":
+            policy = ProtectPolicy.load(state)
+            for assignment in args.args:
+                if "=" not in assignment:
+                    print("usage: yq protect set stop_loss=0.05 take_profit=0.1 trailing_stop=0.08")
+                    return 1
+                field_name, value = assignment.split("=", 1)
+                setattr(policy, field_name,
+                        None if value.lower() in ("", "none") else float(value))
+            policy.save(state)
+            _print(asdict(ProtectPolicy.load(state)))
+        elif args.action == "show":
+            _print(asdict(ProtectPolicy.load(state)))
+        else:
+            _print(ops.protect(DuckDBStore(args.store), state, execute=args.execute))
         return 0
 
     if args.cmd == "journal":

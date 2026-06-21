@@ -477,6 +477,90 @@ def mark(state: LiveState, exchange: Optional[str] = None, interval: str = "1m")
     return {"equity": equity, "prices": prices}
 
 
+def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None,
+            execute: bool = False, mode: Optional[str] = None) -> dict:
+    """Enforce protective exits (stop-loss / take-profit / trailing) on open positions.
+
+    Brings the backtest risk layer to the live book: each open position is marked
+    to the latest price and checked against the :class:`ProtectPolicy`
+    (``yq protect set ...``). A breached position is flattened (SELL a long, BUY
+    a short). Dry-run by default; ``execute`` submits (paper unless ``mode`` /
+    ``trade_mode`` is live). The peak since entry (for trailing) is persisted per
+    symbol in state.
+    """
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+    from yammyquant.ops.risk_policy import ProtectPolicy
+
+    policy = ProtectPolicy.load(state)
+    out = {"checked": 0, "proposals": [], "policy": {k: v for k, v in
+           {"stop_loss": policy.stop_loss, "take_profit": policy.take_profit,
+            "trailing_stop": policy.trailing_stop}.items() if v is not None}}
+    if not policy.active:
+        return out
+
+    ex = get_exchange(exchange or default_exchange())
+    tm = TradeManager(state)
+    mode = mode or ("live" if state.get("trade_mode") == "live" else "paper")
+
+    for pos in state.positions():
+        qty = float(pos["quantity"])
+        if abs(qty) <= 1e-12:
+            continue
+        ticker, avg = pos["ticker"], float(pos["avg_price"])
+        try:
+            price = float(ex.last_price(ticker))
+        except Exception:
+            try:
+                price = float(store.read(ticker, "1d").close[-1])   # fallback: last stored close
+            except Exception as exc:
+                state.log("protect", f"no price for {ticker}: {exc}", level="warn")
+                continue
+        out["checked"] += 1
+        is_long = qty > 0
+        hwm_key = f"protect.hwm.{ticker}"
+        prev = state.get(hwm_key)
+        peak = (max(prev, price) if prev is not None else max(avg, price)) if is_long \
+            else (min(prev, price) if prev is not None else min(avg, price))
+        state.set(hwm_key, peak)
+
+        reason = None
+        if is_long:
+            if policy.stop_loss is not None and price <= avg * (1 - policy.stop_loss):
+                reason = "stop_loss"
+            elif policy.take_profit is not None and price >= avg * (1 + policy.take_profit):
+                reason = "take_profit"
+            elif policy.trailing_stop is not None and price <= peak * (1 - policy.trailing_stop):
+                reason = "trailing_stop"
+        else:
+            if policy.stop_loss is not None and price >= avg * (1 + policy.stop_loss):
+                reason = "stop_loss"
+            elif policy.take_profit is not None and price <= avg * (1 - policy.take_profit):
+                reason = "take_profit"
+            elif policy.trailing_stop is not None and price >= peak * (1 + policy.trailing_stop):
+                reason = "trailing_stop"
+        if not reason:
+            continue
+
+        side = "SELL" if is_long else "BUY"
+        prop = {"symbol": ticker, "side": side, "quantity": abs(qty),
+                "price": round(price, 6), "reason": reason}
+        if execute:
+            res = tm.submit(ticker, side, abs(qty), price, mode=mode,
+                            rationale=f"protect:{reason}",
+                            context={"protect": reason, "entry": avg, "peak": peak})
+            prop["status"] = res.get("status")
+            state.set(hwm_key, None)            # reset the peak once flattened
+        out["proposals"].append(prop)
+
+    if out["proposals"]:
+        from yammyquant.ops.notify import notify
+        verb = "exited" if execute else "would exit"
+        notify(state, "🛡️ protect " + verb + ": "
+               + ", ".join(f"{p['symbol']} {p['reason']}" for p in out["proposals"]), "warn")
+    return out
+
+
 def integrity(store: DuckDBStore, ticker: Optional[str] = None,
               interval: Optional[str] = None) -> dict:
     """Audit stored candles for gaps, duplicates, bad OHLC and NaNs.
@@ -616,6 +700,16 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     state.log("cycle", f"cycle: {len(refreshed)} refreshed, {len(signals)} signals",
               refreshed=refreshed, signals=signals)
 
+    # protective exits run every cycle; they only act when a stop/take/trail is
+    # breached, and execute alongside autonomous trading (paper unless live)
+    protection = None
+    try:
+        protection = protect(store, state, exchange=exchange,
+                             execute=bool(state.get("auto_trade")),
+                             mode=state.get("trade_mode", "paper"))
+    except Exception as exc:
+        state.log("protect", f"cycle protect failed: {exc}", level="warn")
+
     decisions = None
     if state.get("auto_trade"):  # opt-in autonomous trading
         decisions = decide(store, state, exchange=exchange,
@@ -625,7 +719,7 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
     return {"refreshed": refreshed, "signals": signals, "equity": equity,
-            "decisions": decisions, "inbound": inbound}
+            "decisions": decisions, "protection": protection, "inbound": inbound}
 
 
 def collect_news(

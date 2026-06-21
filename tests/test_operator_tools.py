@@ -411,3 +411,53 @@ def test_correlation_matrix(tmp_path):
     assert out["matrix"][i["AAA"]][i["AAA"]] == 1.0          # diagonal
     assert out["matrix"][i["AAA"]][i["BBB"]] > 0.8           # positively correlated
     assert out["matrix"][i["AAA"]][i["CCC"]] < -0.8          # anti-correlated
+
+
+def test_protect_take_profit_proposes_and_executes(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.upsert_position("BTCUSDT", 1.0, 100.0)        # entry 100; fake price = 120
+    ProtectPolicy(take_profit=0.10).save(state)         # target 110 -> 120 breaches
+
+    dry = ops.protect(store, state)                      # dry-run
+    assert dry["checked"] == 1
+    assert dry["proposals"][0]["reason"] == "take_profit"
+    assert dry["proposals"][0]["side"] == "SELL"
+    assert state.trades() == []                          # nothing submitted
+
+    live = ops.protect(store, state, execute=True)
+    assert live["proposals"][0].get("status") == "filled"
+    assert not state.positions()                         # flattened
+
+
+def test_protect_stop_loss(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.upsert_position("ETHUSDT", 1.0, 200.0)        # entry 200; price 120 < 190
+    ProtectPolicy(stop_loss=0.05).save(state)
+    out = ops.protect(store, state)
+    assert out["proposals"][0]["reason"] == "stop_loss"
+
+
+def test_protect_trailing_uses_peak(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.upsert_position("SOLUSDT", 1.0, 100.0)
+    state.set("protect.hwm.SOLUSDT", 200.0)             # peak well above the 120 price
+    ProtectPolicy(trailing_stop=0.10).save(state)        # 200*0.9 = 180 -> 120 breaches
+    out = ops.protect(store, state)
+    assert out["proposals"][0]["reason"] == "trailing_stop"
+
+
+def test_protect_no_policy_is_noop(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.upsert_position("BTCUSDT", 1.0, 100.0)
+    out = ops.protect(store, state)
+    assert out["checked"] == 0 and out["proposals"] == []

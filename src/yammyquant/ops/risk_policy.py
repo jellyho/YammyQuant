@@ -16,6 +16,32 @@ from typing import Optional
 from yammyquant.state.store import LiveState
 
 _SETTING = "risk_policy"
+_PROTECT_SETTING = "protect_policy"
+
+
+@dataclass
+class ProtectPolicy:
+    """Protective-exit policy for *live/paper* open positions.
+
+    The backtest ``RiskConfig`` applies stops inside a simulation; this carries
+    the same idea to the live book — checked each cycle (or via ``yq protect``)
+    against the latest mark. All fractions of the entry/peak; ``None`` disables.
+    """
+
+    stop_loss: Optional[float] = None       # exit if price falls this fraction below entry
+    take_profit: Optional[float] = None     # exit if price rises this fraction above entry
+    trailing_stop: Optional[float] = None   # exit on this give-back from the peak since entry
+
+    @property
+    def active(self) -> bool:
+        return any(v is not None for v in (self.stop_loss, self.take_profit, self.trailing_stop))
+
+    @classmethod
+    def load(cls, state: LiveState) -> "ProtectPolicy":
+        return cls(**(state.get(_PROTECT_SETTING) or {}))
+
+    def save(self, state: LiveState) -> None:
+        state.set(_PROTECT_SETTING, asdict(self))
 
 
 @dataclass
