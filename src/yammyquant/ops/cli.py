@@ -278,6 +278,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--size", type=float)
     p.add_argument("--cash", type=float, default=10_000.0)
     p.add_argument("--fee", type=float, default=0.001)
+    p.add_argument("--slippage", type=float, default=0.0,
+                   help="proportional slippage per fill (e.g. 0.0005)")
+    p.add_argument("--fill-timing", choices=["next_open", "close"], default="next_open",
+                   help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -548,7 +552,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                   if v is not None}
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
-                            args.start, args.end, state))
+                            slippage=args.slippage, fill_timing=args.fill_timing,
+                            start=args.start, end=args.end, state=state))
         return 0
 
     if args.cmd == "scan":

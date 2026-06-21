@@ -67,6 +67,15 @@ class Backtest:
         strategy's ``warmup`` (so it always sees enough history).
     broker:
         Optional custom broker; defaults to :class:`BacktestBroker`.
+    fill_timing:
+        When to fill strategy-generated orders relative to the bar that
+        produced them. ``"next_open"`` (default) queues an order decided on the
+        close of bar *i* and fills it at the **open of bar i+1** — the realistic,
+        bias-free convention, since you cannot observe a bar's close and trade at
+        that same close. ``"close"`` fills on the signal bar's close (the old
+        behavior; optimistically biased, kept for comparison/back-compat).
+        Protective stop/take-profit and the drawdown kill switch are intrabar
+        and always fill immediately regardless of this setting.
     """
 
     def __init__(
@@ -79,10 +88,14 @@ class Backtest:
         lookback: int | None = None,
         broker: Broker | None = None,
         risk: "RiskConfig | None" = None,
+        fill_timing: str = "next_open",
     ):
+        if fill_timing not in ("next_open", "close"):
+            raise ValueError(f"fill_timing must be 'next_open' or 'close', got {fill_timing!r}")
         self.candle = candle
         self.strategy = strategy
         self.lookback = lookback or strategy.warmup
+        self.fill_timing = fill_timing
         self.portfolio = Portfolio(cash=cash, fee=fee)
         self.broker = broker or BacktestBroker(fee=fee, slippage=slippage)
         self.risk = None
@@ -100,6 +113,7 @@ class Backtest:
                 f"Not enough data: have {n} bars, need at least lookback={self.lookback}."
             )
 
+        open_ = candle.open
         close = candle.close
         high = candle.high
         low = candle.low
@@ -107,13 +121,24 @@ class Backtest:
         ticker = candle.ticker
         peak_equity = self.portfolio.equity()
         halted = False
+        next_open = self.fill_timing == "next_open"
+        pending: list[Order] = []  # orders decided last bar, awaiting this bar's open
 
         for i in range(self.lookback - 1, n):
             window = candle[i - self.lookback + 1 : i + 1]
             ref_price = float(close[i])
             time = index[i]
 
-            # 1) protective exits + drawdown kill switch (before new orders)
+            # 0) fill orders decided on the previous bar at THIS bar's open
+            if pending:
+                fill_price = float(open_[i])
+                for order in pending:
+                    fill = self.broker.execute(order, ref_price=fill_price, time=time)
+                    if fill is not None:
+                        self.portfolio.apply_fill(fill)
+                pending = []
+
+            # 1) protective exits + drawdown kill switch (intrabar, always immediate)
             if self.risk is not None:
                 self._apply_risk_exits(ticker, float(high[i]), float(low[i]), time)
                 peak_equity = max(peak_equity, self.portfolio.equity())
@@ -126,11 +151,17 @@ class Backtest:
                 for order in self.strategy.on_bar(window):
                     order.time = order.time or time
                     self._size_order(order, ref_price, close, i)
-                    fill = self.broker.execute(order, ref_price=ref_price, time=time)
-                    if fill is not None:
-                        self.portfolio.apply_fill(fill)
+                    if next_open:
+                        pending.append(order)   # fill at the next bar's open
+                    else:
+                        fill = self.broker.execute(order, ref_price=ref_price, time=time)
+                        if fill is not None:
+                            self.portfolio.apply_fill(fill)
 
             self.portfolio.mark(time, {ticker: ref_price})
+
+        # orders decided on the final bar have no next open to fill against — drop
+        # them rather than peek at a price that never existed.
 
         return BacktestResult(
             equity_curve=self.portfolio.equity_curve,
