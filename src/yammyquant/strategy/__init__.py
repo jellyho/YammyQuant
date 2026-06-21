@@ -1,6 +1,6 @@
 from yammyquant.strategy.base import Strategy
 from yammyquant.strategy.ensemble import Ensemble, aggregate_votes
-from yammyquant.strategy.meta import RegimeFilter
+from yammyquant.strategy.meta import RegimeFilter, SessionFilter
 from yammyquant.strategy.builtin import (
     MACross,
     VolatilityBreakout,
@@ -28,6 +28,7 @@ __all__ = [
     "Ensemble",
     "aggregate_votes",
     "RegimeFilter",
+    "SessionFilter",
     "MACross",
     "VolatilityBreakout",
     "RSIReversion",

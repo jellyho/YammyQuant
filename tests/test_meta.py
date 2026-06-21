@@ -4,7 +4,7 @@ import pandas as pd
 from yammyquant.data.candle import Candle
 from yammyquant.backtest.order import Action, Order
 from yammyquant.strategy.base import Strategy
-from yammyquant.strategy.meta import RegimeFilter
+from yammyquant.strategy.meta import RegimeFilter, SessionFilter
 
 
 class _AlwaysBuy(Strategy):
@@ -71,3 +71,48 @@ def test_regime_backtest_reduces_trades(tmp_path):
                         regime={"trend_period": 50})
     # the trend gate should not increase trade count (typically reduces it)
     assert filt["num_trades"] <= base["num_trades"]
+
+
+class _AlwaysSellStrat(Strategy):
+    warmup = 1
+    def on_bar(self, window):
+        return [Order(Action.SELL, window.ticker, 1.0, float(window.close[-1]))]
+
+
+def _hourly_window(end_hour):
+    # 3 hourly bars ending at a chosen hour on a Wednesday (weekday 2)
+    idx = pd.date_range(f"2023-01-04 {end_hour-2:02d}:00", periods=3, freq="1h")
+    c = np.array([100.0, 101, 102])
+    df = pd.DataFrame({"open": c, "high": c + 1, "low": c - 1, "close": c,
+                       "volume": [1.0] * 3}, index=idx)
+    return Candle("X", df, interval="1h")
+
+
+def test_session_blocks_buy_outside_hours():
+    win = _hourly_window(end_hour=3)                  # 03:00, outside 13–16
+    sf = SessionFilter(_AlwaysBuy(), hours=[13, 14, 15, 16])
+    assert sf.on_bar(win) == []
+
+
+def test_session_allows_buy_inside_hours():
+    win = _hourly_window(end_hour=14)                 # 14:00, inside
+    sf = SessionFilter(_AlwaysBuy(), hours=[13, 14, 15, 16])
+    orders = sf.on_bar(win)
+    assert len(orders) == 1 and orders[0].action == Action.BUY
+
+
+def test_session_blocks_weekend_entry():
+    # Saturday is weekday 5; only allow Mon–Fri (0–4)
+    idx = pd.date_range("2023-01-07", periods=2, freq="1D")   # 2023-01-07 is a Saturday
+    c = np.array([100.0, 101])
+    df = pd.DataFrame({"open": c, "high": c + 1, "low": c - 1, "close": c,
+                       "volume": [1.0, 1.0]}, index=idx)
+    sf = SessionFilter(_AlwaysBuy(), weekdays=[0, 1, 2, 3, 4])
+    assert sf.on_bar(Candle("X", df, interval="1d")) == []
+
+
+def test_session_always_allows_exits():
+    win = _hourly_window(end_hour=3)                  # out of session
+    sf = SessionFilter(_AlwaysSellStrat(), hours=[13, 14])
+    orders = sf.on_bar(win)
+    assert len(orders) == 1 and orders[0].action == Action.SELL
