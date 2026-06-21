@@ -48,6 +48,7 @@ nav:
       - Strategies & risk: strategies.md
       - Self-improvement: self-improvement.md
       - Money safety: safety.md
+      - Live exchange testing: live-testing.md
   - Reference:
       - Python library: library.md
       - Exchanges: EXCHANGES.md

@@ -42,7 +42,7 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq target BTCUSDT=0.5 ETHUSDT=0.3` | Set portfolio target weights. |
 | `yq target --risk-parity A B C` | Auto-set inverse-volatility (risk-parity) weights. |
 | `yq rebalance --execute` | Move holdings toward targets. |
-| `yq trade SYM BUY 0.1 [--price 65000] --mode paper` | Paper fills now — at the live price (omit `--price`) and the venue's real fees. |
+| `yq trade SYM BUY 0.1 [--price 65000] --mode paper` | Paper fills now — at the live price (omit `--price`) and the venue's real fees. Add `--type limit` for a resting order; `--mode live` queues for approval. |
 | `yq approve N` / `yq reject N` | Act on a pending live trade. |
 | `yq protect [--execute]` | Protective exits (stop/take/trailing/ATR/scale-out) on open positions. |
 | `yq mark` / `yq sync` | Mark to market / settle live orders. |
