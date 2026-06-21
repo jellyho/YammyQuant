@@ -34,9 +34,19 @@ class TradeManager:
         if exchange:
             from yammyquant.exchanges.fees import fee_schedule
             self._sched = fee_schedule(exchange)
+        # market orders cross the spread / walk the book — model that with a
+        # slippage fraction (state setting ``slippage``) so paper mirrors live.
+        # Limit orders rest at their price and are not slipped.
+        self.slippage = float(state.get("slippage", 0.0))
 
     def _fee_rate(self, order_type: str = "market") -> float:
         return self._sched.rate(order_type) if self._sched else self.fee
+
+    def _fill_price(self, side: str, price: float, order_type: str = "market") -> float:
+        """Apply slippage to a market fill — worse for the taker (buy up, sell down)."""
+        if self.slippage <= 0 or order_type == "limit":
+            return price
+        return price * (1 + self.slippage) if side == "BUY" else price * (1 - self.slippage)
 
     # -- cash --------------------------------------------------------------
     @property
@@ -180,6 +190,7 @@ class TradeManager:
     def _apply(self, ticker: str, side: str, qty: float, price: float,
                order_type: str = "market"):
         """Apply a fill to cash + position. Returns (ok, realized_pnl)."""
+        price = self._fill_price(side, price, order_type)
         fee = price * qty * self._fee_rate(order_type)
         pos = {p["ticker"]: p for p in self.state.positions()}.get(
             ticker, {"quantity": 0.0, "avg_price": 0.0})
