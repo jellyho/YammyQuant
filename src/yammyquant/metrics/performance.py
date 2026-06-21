@@ -133,6 +133,40 @@ def deflated_sharpe_ratio(returns: pd.Series, trial_sharpes: list,
     return probabilistic_sharpe_ratio(returns, sr_benchmark=e_max)
 
 
+def monte_carlo(returns: pd.Series, n_sims: int = 1000, ruin_drawdown: float = 0.5,
+                seed: Optional[int] = 0) -> dict:
+    """Bootstrap the return path to a distribution of outcomes and drawdowns.
+
+    Resamples the per-bar returns with replacement ``n_sims`` times, rebuilds each
+    equity path, and reports percentiles of final return and max drawdown plus
+    ``risk_of_ruin`` — the fraction of paths whose drawdown breaches
+    ``ruin_drawdown`` (e.g. 0.5 = a 50% peak-to-trough loss). Shows how much of a
+    backtest's result is the edge vs. the luck of the ordering.
+    """
+    r = pd.Series(returns).dropna().to_numpy()
+    out = {"mc_sims": int(n_sims), "mc_return_p5": 0.0, "mc_return_median": 0.0,
+           "mc_return_p95": 0.0, "mc_maxdd_median": 0.0, "mc_maxdd_worst5": 0.0,
+           "risk_of_ruin": 0.0}
+    if len(r) < 3:
+        return out
+    rng = np.random.default_rng(seed)
+    finals = np.empty(n_sims)
+    mdds = np.empty(n_sims)
+    for i in range(n_sims):
+        path = np.cumprod(1.0 + rng.choice(r, size=len(r), replace=True))
+        finals[i] = path[-1] - 1.0
+        mdds[i] = float((path / np.maximum.accumulate(path) - 1.0).min())
+    out.update(
+        mc_return_p5=round(float(np.percentile(finals, 5)), 4),
+        mc_return_median=round(float(np.percentile(finals, 50)), 4),
+        mc_return_p95=round(float(np.percentile(finals, 95)), 4),
+        mc_maxdd_median=round(float(np.percentile(mdds, 50)), 4),
+        mc_maxdd_worst5=round(float(np.percentile(mdds, 5)), 4),   # worst-tail drawdown
+        risk_of_ruin=round(float(np.mean(mdds <= -abs(ruin_drawdown))), 4),
+    )
+    return out
+
+
 def value_at_risk(returns: pd.Series, alpha: float = 0.05) -> float:
     """Historical Value-at-Risk: the per-bar loss not exceeded with ``1-alpha``
     confidence, as a positive magnitude (VaR 95% → ``alpha=0.05``)."""

@@ -304,6 +304,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--max-drawdown", type=float, help="equity drawdown kill switch (flatten + halt)")
     p.add_argument("--bootstrap", type=int, default=0, metavar="N",
                    help="bootstrap N resamples for a Sharpe CI/p-value + PSR (is the edge real?)")
+    p.add_argument("--monte-carlo", type=int, default=0, metavar="N",
+                   help="N Monte-Carlo path resamples for return/drawdown bands + risk of ruin")
+    p.add_argument("--ruin", type=float, default=0.5,
+                   help="drawdown that counts as ruin for risk-of-ruin (default 0.5)")
     p.add_argument("--regime-trend", type=int, metavar="N",
                    help="only enter with the trend: gate longs above an N-bar trend MA")
     p.add_argument("--regime-htf", type=int, default=1, metavar="K",
@@ -627,7 +631,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
                             allow_short=args.allow_short, borrow_fee=args.borrow_fee, risk=risk,
-                            bootstrap=args.bootstrap, regime=regime, session=session,
+                            bootstrap=args.bootstrap, monte_carlo=args.monte_carlo, ruin=args.ruin,
+                            regime=regime, session=session,
                             start=args.start, end=args.end, state=state))
         return 0
 
