@@ -1047,6 +1047,17 @@ def decide(
     positions = {p["ticker"]: p for p in state.positions()}
     enabled = enabled_strategies(state)
 
+    # min-edge gate (opt-in, scalping): skip entries whose expected move (ATR%)
+    # is smaller than ``min_edge_mult`` × the round-trip taker cost (fees+slippage,
+    # entry + exit) — don't churn on edges the costs would eat.
+    min_edge_mult = state.get("min_edge_mult")
+    slippage = float(state.get("slippage", 0.0))
+    try:
+        taker = float(ex.fees().get("taker", 0.0))
+    except Exception:
+        taker = 0.0
+    round_trip_cost = 2.0 * (taker + slippage)
+
     proposals = []
     for w in state.watchlist():
         sym, iv = w["symbol"], (w["interval"] or "1d")
@@ -1106,6 +1117,15 @@ def decide(
             if gate is not None and senti < float(gate):
                 state.log("decide", f"vetoed BUY {sym}: sentiment {senti} < gate {gate}")
                 continue
+            # min-edge gate: is a typical bar move worth more than the round-trip cost?
+            if min_edge_mult is not None and round_trip_cost > 0:
+                atr = candle.ind.atr(14).to_numpy()
+                edge = float(atr[-1]) / price if len(atr) and price else 0.0
+                if edge < float(min_edge_mult) * round_trip_cost:
+                    state.log("decide", f"vetoed BUY {sym}: edge {edge:.4f} < "
+                              f"{min_edge_mult}× round-trip cost {round_trip_cost:.4f}")
+                    continue
+                context["edge"] = round(edge, 4)
             qty = round((equity * target_w) / price, 8)
             if qty > 0:
                 from yammyquant.ops.sizing import position_size

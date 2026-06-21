@@ -605,6 +605,23 @@ def test_decide_session_gate_vetoes_entry(tmp_path, fake_exchange):
     assert [p for p in out2["proposals"] if p["side"] == "BUY"]
 
 
+def test_decide_min_edge_gate_vetoes_thin_edge(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.add_watch("BTCUSDT", "fake", "1d")
+    _pin_strategies(state, "volatility_breakout")
+    state.set("slippage", 0.01)              # round-trip cost = 2×0.01 > 0
+    # demand an unrealistically large edge -> a real BUY signal is vetoed
+    state.set("min_edge_mult", 100.0)
+    out = ops.decide(store, state, weight=0.2, execute=False)
+    assert not [p for p in out["proposals"] if p["side"] == "BUY"]
+    # clearing the gate lets the same entry through
+    state.set("min_edge_mult", None)
+    out2 = ops.decide(store, state, weight=0.2, execute=False)
+    assert [p for p in out2["proposals"] if p["side"] == "BUY"]
+
+
 def test_backtest_fee_exchange_applies_schedule(tmp_path):
     store = DuckDBStore(tmp_path / "store")
     n = 250
