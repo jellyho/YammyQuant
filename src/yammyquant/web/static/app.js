@@ -106,6 +106,22 @@ async function loadReport() {
 }
 $("refreshReport").onclick = loadReport;
 
+// ---- promotion readiness (backtest -> paper -> live) ---------------------
+async function loadPromote() {
+  const r = await fetch("/api/promote"); if (!r.ok) return;
+  const d = await r.json();
+  $("promote").querySelector("tbody").innerHTML = (d.checks || []).map(c => `<tr>
+    <td>${escapeHtml(c.expectation)}</td>
+    <td>${fmt(c.expected_sharpe)}</td><td>${fmt(c.realized_sharpe)}</td>
+    <td>${fmt(c.expected_return)}</td><td>${fmt(c.realized_return)}</td>
+    <td>${c.closed_trades}</td>
+    <td class="${c.ready ? 'buy' : 'sell'}">${c.ready ? "✓ ready" : "—"}</td>
+    <td class="muted">${escapeHtml((c.blockers || []).join("; "))}</td>
+  </tr>`).join("") ||
+    `<tr><td colspan="8" class="muted">no baselines — record one with yq expect</td></tr>`;
+}
+$("refreshPromote").onclick = loadPromote;
+
 // ---- fees & realism ------------------------------------------------------
 async function loadFees() {
   const r = await fetch("/api/fees"); if (!r.ok) return;
@@ -617,6 +633,7 @@ connect();
 loadChart();
 loadRisk();
 loadReport();
+loadPromote();
 loadFees();
 loadControl();
 loadPlugins();

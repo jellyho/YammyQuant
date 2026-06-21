@@ -58,6 +58,7 @@ yq target --risk-parity BTCUSDT ETHUSDT SOLUSDT   # inverse-vol (risk-parity) we
 yq rebalance --execute                      # move holdings toward targets
 yq expect BTCUSDT 1d macross               # record a backtest baseline
 yq decay                                    # realized vs baseline (strategy-decay alert)
+yq promote                                  # is paper performance ready to graduate to live?
 yq mark                                     # mark positions to market (live price)
 yq sync                                     # poll & settle submitted/partial live orders
 yq cycle                                    # one maintenance cycle: refresh→scan→mark→notify
@@ -111,6 +112,13 @@ or backtest an explicit blend with `yq ensemble SYM IV --members a,b,c --rule �
 **Portfolio & decay.** `yq target`/`yq rebalance` maintain target weights across
 holdings. `yq expect` records a backtest baseline; `yq decay` warns when realized
 performance falls below it (out-of-sample edge erosion).
+
+**Promotion (backtest → paper → live).** `yq promote` grades the realized **paper**
+record against the recorded baselines and reports whether each is *ready* to go
+live — enough closed trades, realized Sharpe holding ≥ a fraction of the backtest
+Sharpe, positive paper return, drawdown in line. Ready ≠ armed: live still needs
+`YQ_ALLOW_LIVE=1` + per-order approval. This is the gate for the dev pipeline:
+develop & validate in backtest → confirm in paper → only then promote to live.
 
 **Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
 enforced on every order (paper + live) — it can reject a trade before it fills.

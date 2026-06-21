@@ -124,6 +124,15 @@ def test_integrity_endpoint(client):
     assert "session_breaks" in body["series"][0]
 
 
+def test_promote_endpoint(client):
+    c, state = client
+    state.set("expectations", {"macross:BTCUSDT:1d": {"sharpe": 1.0, "total_return": 0.2,
+                                                      "max_drawdown": -0.1}})
+    body = c.get("/api/promote").json()
+    assert "checks" in body and "ready" in body
+    assert body["live_trading_allowed"] is False
+
+
 def test_news_in_snapshot(client):
     c, state = client
     state.add_news("BTC rallies", url="http://a", symbol="BTCUSDT", sentiment=0.6, source="t")

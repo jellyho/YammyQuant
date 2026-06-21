@@ -355,6 +355,12 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         except Exception as e:
             raise HTTPException(502, f"integrity failed: {e}")
 
+    @app.get("/api/promote")
+    def get_promote():
+        """Backtest→paper→live readiness: graded paper performance vs baselines."""
+        from yammyquant.ops import operator as ops
+        return _json_safe(ops.promotion_check(state))
+
     @app.get("/api/report")
     def get_report():
         """

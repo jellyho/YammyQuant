@@ -1275,6 +1275,66 @@ def decay_check(state: LiveState, tolerance: float = 0.5) -> dict:
     return {"realized_sharpe": realized["sharpe"], "checks": out}
 
 
+def promotion_check(
+    state: LiveState,
+    min_trades: int = 20,
+    sharpe_floor: float = 0.7,
+    max_dd_mult: float = 1.5,
+) -> dict:
+    """Is paper performance holding up to the backtest baseline well enough to go live?
+
+    The backtest → paper → live gate. For each recorded expectation (``yq expect``)
+    the realized **paper** record is graded against the baseline; a strategy is
+    *ready* only when all guards pass:
+
+    - **sample** — at least ``min_trades`` closed round-trips (statistical weight);
+    - **edge held** — realized Sharpe ≥ ``sharpe_floor`` × the backtested Sharpe;
+    - **profitable** — realized total return is positive;
+    - **risk in line** — realized drawdown ≤ ``max_dd_mult`` × the backtested one.
+
+    Like :func:`decay_check` this is account-level, so it's most meaningful when one
+    strategy drives the book. Ready ≠ armed: live still needs ``YQ_ALLOW_LIVE=1``
+    plus per-order approval.
+    """
+    from yammyquant.ops.trading import live_trading_allowed
+
+    expectations = state.get("expectations", {})
+    realized = report(state)
+    n = int(realized["closed_trades"])
+    real_sharpe = realized["sharpe"]
+    real_dd = abs(realized["max_drawdown"] or 0.0)
+    real_ret = realized["total_return"]
+
+    checks = []
+    for key, exp in expectations.items():
+        exp_sharpe = exp.get("sharpe") or 0.0
+        exp_dd = abs(exp.get("max_drawdown") or 0.0)
+        blockers = []
+        if n < min_trades:
+            blockers.append(f"only {n}/{min_trades} closed trades")
+        if exp_sharpe > 0 and real_sharpe < sharpe_floor * exp_sharpe:
+            blockers.append(f"sharpe {real_sharpe} < {sharpe_floor}×{round(exp_sharpe, 3)}")
+        if real_ret <= 0:
+            blockers.append(f"paper return {real_ret} not positive")
+        if exp_dd > 0 and real_dd > max_dd_mult * exp_dd:
+            blockers.append(f"drawdown {real_dd} > {max_dd_mult}×{round(exp_dd, 4)}")
+        checks.append({
+            "expectation": key, "ready": not blockers,
+            "expected_sharpe": exp_sharpe, "realized_sharpe": real_sharpe,
+            "expected_return": exp.get("total_return"), "realized_return": real_ret,
+            "closed_trades": n, "blockers": blockers,
+        })
+
+    ready = [c["expectation"] for c in checks if c["ready"]]
+    if ready:
+        from yammyquant.ops.notify import notify
+        gate = "" if live_trading_allowed() else " (set YQ_ALLOW_LIVE=1 + approve to arm)"
+        notify(state, f"✅ ready to promote to live: {', '.join(ready)}{gate}", "info")
+    return {"trade_mode": state.get("trade_mode", "paper"),
+            "live_trading_allowed": live_trading_allowed(),
+            "ready": ready, "checks": checks}
+
+
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
     """Performance report from recorded equity + trades (realized PnL, drawdown…)."""
     import pandas as pd

@@ -237,3 +237,24 @@ yq risk set sizing=volatility target_vol=0.4    # or sizing=kelly
 yq expect BTCUSDT 1d macross      # record a backtest baseline
 yq decay                          # warn when realized < baseline (edge erosion)
 ```
+
+## Promotion: backtest → paper → live
+
+The development pipeline is **backtest → paper → live**. `yq promote` is the gate
+between paper and live: it grades the realized **paper** record against the
+recorded baselines and flags each as *ready* only when every guard passes —
+
+- enough closed round-trips (`--min-trades`, default 20),
+- realized Sharpe ≥ `--sharpe-floor` (default 0.7) × the backtested Sharpe,
+- positive paper return,
+- realized drawdown ≤ `--max-dd-mult` (default 1.5) × the backtested drawdown.
+
+```bash
+yq expect BTCUSDT 1d macross      # 1. validate & baseline in backtest
+# ... run it in paper for a while (auto_trade / yq cycle) ...
+yq promote                        # 2. ready to graduate to live?
+```
+
+Like `yq decay`, this is account-level, so it's most meaningful when one strategy
+drives the book. **Ready ≠ armed:** going live still requires `YQ_ALLOW_LIVE=1`
+and per-order approval — see [Money safety](safety.md).

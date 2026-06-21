@@ -528,6 +528,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sub.add_parser("decay", help="compare realized performance to recorded baselines")
 
+    p = sub.add_parser("promote", help="is paper performance ready to graduate to live?")
+    p.add_argument("--min-trades", type=int, default=20, help="min closed round-trips required")
+    p.add_argument("--sharpe-floor", type=float, default=0.7,
+                   help="realized sharpe must clear this fraction of the backtest sharpe")
+    p.add_argument("--max-dd-mult", type=float, default=1.5,
+                   help="realized drawdown may not exceed this multiple of the backtest's")
+
     p = sub.add_parser("sync", help="poll & settle submitted live orders")
     p.add_argument("--exchange")
 
@@ -951,6 +958,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "decay":
         _print(ops.decay_check(state))
+        return 0
+
+    if args.cmd == "promote":
+        _print(ops.promotion_check(state, min_trades=args.min_trades,
+                                   sharpe_floor=args.sharpe_floor,
+                                   max_dd_mult=args.max_dd_mult))
         return 0
 
     if args.cmd == "sync":

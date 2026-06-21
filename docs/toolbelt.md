@@ -60,6 +60,7 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq journal "…" --tag thesis --importance 8` | Cross-session memory note. |
 | `yq expect SYM 1d macross` | Record a backtest baseline. |
 | `yq decay` | Realized vs baseline (strategy-decay alert). |
+| `yq promote` | Backtest → paper → live gate: is paper performance ready to graduate? |
 | `yq report` | Realized PnL, drawdown, per-symbol. |
 | `yq attribution` | Per-strategy PnL attribution (closed round-trips). |
 | `yq portfolio A B C --strategy macross [--risk-parity]` | Multi-symbol portfolio backtest (equal or inverse-vol weights). |
