@@ -123,6 +123,11 @@ develop & validate in backtest → confirm in paper → only then promote to liv
 
 **Operating loop & safety.** The account-level **risk policy** (`yq risk`) is
 enforced on every order (paper + live) — it can reject a trade before it fills.
+**Auto mode** (hands-off live for AFK scalping): live orders skip the per-order
+approval only when ALL hold — `YQ_ALLOW_LIVE=1` (env), `auto_approve=true`,
+`auto_trade=true`, `trade_mode=live`. The risk policy still vets every order, each
+fill is notified, and `yq doctor` reports `auto_live_armed`. Never set
+`YQ_ALLOW_LIVE` or `auto_approve` yourself — both are the user's call.
 **Notifications** (Discord webhook via `DISCORD_WEBHOOK_URL` and/or Slack via
 `SLACK_WEBHOOK_URL`; `yq notify [msg]` / `yq notify --status`) fire when a live
 order needs approval, a risk rejection happens, or a cycle finds signals.
@@ -192,6 +197,10 @@ so they show up in the cockpit and the CLI.
   and (2) explicit human approval (dashboard button or `yq approve`). Without the
   flag, an approved live trade is rejected. Never set `YQ_ALLOW_LIVE` yourself —
   that's the user's call.
+- **Auto mode** replaces gate (2) with a *standing* authorization for hands-off
+  AFK trading: with `auto_approve=true` (+ `YQ_ALLOW_LIVE=1`), live orders place
+  without per-order approval. Gate (1) and the risk policy still apply. Never set
+  `auto_approve` yourself — like `YQ_ALLOW_LIVE`, it's the user's explicit opt-in.
 - Binance keys come from `BINANCE_API_KEY` / `BINANCE_SECRET_KEY` (env only).
 
 ## Dev

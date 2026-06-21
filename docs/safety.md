@@ -31,6 +31,37 @@ yq approve <id>                       # requires YQ_ALLOW_LIVE=1 in the env
 order submitted → yq sync settles partial/filled live orders
 ```
 
+## Auto mode (hands-off live, for AFK scalping)
+
+Confirming every order is impractical for high-frequency intraday trading. **Auto
+mode** lets live orders execute *without* the per-order approval — but it does
+**not** remove the other protections. It is armed only when **all** of these hold:
+
+| Gate | Who sets it | Purpose |
+|---|---|---|
+| `YQ_ALLOW_LIVE=1` | you (env) | live trading is possible at all |
+| `auto_approve=true` | you (`yq settings`) | skip the per-order approval queue |
+| `trade_mode=live` + `auto_trade=true` | you (`yq settings`) | cycles place orders autonomously |
+
+```bash
+yq settings auto_trade=true trade_mode=live auto_approve=true
+export YQ_ALLOW_LIVE=1        # your call, never set by the operator
+```
+
+Even when armed, **every order still passes the account risk policy** (`yq risk`)
+— position caps, `daily_loss_limit`, cooldowns — which becomes your safety net
+while unattended; a blocked order is rejected, not placed. Each auto-executed
+fill is still **notified** (Discord/Slack), `yq cycle` reconciles the book against
+the venue and settles resting orders every pass, and a failed placement is marked
+rejected rather than left dangling. `yq doctor` reports `auto_live_armed` and
+flags it as an issue so the state is never a surprise. Turn it off any time with
+`yq settings auto_approve=false`.
+
+!!! warning "Auto mode places real orders with no human in the loop"
+    Only arm it once a strategy has earned it — validate in backtest, confirm in
+    paper (`yq promote`), set tight `yq risk` guardrails, then enable. The
+    operator never sets `YQ_ALLOW_LIVE` or `auto_approve` for you.
+
 ## Credentials
 
 - Binance keys come from `BINANCE_API_KEY` / `BINANCE_SECRET_KEY` (environment

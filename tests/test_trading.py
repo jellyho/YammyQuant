@@ -92,6 +92,35 @@ def test_live_placement_failure_rejects_not_dangling(tm, monkeypatch):
     assert tm.state.get_trade(trade["id"])["meta"]["place_error"] == "network down"
 
 
+class _FakeVenue:
+    name = "fake"
+    def create_order(self, **kwargs):
+        return {"id": "OID1"}
+
+
+def test_auto_approve_executes_live_without_approval(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    tm.state.set("auto_approve", True)          # user opt-in to hands-off live
+    monkeypatch.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: _FakeVenue())
+    monkeypatch.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    assert trade["status"] == "filled"          # placed immediately, no pending queue
+    assert tm.state.trades(status="pending") == []
+
+
+def test_auto_approve_still_needs_live_flag(tm, monkeypatch):
+    monkeypatch.delenv("YQ_ALLOW_LIVE", raising=False)
+    tm.state.set("auto_approve", True)
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    assert trade["status"] == "pending"         # env gate holds -> not auto-executed
+
+
+def test_live_without_auto_approve_stays_pending(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")     # live allowed, but auto_approve off
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    assert trade["status"] == "pending"         # approval gate holds
+
+
 def test_close_position(tm):
     tm.submit("BTCUSDT", "BUY", 2.0, 100.0)
     tm.close_position("BTCUSDT", 110.0)
