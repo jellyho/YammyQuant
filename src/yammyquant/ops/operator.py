@@ -508,6 +508,15 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     enabled = enabled_strategies(state)
     refreshed, signals = [], []
 
+    # pull any user instructions left in Slack/Discord into the inbox first
+    inbound = None
+    try:
+        from yammyquant.feeds.inbound import collect_inbound, inbound_channels
+        if inbound_channels():
+            inbound = collect_inbound(state)
+    except Exception as exc:
+        state.log("inbound", f"cycle inbound poll failed: {exc}", level="warn")
+
     for w in state.watchlist():
         sym, iv = w["symbol"], (w["interval"] or "1d")
         try:
@@ -546,7 +555,8 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     if notify_signals and signals:
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
-    return {"refreshed": refreshed, "signals": signals, "equity": equity, "decisions": decisions}
+    return {"refreshed": refreshed, "signals": signals, "equity": equity,
+            "decisions": decisions, "inbound": inbound}
 
 
 def collect_news(
@@ -990,6 +1000,18 @@ def notify_status(state: LiveState) -> dict:
     message = "📊 status — " + " · ".join(str(p) for p in parts)
     sent = notify(state, message, "info")
     return {"message": message, "sent": sent, "channels": channels()}
+
+
+def listen(state: LiveState) -> dict:
+    """Poll Slack/Discord for new user messages and post them to the inbox.
+
+    The return path for operator control: instructions the user types in their
+    chat channel land in the inbox and surface on the next ``yq recall``.
+    """
+    from yammyquant.feeds.inbound import collect_inbound, inbound_channels
+    out = collect_inbound(state)
+    out["channels"] = inbound_channels()
+    return out
 
 
 def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str,

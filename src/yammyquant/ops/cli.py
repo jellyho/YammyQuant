@@ -254,6 +254,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--all", action="store_true", help="show read messages too")
     p.add_argument("--mark-read", action="store_true", help="mark unread messages as read")
 
+    sub.add_parser("listen", help="pull user messages from Slack/Discord into the inbox")
+
     p = sub.add_parser("collect", help="backfill candles from an exchange")
     p.add_argument("ticker")
     p.add_argument("intervals", nargs="+")
@@ -515,6 +517,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print(msgs)
         if args.mark_read:
             state.mark_inbox_read([m["id"] for m in msgs if m["status"] == "unread"])
+        return 0
+
+    if args.cmd == "listen":
+        _print(ops.listen(state))
         return 0
 
     if args.cmd == "collect":
