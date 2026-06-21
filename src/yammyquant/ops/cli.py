@@ -391,6 +391,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--interval", default="1m")
 
     sub.add_parser("doctor", help="health check: data freshness, config, account")
+    p = sub.add_parser("integrity", help="audit stored candles (gaps, dups, bad OHLC)")
+    p.add_argument("ticker", nargs="?", help="limit to one symbol (default: all)")
+    p.add_argument("--interval", help="limit to one interval")
     sub.add_parser("report", help="performance report (realized PnL, drawdown, ...)")
     sub.add_parser("attribution", help="per-strategy performance attribution")
 
@@ -672,6 +675,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "mark":
         _print(ops.mark(state, exchange=args.exchange, interval=args.interval))
+        return 0
+
+    if args.cmd == "integrity":
+        _print(ops.integrity(DuckDBStore(args.store), args.ticker, args.interval))
         return 0
 
     if args.cmd == "doctor":
