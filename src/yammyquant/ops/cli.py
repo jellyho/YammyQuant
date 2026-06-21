@@ -356,6 +356,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--metric", default="sharpe")
     p.add_argument("--walk-forward", type=int, default=0, metavar="N",
                    help="number of walk-forward splits (0 = in-sample grid search)")
+    p.add_argument("--allow-short", action="store_true", help="tune with shorting enabled")
+    p.add_argument("--fill-timing", choices=["next_open", "close"], default="next_open")
+    p.add_argument("--borrow-fee", type=float, default=0.0,
+                   help="annualized short borrow cost applied during tuning")
 
     p = sub.add_parser("compare", help="rank many strategies on one symbol (leaderboard)")
     p.add_argument("ticker")
@@ -660,7 +664,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "optimize":
         _print(ops.optimize(DuckDBStore(args.store), args.ticker, args.interval,
                            args.strategy, metric=args.metric,
-                           walk_forward_splits=args.walk_forward, state=state))
+                           walk_forward_splits=args.walk_forward,
+                           allow_short=args.allow_short, fill_timing=args.fill_timing,
+                           borrow_fee=args.borrow_fee, state=state))
         return 0
 
     if args.cmd == "compare":

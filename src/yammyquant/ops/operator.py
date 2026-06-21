@@ -104,9 +104,16 @@ def optimize(
     walk_forward_splits: int = 0,
     cash: float = 10_000.0,
     fee: float = 0.001,
+    allow_short: bool = False,
+    fill_timing: str = "next_open",
+    borrow_fee: float = 0.0,
     state: Optional[LiveState] = None,
 ) -> dict:
-    """Grid-search a strategy's parameters (optionally walk-forward validated)."""
+    """Grid-search a strategy's parameters (optionally walk-forward validated).
+
+    ``allow_short`` / ``fill_timing`` / ``borrow_fee`` pass through to every
+    backtest so tuning reflects how you'll actually trade.
+    """
     from yammyquant.backtest.optimize import grid_search, walk_forward
 
     if strategy not in STRATEGIES:
@@ -114,16 +121,17 @@ def optimize(
     candle = store.read(ticker, interval)
     grid = grid or DEFAULT_GRIDS.get(strategy, {})
     cls = STRATEGIES[strategy]
+    bt = {"allow_short": allow_short, "fill_timing": fill_timing, "borrow_fee": borrow_fee}
 
     if walk_forward_splits > 0:
         out = walk_forward(candle, cls, grid, n_splits=walk_forward_splits,
-                           metric=metric, cash=cash, fee=fee)
+                           metric=metric, cash=cash, fee=fee, **bt)
         if state:
             state.log("optimize", f"walk-forward {strategy} on {ticker}/{interval}",
                       avg_out_of_sample=out["avg_out_of_sample"], metric=metric)
         return out
 
-    res = grid_search(candle, cls, grid, metric=metric, cash=cash, fee=fee)
+    res = grid_search(candle, cls, grid, metric=metric, cash=cash, fee=fee, **bt)
     out = {"metric": metric, "best_params": res.best_params,
            "best_score": round(res.best_score, 4),
            # deflated Sharpe of the winner across all trials — <0.95 => likely overfit

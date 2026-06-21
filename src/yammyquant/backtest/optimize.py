@@ -50,13 +50,19 @@ def grid_search(
     fee: float = 0.001,
     risk=None,
     skip_invalid: bool = True,
+    **bt_kwargs,
 ) -> OptimizeResult:
-    """Exhaustively evaluate ``grid`` and rank by ``metric`` (higher is better)."""
+    """Exhaustively evaluate ``grid`` and rank by ``metric`` (higher is better).
+
+    ``bt_kwargs`` (e.g. ``allow_short``, ``fill_timing``, ``borrow_fee``) pass
+    through to every :class:`Backtest`, so tuning matches trading conditions.
+    """
     results = []
     for params in _param_combinations(grid):
         try:
             strat = strategy_cls(**params)
-            stats = Backtest(candle, strat, cash=cash, fee=fee, risk=risk).run().stats
+            stats = Backtest(candle, strat, cash=cash, fee=fee, risk=risk,
+                             **bt_kwargs).run().stats
         except Exception:  # invalid combo (e.g. fast>=slow) or too little data
             if skip_invalid:
                 continue
@@ -67,18 +73,18 @@ def grid_search(
         raise ValueError("no valid parameter combinations were evaluated")
     results.sort(key=lambda r: r["score"], reverse=True)
     best = results[0]
-    dsr = _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk)
+    dsr = _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk, bt_kwargs)
     return OptimizeResult(best["params"], best["score"], metric, results, dsr=dsr)
 
 
-def _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk):
+def _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk, bt_kwargs=None):
     """Deflated Sharpe of the winning params, correcting for the number of trials."""
     if len(results) < 2:
         return None
     from yammyquant.metrics.performance import deflated_sharpe_ratio, _BARS_PER_YEAR
     try:
         eq = Backtest(candle, strategy_cls(**best["params"]), cash=cash, fee=fee,
-                      risk=risk).run().equity_curve
+                      risk=risk, **(bt_kwargs or {})).run().equity_curve
         rets = eq["equity"].pct_change().dropna()
         ppy = _BARS_PER_YEAR.get(candle.interval or "", 252)
         trial_sharpes = [r["stats"].get("sharpe") for r in results]
@@ -96,6 +102,7 @@ def walk_forward(
     cash: float = 10_000.0,
     fee: float = 0.001,
     risk=None,
+    **bt_kwargs,
 ) -> dict:
     """Rolling walk-forward: optimize on each train window, score the next test window.
 
@@ -119,8 +126,9 @@ def walk_forward(
         test = candle[(k + 1) * fold : (k + 2) * fold]
         if len(test) == 0:
             break
-        opt = grid_search(train, strategy_cls, grid, metric, cash, fee, risk)
-        res = Backtest(test, strategy_cls(**opt.best_params), cash=cash, fee=fee, risk=risk).run()
+        opt = grid_search(train, strategy_cls, grid, metric, cash, fee, risk, **bt_kwargs)
+        res = Backtest(test, strategy_cls(**opt.best_params), cash=cash, fee=fee,
+                       risk=risk, **bt_kwargs).run()
         oos = res.stats
         rets = res.equity_curve["equity"].pct_change().dropna() if not res.equity_curve.empty \
             else None

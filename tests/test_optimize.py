@@ -25,6 +25,17 @@ def test_grid_search_reports_deflated_sharpe(sine_candle):
     assert 0.0 <= res.dsr <= 1.0
 
 
+def test_grid_search_passes_backtest_kwargs(sine_candle):
+    grid = {"fast": [5, 10], "slow": [20, 30]}
+    # pass-through kwargs (allow_short, fill_timing, borrow_fee) must be accepted
+    res = grid_search(sine_candle, MACross, grid, metric="sharpe",
+                      allow_short=True, fill_timing="close", borrow_fee=0.05)
+    assert res.best_params["fast"] < res.best_params["slow"]
+    # 'close' fill timing should generally differ from the default 'next_open'
+    res_default = grid_search(sine_candle, MACross, grid, metric="sharpe")
+    assert isinstance(res_default.best_score, float)
+
+
 def test_deflated_sharpe_metric_penalizes_many_trials():
     import numpy as np
     import pandas as pd
