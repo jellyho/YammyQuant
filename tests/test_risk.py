@@ -105,7 +105,7 @@ def test_trailing_stop_fires_after_runup():
     import pandas as pd
     from yammyquant.data.candle import Candle
     from yammyquant.backtest.engine import Backtest as _BT
-    from tests.test_backtest import _BuyOnceStrategy
+    from test_backtest import _BuyOnceStrategy
 
     # enter at bar1 open (100), run up to a high of 130, then pull back through
     # the 10% trail (130*0.9 = 117) on the last bar
@@ -131,7 +131,7 @@ def test_atr_stop_exits_at_volatility_scaled_level():
     from yammyquant.backtest.order import Action
     from yammyquant.data.candle import Candle
     from yammyquant.backtest.engine import Backtest as _BT
-    from tests.test_backtest import _ScriptedStrategy
+    from test_backtest import _ScriptedStrategy
 
     # flat ~1.0 true range so ATR≈1.0; enter only after ATR has warmed up
     n = 20
@@ -153,7 +153,7 @@ def test_atr_stop_exits_at_volatility_scaled_level():
 def test_time_stop_exits_after_n_bars(trend_candle):
     # a long entry on a steadily rising series, forced out after 3 bars
     from yammyquant.backtest.engine import Backtest as _BT
-    from tests.test_backtest import _BuyOnceStrategy
+    from test_backtest import _BuyOnceStrategy
     risk = RiskConfig(max_holding_bars=3)
     res = _BT(trend_candle, _BuyOnceStrategy(), cash=10_000, fee=0.0,
               fill_timing="next_open", risk=risk).run()
