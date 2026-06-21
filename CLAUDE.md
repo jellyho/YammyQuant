@@ -96,7 +96,9 @@ symbol into concrete, risk-sized orders. Entry sizing follows the `sizing` setti
 `target_vol`), or `kelly` (capped Kelly from the realized record); exits flatten. Dry-run by default; `--execute` submits; `--type limit` rests
 live orders until `yq sync` settles them (handles partial fills). Set
 `auto_trade=true` (state setting) to have `yq cycle` / the scheduler call
-`decide --execute` automatically (paper unless `trade_mode=live`).
+`decide --execute` automatically (paper unless `trade_mode=live`). Entries pass
+optional gates: session (weekdays/hours), `sentiment_gate`, and `min_edge_mult`
+(scalping: veto a BUY when ATR% < `min_edge_mult` × round-trip cost of fees+slippage).
 
 **Ensembling signals.** Both `yq decide` and the `Ensemble` strategy blend many
 signals via one rule (`yammyquant.strategy.ensemble.aggregate_votes`): `any`

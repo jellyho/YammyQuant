@@ -211,6 +211,12 @@ default; `--execute` submits; `--type limit` rests live orders until `yq sync`
 settles them. Set `auto_trade=true` to let `yq cycle` / the scheduler call
 `decide --execute` automatically (paper unless `trade_mode=live`).
 
+Entries pass through optional **gates** before sizing: a **session** gate
+(weekdays/hours), a **sentiment** gate (`sentiment_gate`), and a **min-edge**
+gate for scalping — `yq settings min_edge_mult=2` vetoes a BUY when a typical bar
+move (ATR%) is smaller than `min_edge_mult` × the round-trip taker cost
+(fees + slippage, entry + exit), so you don't churn on edges the costs would eat.
+
 ## Position sizing
 
 `decide` sizes entries by the `sizing` setting:
