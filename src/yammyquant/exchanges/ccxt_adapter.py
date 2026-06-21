@@ -59,3 +59,6 @@ class CCXTExchange(Exchange):
 
     def order_status(self, order_id: str, ticker: str) -> dict:
         return self.client.fetch_order(order_id, ticker)
+
+    def cancel_order(self, order_id: str, ticker: str) -> dict:
+        return self.client.cancel_order(order_id, ticker)

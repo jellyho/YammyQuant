@@ -79,6 +79,19 @@ def test_live_approval_with_flag_uses_placer(tm, monkeypatch):
     assert tm.state.get_trade(trade["id"])["status"] == "filled"
 
 
+def test_live_placement_failure_rejects_not_dangling(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+
+    def boom(_t):
+        raise RuntimeError("network down")
+
+    result = tm.approve(trade["id"], place_live=boom)
+    # a failed placement must not stay pending — it's rejected with the reason logged
+    assert result["status"] == "rejected"
+    assert tm.state.get_trade(trade["id"])["meta"]["place_error"] == "network down"
+
+
 def test_close_position(tm):
     tm.submit("BTCUSDT", "BUY", 2.0, 100.0)
     tm.close_position("BTCUSDT", 110.0)

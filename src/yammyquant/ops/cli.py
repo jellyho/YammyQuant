@@ -535,6 +535,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--max-dd-mult", type=float, default=1.5,
                    help="realized drawdown may not exceed this multiple of the backtest's")
 
+    p = sub.add_parser("cancel", help="cancel a pending/resting (submitted) order")
+    p.add_argument("trade_id", type=int)
+    p.add_argument("--exchange")
+
     p = sub.add_parser("sync", help="poll & settle submitted live orders")
     p.add_argument("--exchange")
 
@@ -964,6 +968,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print(ops.promotion_check(state, min_trades=args.min_trades,
                                    sharpe_floor=args.sharpe_floor,
                                    max_dd_mult=args.max_dd_mult))
+        return 0
+
+    if args.cmd == "cancel":
+        _print(ops.cancel_order(state, args.trade_id, exchange=args.exchange))
         return 0
 
     if args.cmd == "sync":

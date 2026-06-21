@@ -47,6 +47,7 @@ yq train BTCUSDT 1d --timesteps 50000   # train an RL agent (needs .[rl])
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode paper        # paper fills now
 yq trade BTCUSDT BUY 0.1 --price 65000 --mode live         # live → pending approval
 yq approve 7        # approve a pending trade   yq reject 7
+yq cancel 7         # cancel a pending/resting (submitted live) order
 
 # operating the account
 yq watch add BTCUSDT --interval 1d         # watchlist (universe for cycles)
@@ -67,7 +68,7 @@ yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrail
 yq settings slippage=0.001 sizing=volatility auto_trade=true   # cockpit settings (show: yq settings)
 yq report                                   # realized PnL, drawdown, per-symbol
 yq attribution                               # per-strategy PnL attribution (round-trips)
-yq reconcile                                # local positions vs exchange balances
+yq reconcile                                # local positions vs exchange balances (flags drift)
 yq doctor                                   # data freshness / config / account health
 yq journal "why I entered BTC ..." --tag thesis --importance 8   # cross-session memory
 yq recall "BTC"                            # ranked memory digest (recency×importance×relevance)

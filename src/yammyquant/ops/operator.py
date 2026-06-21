@@ -852,11 +852,24 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
         decisions = decide(store, state, exchange=exchange,
                            mode=state.get("trade_mode", "paper"), execute=True)
 
+    # settle resting/partial live orders, then check the local book hasn't drifted
+    # from the venue — both matter most for unattended live trading.
+    synced = drift = None
+    live = state.get("trade_mode", "paper") == "live"
+    try:
+        if state.open_orders():
+            synced = sync_orders(state, exchange=exchange)
+        if live:
+            drift = reconcile(state, exchange=exchange).get("drift")
+    except Exception as exc:
+        state.log("cycle", f"order sync/reconcile failed: {exc}", level="warn")
+
     if notify_signals and signals:
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
     return {"refreshed": refreshed, "signals": signals, "equity": equity,
-            "decisions": decisions, "protection": protection, "inbound": inbound}
+            "decisions": decisions, "protection": protection, "inbound": inbound,
+            "synced": synced, "drift": drift}
 
 
 def collect_news(
@@ -1730,8 +1743,37 @@ def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:
     return {"exchange": ex.name, "updated": updated, "open_orders": state.open_orders()}
 
 
+def cancel_order(state: LiveState, trade_id: int, exchange: Optional[str] = None) -> dict:
+    """Cancel an order. Pending/paper orders are dropped locally; a resting live
+    (``submitted``) order is canceled at the venue, then marked locally."""
+    trade = state.get_trade(trade_id)
+    if trade is None:
+        return {"error": f"no such trade #{trade_id}"}
+    if trade["status"] not in ("pending", "submitted"):
+        return {"error": f"trade #{trade_id} is {trade['status']}, not cancelable"}
+
+    meta = trade.get("meta") if isinstance(trade.get("meta"), dict) else {}
+    oid = meta.get("exchange_order_id")
+    if trade["status"] == "submitted" and oid:
+        from yammyquant.exchanges import get_exchange, default_exchange
+        ex = get_exchange(exchange or default_exchange())
+        try:
+            ex.cancel_order(str(oid), trade["ticker"])
+        except Exception as exc:
+            state.log("cancel", f"venue cancel failed for #{trade_id}: {exc}", level="warn")
+            return {"error": f"venue cancel failed: {exc}", "trade": trade}
+    state.set_trade_status(trade_id, "canceled")
+    state.log("cancel", f"canceled order #{trade_id}", trade_id=trade_id)
+    return {"canceled": trade_id, "trade": state.get_trade(trade_id)}
+
+
 def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:
-    """Compare local positions to the exchange's reported balances (read-only)."""
+    """Compare local positions to the exchange's reported balances.
+
+    Read-only. When balances expose per-asset amounts, computes a ``drift`` list of
+    positions whose local quantity differs from the venue's — the early warning that
+    the local book and the exchange have diverged (important for unattended trading).
+    """
     from yammyquant.exchanges import get_exchange, default_exchange
 
     ex = get_exchange(exchange or default_exchange())
@@ -1740,9 +1782,52 @@ def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:
     except Exception as exc:
         return {"exchange": ex.name, "error": str(exc),
                 "state_positions": state.positions()}
-    state.log("reconcile", f"reconciled against {ex.name}")
+
+    from yammyquant.ops.notify import notify
+
+    drift = []
+    for pos in state.positions():
+        venue_qty = _venue_qty(balances, pos["ticker"])
+        if venue_qty is not None and abs(venue_qty - pos["quantity"]) > 1e-6:
+            drift.append({"ticker": pos["ticker"], "local": pos["quantity"],
+                          "exchange": venue_qty, "diff": round(venue_qty - pos["quantity"], 8)})
+    if drift:
+        notify(state, f"⚠️ position drift vs {ex.name}: "
+               + ", ".join(f"{d['ticker']} {d['local']}→{d['exchange']}" for d in drift), "warn")
+    state.log("reconcile", f"reconciled against {ex.name}; {len(drift)} drift", drift=drift)
     return {"exchange": ex.name, "state_positions": state.positions(),
-            "exchange_balances": balances}
+            "exchange_balances": balances, "drift": drift}
+
+
+def _venue_qty(balances: dict, ticker: str):
+    """Best-effort free/total quantity for a ticker from a venue balances dict.
+
+    Handles ccxt-style ``{"free": {...}, "total": {...}}`` and flat
+    ``{ASSET: {"free": x}}`` shapes; matches the base asset (strips quote like
+    ``USDT``/``KRW`` and ``KRW-`` prefixes). Returns ``None`` when not resolvable.
+    """
+    base = ticker
+    for q in ("USDT", "USDC", "BUSD", "KRW", "BTC"):
+        if ticker.endswith(q) and ticker != q:
+            base = ticker[: -len(q)]
+            break
+    if "-" in ticker:                      # e.g. KRW-BTC
+        base = ticker.split("-")[-1]
+    total = balances.get("total") if isinstance(balances.get("total"), dict) else None
+    if total and base in total:
+        try:
+            return float(total[base])
+        except (TypeError, ValueError):
+            return None
+    entry = balances.get(base)
+    if isinstance(entry, dict):
+        for k in ("total", "free", "balance", "amount"):
+            if k in entry:
+                try:
+                    return float(entry[k])
+                except (TypeError, ValueError):
+                    return None
+    return None
 
 
 def scan(

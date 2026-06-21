@@ -622,6 +622,51 @@ def test_decide_min_edge_gate_vetoes_thin_edge(tmp_path, fake_exchange):
     assert [p for p in out2["proposals"] if p["side"] == "BUY"]
 
 
+def test_cancel_order_pending_and_submitted(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    # a pending order cancels locally (no venue call)
+    pid = state.add_trade("BTCUSDT", "BUY", 1.0, 100.0, "live", "pending", "")
+    out = ops.cancel_order(state, pid)
+    assert out["canceled"] == pid and state.get_trade(pid)["status"] == "canceled"
+    # a non-cancelable (filled) order is refused
+    fid = state.add_trade("BTCUSDT", "BUY", 1.0, 100.0, "paper", "filled", "")
+    assert "error" in ops.cancel_order(state, fid)
+    # a resting (submitted) live order is canceled at the venue
+    sid = state.add_trade("BTCUSDT", "BUY", 1.0, 100.0, "live", "submitted", "")
+    state.set_trade_meta(sid, exchange_order_id="OID9")
+    calls = {}
+
+    class _Ex:
+        name = "fake"
+        def cancel_order(self, oid, ticker):
+            calls["oid"], calls["ticker"] = oid, ticker
+            return {"status": "canceled"}
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: _Ex())
+        mp.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+        out2 = ops.cancel_order(state, sid)
+    assert out2["canceled"] == sid and calls == {"oid": "OID9", "ticker": "BTCUSDT"}
+    assert state.get_trade(sid)["status"] == "canceled"
+
+
+def test_reconcile_flags_position_drift(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    state.upsert_position("BTCUSDT", 1.0, 100.0)   # local says 1.0
+
+    class _Ex:
+        name = "fake"
+        def balances(self):
+            return {"total": {"BTC": 0.4}}          # venue says 0.4 -> drift
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: _Ex())
+        mp.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+        out = ops.reconcile(state)
+    assert out["drift"] and out["drift"][0]["ticker"] == "BTCUSDT"
+    assert out["drift"][0]["diff"] == pytest.approx(-0.6)
+
+
 def test_promotion_gate(tmp_path):
     state = LiveState(tmp_path / "s.db")
     tm = TradeManager(state, fee=0.0)
