@@ -76,23 +76,29 @@ class RiskManager:
         return float(np.std(recent_returns, ddof=0) * np.sqrt(self.ppy))
 
     # -- protective exits --------------------------------------------------
-    def exit_price(self, avg_entry: float, bar_high: float, bar_low: float) -> Optional[float]:
+    def exit_price(self, avg_entry: float, bar_high: float, bar_low: float,
+                   is_short: bool = False) -> Optional[float]:
         """Return the fill price if a stop-loss/take-profit triggers this bar.
 
-        Long-only: stop-loss checks the bar low, take-profit checks the bar high.
+        Long: stop-loss checks the bar low, take-profit the bar high.
+        Short (``is_short=True``): the sides invert — a loss is price rising, so
+        the stop sits *above* entry and checks the bar high, while the profit
+        target sits *below* and checks the bar low.
         Stop-loss takes precedence (conservative) when both could trigger.
         """
         c = self.config
         if avg_entry <= 0:
             return None
-        if c.stop_loss is not None:
-            stop = avg_entry * (1 - c.stop_loss)
-            if bar_low <= stop:
-                return stop
-        if c.take_profit is not None:
-            target = avg_entry * (1 + c.take_profit)
-            if bar_high >= target:
-                return target
+        if not is_short:
+            if c.stop_loss is not None and bar_low <= avg_entry * (1 - c.stop_loss):
+                return avg_entry * (1 - c.stop_loss)
+            if c.take_profit is not None and bar_high >= avg_entry * (1 + c.take_profit):
+                return avg_entry * (1 + c.take_profit)
+        else:
+            if c.stop_loss is not None and bar_high >= avg_entry * (1 + c.stop_loss):
+                return avg_entry * (1 + c.stop_loss)
+            if c.take_profit is not None and bar_low <= avg_entry * (1 - c.take_profit):
+                return avg_entry * (1 - c.take_profit)
         return None
 
     # -- kill switch -------------------------------------------------------

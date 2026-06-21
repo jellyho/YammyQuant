@@ -6,8 +6,9 @@ A rewrite of the original ``trade.utils.Portfolio`` with:
   * an equity curve recorded via :meth:`mark` (mark-to-market each bar),
   * a structured trade log returned as a pandas DataFrame.
 
-Long-only for now (matching the BUY/SELL action set), but positions are stored
-per-ticker so multi-asset portfolios work out of the box.
+Supports both long and short positions (signed quantity) when ``allow_short``
+is set; otherwise long-only. Positions are stored per-ticker so multi-asset
+portfolios work out of the box.
 """
 
 from __future__ import annotations
@@ -23,12 +24,20 @@ from yammyquant.backtest.order import Action, Fill
 
 @dataclass
 class Position:
-    quantity: float = 0.0
+    quantity: float = 0.0          # signed: > 0 long, < 0 short
     avg_price: float = 0.0
 
     @property
     def is_open(self) -> bool:
-        return self.quantity > 0
+        return abs(self.quantity) > 1e-12
+
+    @property
+    def is_long(self) -> bool:
+        return self.quantity > 1e-12
+
+    @property
+    def is_short(self) -> bool:
+        return self.quantity < -1e-12
 
 
 class Portfolio:
@@ -42,10 +51,11 @@ class Portfolio:
         Proportional trade fee, e.g. ``0.001`` for 0.1%.
     """
 
-    def __init__(self, cash: float, fee: float = 0.0):
+    def __init__(self, cash: float, fee: float = 0.0, allow_short: bool = False):
         self.initial_cash = float(cash)
         self.cash = float(cash)
         self.fee = float(fee)
+        self.allow_short = bool(allow_short)
         self.positions: Dict[str, Position] = {}
         self._trades: List[dict] = []
         self._equity: List[dict] = []
@@ -65,43 +75,59 @@ class Portfolio:
 
     # -- mutations ---------------------------------------------------------
     def apply_fill(self, fill: Fill) -> bool:
-        """Update cash/positions from an executed fill.
+        """Update cash/positions from an executed fill (signed-position aware).
 
-        Returns ``True`` if the fill changed state, ``False`` if it was rejected
-        (e.g. insufficient cash or holdings).
+        BUY adds to the signed quantity, SELL subtracts. A trade that reduces
+        the position's magnitude *closes* (realizes PnL); one that grows it
+        *opens/extends* (sets the weighted average). When ``allow_short`` is
+        False, a SELL cannot drive the position below zero (long-only, the old
+        behavior). Returns ``True`` if the fill changed state, ``False`` if it
+        was rejected (insufficient cash, or short disallowed).
         """
         ticker = fill.ticker
         pos = self.position(ticker)
-        self._last_price[ticker] = fill.fill_price
+        price, qty = fill.fill_price, fill.fill_quantity
+        self._last_price[ticker] = price
+        if qty <= 0 or fill.action not in (Action.BUY, Action.SELL):
+            return False
 
-        if fill.action == Action.BUY:
-            gross = fill.fill_price * fill.fill_quantity
-            cost = gross + fill.fee
-            if cost > self.cash + 1e-9:
-                return False
-            self.cash -= cost
-            new_qty = pos.quantity + fill.fill_quantity
-            pos.avg_price = (
-                (pos.avg_price * pos.quantity + gross) / new_qty if new_qty else 0.0
-            )
-            pos.quantity = new_qty
-            self._log_trade(fill, realized=0.0)
-            return True
+        side = 1 if fill.action == Action.BUY else -1
+        delta = side * qty
+        q0 = pos.quantity
+        q1 = q0 + delta
 
-        if fill.action == Action.SELL:
-            if fill.fill_quantity > pos.quantity + 1e-9:
-                return False
-            proceeds = fill.fill_price * fill.fill_quantity - fill.fee
-            realized = (fill.fill_price - pos.avg_price) * fill.fill_quantity - fill.fee
-            self.cash += proceeds
-            pos.quantity -= fill.fill_quantity
-            if pos.quantity <= 1e-12:
-                pos.quantity = 0.0
-                pos.avg_price = 0.0
-            self._log_trade(fill, realized=realized)
-            return True
+        # long-only guard: a SELL may not open/extend a short
+        if not self.allow_short and q1 < -1e-12:
+            return False
+        # cash guard on the buy side (cash actually leaves the account)
+        if side > 0 and price * qty + fill.fee > self.cash + 1e-9:
+            return False
 
-        return False  # HOLD or unknown
+        # realized PnL accrues only on the portion that reduces |position|
+        is_close = q0 != 0.0 and (q0 > 0) != (delta > 0)
+        realized = 0.0
+        if is_close:
+            closed = min(qty, abs(q0))
+            gain = (price - pos.avg_price) if q0 > 0 else (pos.avg_price - price)
+            realized = gain * closed - fill.fee
+
+        # cash flow: buying spends, selling/shorting receives; fee always paid
+        self.cash += -side * price * qty - fill.fee
+
+        # update average entry price
+        if abs(q1) <= 1e-12:
+            pos.quantity, pos.avg_price = 0.0, 0.0
+        elif q0 == 0.0:
+            pos.quantity, pos.avg_price = q1, price          # fresh position
+        elif (q0 > 0) == (q1 > 0):                           # stayed same side
+            if abs(q1) > abs(q0):                            # extended -> weighted avg
+                pos.avg_price = (pos.avg_price * abs(q0) + price * qty) / abs(q1)
+            pos.quantity = q1                                # partial close -> avg unchanged
+        else:                                                # flipped through zero
+            pos.quantity, pos.avg_price = q1, price
+
+        self._log_trade(fill, realized=realized, closing=is_close)
+        return True
 
     def mark(self, time: datetime, prices: Dict[str, float]) -> None:
         """Record an equity-curve point given current prices per ticker."""
@@ -109,7 +135,7 @@ class Portfolio:
         self._equity.append({"time": time, "equity": self.equity(), "cash": self.cash})
 
     # -- logging -----------------------------------------------------------
-    def _log_trade(self, fill: Fill, realized: float) -> None:
+    def _log_trade(self, fill: Fill, realized: float, closing: bool = False) -> None:
         pos = self.position(fill.ticker)
         self._trades.append(
             {
@@ -120,6 +146,7 @@ class Portfolio:
                 "quantity": fill.fill_quantity,
                 "fee": fill.fee,
                 "realized_pnl": realized,
+                "closing": closing,         # True when this fill reduced |position|
                 "position_qty": pos.quantity,
                 "avg_price": pos.avg_price,
                 "cash": self.cash,

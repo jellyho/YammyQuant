@@ -80,7 +80,12 @@ def summary(
     mdd = max_drawdown(equity)
     ann_vol = float(returns.std(ddof=0) * np.sqrt(ppy)) if not returns.empty else 0.0
 
-    closed = trades[trades["action"] == "SELL"] if not trades.empty else trades
+    if trades.empty:
+        closed = trades
+    elif "closing" in trades.columns:
+        closed = trades[trades["closing"]]            # signed-position aware (longs + short covers)
+    else:
+        closed = trades[trades["action"] == "SELL"]   # legacy long-only trade logs
     pnl = closed["realized_pnl"] if not closed.empty else pd.Series(dtype=float)
     wins = pnl[pnl > 0]
     losses = pnl[pnl < 0]

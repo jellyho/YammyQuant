@@ -236,6 +236,7 @@ def backtest(
     fee: float = 0.001,
     slippage: float = 0.0,
     fill_timing: str = "next_open",
+    allow_short: bool = False,
     start: Optional[str] = None,
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
@@ -244,7 +245,7 @@ def backtest(
     candle = store.read(ticker, interval, start=start, end=end)
     strat = build_strategy(strategy, **(params or {}))
     result = Backtest(candle, strat, cash=cash, fee=fee, slippage=slippage,
-                      fill_timing=fill_timing).run()
+                      fill_timing=fill_timing, allow_short=allow_short).run()
     stats = dict(result.stats)
     eq = result.equity_curve
     if len(eq):
