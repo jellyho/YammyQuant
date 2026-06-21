@@ -36,6 +36,38 @@ def test_discord_ingest_skips_bots_and_dedupes(tmp_path, monkeypatch):
     assert len(state.inbox()) == 1
 
 
+def test_inbound_command_parsing(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    # bare keyword acts
+    assert ops.apply_inbound_command(state, "disarm")["command"] == "disarm"
+    assert state.get("auto_approve") is False
+    assert ops.apply_inbound_command(state, "arm")["command"] == "arm"
+    assert state.get("auto_approve") is True
+    # explicit prefix acts even with extra words
+    assert ops.apply_inbound_command(state, "/pause now")["command"] == "pause"
+    assert state.get("auto_trade") is False
+    # prose that merely mentions a verb is ignored (no prefix, multiple words)
+    assert ops.apply_inbound_command(state, "should we arm the scalper today?") is None
+    # unknown verbs are ignored
+    assert ops.apply_inbound_command(state, "buy BTC") is None
+    # flat with no positions is a safe no-op
+    assert "no open positions" in ops.apply_inbound_command(state, "flat")["detail"]
+
+
+def test_inbound_command_executes_on_ingest(tmp_path, monkeypatch):
+    _discord_env(monkeypatch)
+    state = LiveState(tmp_path / "s.db")
+    state.set("auto_approve", True)
+    monkeypatch.setattr(inbound, "_fetch_discord",
+                        lambda t, c, after: [{"id": "20", "content": "disarm",
+                                              "author": {"username": "jellyho"}}])
+    out = ops.listen(state)
+    assert out["commands"] and out["commands"][0]["command"] == "disarm"
+    assert state.get("auto_approve") is False     # remote command took effect
+    # still recorded in the inbox for the log
+    assert any("disarm" in m["message"] for m in state.inbox())
+
+
 def test_slack_ingest(tmp_path, monkeypatch):
     monkeypatch.delenv("DISCORD_BOT_TOKEN", raising=False)
     monkeypatch.delenv("DISCORD_CHANNEL_ID", raising=False)

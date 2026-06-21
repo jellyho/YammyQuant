@@ -784,6 +784,81 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
     }
 
 
+# Remote control vocabulary — recognized in inbound Slack/Discord messages so you
+# can steer the operator from your phone while AFK. Synonyms map to a canonical verb.
+_INBOUND_COMMANDS = {
+    "arm": "arm",
+    "disarm": "disarm", "stop": "disarm", "halt": "disarm", "kill": "disarm",
+    "pause": "pause",
+    "resume": "resume",
+    "flat": "flat", "flatten": "flat", "close": "flat",
+    "status": "status",
+}
+
+
+def apply_inbound_command(state: LiveState, text: str) -> Optional[dict]:
+    """Execute a recognized remote-control command from an inbound message.
+
+    Acted on only when the message is explicitly prefixed (``/`` or ``!``) or is a
+    single bare keyword — so ordinary instructions in prose aren't misfired. Returns
+    ``{"command", "detail"}`` when a command ran, else ``None``. Risk-reducing
+    verbs (``disarm``/``pause``/``flat``/``status``) are always safe; ``arm`` only
+    sets the opt-in — live still needs ``YQ_ALLOW_LIVE=1`` and the risk policy.
+    """
+    from yammyquant.ops.notify import notify
+
+    raw = text.strip()
+    explicit = raw[:1] in ("/", "!")
+    body = raw.lstrip("/!").strip().lower()
+    tokens = body.split()
+    cmd = _INBOUND_COMMANDS.get(tokens[0]) if tokens else None
+    if cmd is None or (not explicit and len(tokens) > 1):
+        return None
+
+    if cmd == "arm":
+        state.set("auto_approve", True)
+        detail = "auto mode armed (auto_approve=on; live still needs YQ_ALLOW_LIVE=1)"
+    elif cmd == "disarm":
+        state.set("auto_approve", False)
+        detail = "auto mode disarmed (auto_approve=off)"
+    elif cmd == "pause":
+        state.set("auto_trade", False)
+        detail = "autonomous trading paused (auto_trade=off)"
+    elif cmd == "resume":
+        state.set("auto_trade", True)
+        detail = "autonomous trading resumed (auto_trade=on)"
+    elif cmd == "status":
+        notify_status(state)
+        detail = "status digest pushed"
+    else:  # flat
+        detail = _flatten_all(state)
+    state.log("inbound", f"remote command '{cmd}': {detail}")
+    notify(state, f"🎮 remote `{cmd}` — {detail}", "action")
+    return {"command": cmd, "detail": detail}
+
+
+def _flatten_all(state: LiveState) -> str:
+    """Close every open position in the current trade mode (emergency flatten)."""
+    from yammyquant.exchanges import get_exchange, default_exchange
+    from yammyquant.ops.trading import TradeManager
+
+    positions = state.positions()
+    if not positions:
+        return "no open positions"
+    ex = get_exchange(default_exchange())
+    tm = TradeManager(state, exchange=ex.name)
+    mode = state.get("trade_mode", "paper")
+    closed = []
+    for pos in positions:
+        try:
+            price = float(ex.last_price(pos["ticker"]))
+        except Exception:
+            price = pos["avg_price"]
+        if tm.close_position(pos["ticker"], price, mode=mode):
+            closed.append(pos["ticker"])
+    return f"flattened {len(closed)} position(s) ({mode}): {', '.join(closed) or '—'}"
+
+
 def auto_kill_switch(state: LiveState) -> dict:
     """Circuit breaker: disable auto mode when today's loss hits the daily limit.
 

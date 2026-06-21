@@ -63,6 +63,14 @@ rather than re-attempting rejected entries all day. Exits keep working (sells ar
 never gated). Turn auto mode off any time with `yq settings auto_approve=false`,
 or from the **Auto mode** card in the dashboard (a toggle plus a live armed badge).
 
+**Remote control (from your phone).** With inbound bot credentials set, a chat
+message that is a single keyword — or prefixed with `/` or `!` — is acted on the
+moment `yq listen` / `yq cycle` polls it: `disarm` / `arm`, `pause` / `resume`,
+`flat` (flatten everything), `status`. So if something looks wrong while you're
+AFK you can `disarm` or `flat` straight from Slack/Discord, no session required.
+Ordinary instructions in prose aren't misfired — only bare keywords or explicitly
+`/`-prefixed messages execute.
+
 !!! warning "Auto mode places real orders with no human in the loop"
     Only arm it once a strategy has earned it — validate in backtest, confirm in
     paper (`yq promote`), set tight `yq risk` guardrails, then enable. The

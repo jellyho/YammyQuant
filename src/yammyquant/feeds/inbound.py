@@ -80,6 +80,7 @@ def collect_inbound(state: LiveState) -> dict:
     instructions were ingested per platform and their text.
     """
     ingested: list[str] = []
+    commands: list[dict] = []
     counts = {"discord": 0, "slack": 0}
 
     if "discord" in inbound_channels():
@@ -107,6 +108,7 @@ def collect_inbound(state: LiveState) -> dict:
                 state.post_instruction(f"[discord:{author}] {text}")
                 ingested.append(text)
                 counts["discord"] += 1
+                _run_command(state, text, commands)
         if new_max and new_max != last_id:
             state.set(cursor_key, new_max)
 
@@ -132,6 +134,7 @@ def collect_inbound(state: LiveState) -> dict:
                 state.post_instruction(f"[slack:{m.get('user', 'user')}] {text}")
                 ingested.append(text)
                 counts["slack"] += 1
+                _run_command(state, text, commands)
         if new_ts and new_ts != last_ts:
             state.set(cursor_key, new_ts)
 
@@ -139,4 +142,19 @@ def collect_inbound(state: LiveState) -> dict:
     if total:
         state.log("inbound", f"ingested {total} instruction(s) from "
                   f"{', '.join(k for k, v in counts.items() if v)}")
-    return {**counts, "messages": ingested}
+    return {**counts, "messages": ingested, "commands": commands}
+
+
+def _run_command(state: LiveState, text: str, sink: list) -> None:
+    """Act on a recognized remote-control command in an inbound message (best-effort).
+
+    The message is also kept in the inbox for the record; this just lets safe verbs
+    (arm/disarm/pause/resume/flat/status) take effect immediately while you're AFK.
+    """
+    try:
+        from yammyquant.ops.operator import apply_inbound_command
+        result = apply_inbound_command(state, text)
+        if result:
+            sink.append(result)
+    except Exception as exc:
+        state.log("inbound", f"remote command failed: {exc}", level="warn")
