@@ -22,13 +22,35 @@ import pandas as pd
 
 from yammyquant.data.candle import Candle
 from yammyquant.backtest.broker import BacktestBroker, Broker
-from yammyquant.backtest.order import Action, Order
+from yammyquant.backtest.order import Action, Order, OrderType
 from yammyquant.backtest.portfolio import Portfolio
 from yammyquant.strategy.base import Strategy
 from yammyquant.metrics.performance import summary
 
 if TYPE_CHECKING:
     from yammyquant.backtest.risk import RiskConfig
+
+
+def _trigger_price(order: Order, bar_open: float, bar_high: float, bar_low: float):
+    """Fill price if a resting LIMIT/STOP order is hit this bar, else ``None``.
+
+    A gap through the level fills at the bar open (you'd never get a worse price
+    than the open once it's already through). Limit buys fill at/below the limit,
+    limit sells at/above; stops fill once price trades through the trigger.
+    """
+    p = order.price
+    buy = order.action == Action.BUY
+    if order.type == OrderType.LIMIT:
+        if buy and bar_low <= p:
+            return min(bar_open, p)
+        if not buy and bar_high >= p:
+            return max(bar_open, p)
+    elif order.type == OrderType.STOP:
+        if buy and bar_high >= p:
+            return max(bar_open, p)
+        if not buy and bar_low <= p:
+            return min(bar_open, p)
+    return None
 
 
 @dataclass
@@ -128,7 +150,8 @@ class Backtest:
         peak_equity = self.portfolio.equity()
         halted = False
         next_open = self.fill_timing == "next_open"
-        pending: list[Order] = []  # orders decided last bar, awaiting this bar's open
+        pending: list[Order] = []  # market orders decided last bar, awaiting this bar's open
+        working: list[dict] = []   # resting LIMIT/STOP orders: {"order", "placed"}
         self._entry_bar = {}       # ticker -> bar index the open position was entered
         self._hwm = {}             # ticker -> high-water mark since entry (max high / min low)
         self._atr_stop_px = {}     # ticker -> absolute ATR stop level set at entry
@@ -143,16 +166,37 @@ class Backtest:
             bar_high, bar_low = float(high[i]), float(low[i])
             time = index[i]
 
-            # 0) fill orders decided on the previous bar at THIS bar's open
+            bar_open = float(open_[i])
+            touched = False
+
+            # 0) fill market orders decided on the previous bar at THIS bar's open
             if pending:
-                fill_price = float(open_[i])
                 for order in pending:
-                    fill = self.broker.execute(order, ref_price=fill_price, time=time)
+                    fill = self.broker.execute(order, ref_price=bar_open, time=time)
                     if fill is not None:
                         self.portfolio.apply_fill(fill)
+                        touched = True
                 pending = []
-                if self.risk is not None:
-                    self._sync_tracker(ticker, i)
+
+            # 0b) resting LIMIT/STOP orders fill when this bar's range hits them
+            if working:
+                still = []
+                for w in working:
+                    if w["placed"] >= i:                 # placed this bar -> eligible next bar
+                        still.append(w)
+                        continue
+                    px = _trigger_price(w["order"], bar_open, bar_high, bar_low)
+                    if px is None:
+                        still.append(w)                  # still resting
+                        continue
+                    fill = self.broker.make_fill(w["order"], px, time)
+                    if fill is not None:
+                        self.portfolio.apply_fill(fill)
+                        touched = True
+                working = still
+
+            if touched and self.risk is not None:
+                self._sync_tracker(ticker, i)
 
             # 1) protective exits + drawdown kill switch (intrabar, always immediate)
             if self.risk is not None:
@@ -165,16 +209,22 @@ class Backtest:
 
             # 2) strategy orders (suppressed once the kill switch has fired)
             if not halted:
+                placed_market = False
                 for order in self.strategy.on_bar(window):
                     order.time = order.time or time
-                    self._size_order(order, ref_price, close, i)
-                    if next_open:
-                        pending.append(order)   # fill at the next bar's open
+                    if order.type in (OrderType.LIMIT, OrderType.STOP):
+                        self._size_order(order, float(order.price), close, i)
+                        working.append({"order": order, "placed": i})   # rest until hit
+                    elif next_open:
+                        self._size_order(order, ref_price, close, i)
+                        pending.append(order)            # market: fill at the next bar's open
                     else:
+                        self._size_order(order, ref_price, close, i)
                         fill = self.broker.execute(order, ref_price=ref_price, time=time)
                         if fill is not None:
                             self.portfolio.apply_fill(fill)
-                if not next_open and self.risk is not None:
+                            placed_market = True
+                if placed_market and self.risk is not None:
                     self._sync_tracker(ticker, i)
 
             # update the high-water mark with this bar's range for trailing/breakeven

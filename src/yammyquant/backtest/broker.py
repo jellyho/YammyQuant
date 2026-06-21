@@ -37,18 +37,25 @@ class BacktestBroker(Broker):
         self.slippage = float(slippage)
 
     def execute(self, order: Order, ref_price: float, time: datetime) -> Optional[Fill]:
+        """Fill a MARKET order at the engine-provided ``ref_price``.
+
+        ``ref_price`` (the bar's open under next-open timing, or its close in
+        legacy mode) is authoritative — the order's own ``price`` is advisory and
+        ignored here, so realistic fill timing actually takes effect.
+        """
         if order.action == Action.HOLD or order.quantity <= 0:
             return None
-        price = order.price if order.price is not None else ref_price
-        if order.action == Action.BUY:
-            fill_price = price * (1 + self.slippage)
-        else:
-            fill_price = price * (1 - self.slippage)
+        return self.make_fill(order, ref_price, time)
+
+    def make_fill(self, order: Order, price: float, time: datetime) -> Optional[Fill]:
+        """Build a slippage- and fee-adjusted :class:`Fill` at ``price``.
+
+        Shared by market fills and by the engine's resting limit/stop fills.
+        """
+        if order.action == Action.HOLD or order.quantity <= 0:
+            return None
+        fill_price = price * (1 + self.slippage) if order.action == Action.BUY \
+            else price * (1 - self.slippage)
         fee = fill_price * order.quantity * self.fee
-        return Fill(
-            order=order,
-            fill_price=fill_price,
-            fill_quantity=order.quantity,
-            fee=fee,
-            time=time,
-        )
+        return Fill(order=order, fill_price=fill_price, fill_quantity=order.quantity,
+                    fee=fee, time=time)

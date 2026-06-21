@@ -1,10 +1,29 @@
 import pandas as pd
 
 from yammyquant.backtest.engine import Backtest, BacktestResult
-from yammyquant.backtest.order import Action, Order
+from yammyquant.backtest.order import Action, Order, OrderType
 from yammyquant.data.candle import Candle
 from yammyquant.strategy.base import Strategy
 from yammyquant.strategy.builtin import MACross, VolatilityBreakout
+
+
+class _OrderOnce(Strategy):
+    """Emit one configurable order on the first bar, then hold (for fill tests)."""
+
+    warmup = 1
+
+    def __init__(self, action, price=None, otype=OrderType.MARKET):
+        self._a, self._p, self._t = action, price, otype
+
+    def reset(self):
+        self._fired = False
+
+    def on_bar(self, window):
+        if getattr(self, "_fired", False):
+            return []
+        self._fired = True
+        p = self._p if self._p is not None else float(window.close[-1])
+        return [Order(self._a, window.ticker, 1.0, p, type=self._t)]
 
 
 class _BuyOnceStrategy(Strategy):
@@ -72,6 +91,45 @@ def test_fill_timing_close_is_legacy_same_bar():
     buys = res.trades[res.trades["action"] == "BUY"]
     assert len(buys) == 1
     assert float(buys.iloc[0]["price"]) == 101.0
+
+
+def test_next_open_fix_ignores_order_price():
+    # a MARKET order that carries a price (as all builtin strategies do) must
+    # still fill at the NEXT bar's open, not at its own (signal-bar close) price
+    candle = _ohlc_candle()                       # opens 100,110,...; closes 101,111,...
+    res = Backtest(candle, _OrderOnce(Action.BUY, price=101.0), cash=10_000.0, fee=0.0,
+                   fill_timing="next_open").run()
+    buys = res.trades[res.trades["action"] == "BUY"]
+    assert float(buys.iloc[0]["price"]) == 110.0   # next open, NOT the 101 it asked for
+
+
+def test_limit_order_fills_when_price_reached():
+    candle = _ohlc_candle()                        # bar1 low=105, open=110
+    res = Backtest(candle, _OrderOnce(Action.BUY, price=108.0, otype=OrderType.LIMIT),
+                   cash=10_000.0, fee=0.0).run()
+    buys = res.trades[res.trades["action"] == "BUY"]
+    assert len(buys) == 1 and float(buys.iloc[0]["price"]) == 108.0
+
+
+def test_limit_order_never_fills_if_unreached():
+    candle = _ohlc_candle()                        # lows bottom at 95
+    res = Backtest(candle, _OrderOnce(Action.BUY, price=90.0, otype=OrderType.LIMIT),
+                   cash=10_000.0, fee=0.0).run()
+    assert res.trades.empty
+
+
+def test_stop_order_fills_on_breakout():
+    candle = _ohlc_candle()                        # bar2 high=125, open=120
+    res = Backtest(candle, _OrderOnce(Action.BUY, price=122.0, otype=OrderType.STOP),
+                   cash=10_000.0, fee=0.0).run()
+    buys = res.trades[res.trades["action"] == "BUY"]
+    assert len(buys) == 1 and float(buys.iloc[0]["price"]) == 122.0
+
+
+def test_limit_order_requires_price():
+    import pytest
+    with pytest.raises(ValueError, match="require a price"):
+        Order(Action.BUY, "X", 1.0, type=OrderType.LIMIT)
 
 
 def test_fill_timing_rejects_bad_value():
