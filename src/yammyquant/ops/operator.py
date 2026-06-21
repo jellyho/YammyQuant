@@ -126,6 +126,9 @@ def optimize(
     res = grid_search(candle, cls, grid, metric=metric, cash=cash, fee=fee)
     out = {"metric": metric, "best_params": res.best_params,
            "best_score": round(res.best_score, 4),
+           # deflated Sharpe of the winner across all trials — <0.95 => likely overfit
+           "deflated_sharpe": res.dsr,
+           "trials": len(res.results),
            "top": [{"params": r["params"], "score": round(r["score"], 4)}
                    for r in res.results[:5]],
            # full grid (every param combo) for a sensitivity heatmap

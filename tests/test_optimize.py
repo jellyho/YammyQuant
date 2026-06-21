@@ -18,6 +18,26 @@ def test_grid_search_all_invalid_raises(sine_candle):
         grid_search(sine_candle, MACross, {"fast": [50], "slow": [20]})
 
 
+def test_grid_search_reports_deflated_sharpe(sine_candle):
+    grid = {"fast": [5, 10], "slow": [20, 30, 40]}
+    res = grid_search(sine_candle, MACross, grid, metric="sharpe")
+    assert res.dsr is not None
+    assert 0.0 <= res.dsr <= 1.0
+
+
+def test_deflated_sharpe_metric_penalizes_many_trials():
+    import numpy as np
+    import pandas as pd
+    from yammyquant.metrics.performance import (
+        deflated_sharpe_ratio, probabilistic_sharpe_ratio)
+    rng = np.random.default_rng(0)
+    rets = pd.Series(rng.normal(0.001, 0.01, 400))
+    psr = probabilistic_sharpe_ratio(rets)
+    spread = list(rng.normal(0.5, 0.5, 50))            # 50 noisy trial Sharpes
+    dsr = deflated_sharpe_ratio(rets, spread, periods_per_year=252)
+    assert dsr <= psr                                  # deflation never inflates confidence
+
+
 def test_walk_forward_reports_oos(sine_candle):
     grid = {"fast": [5, 10], "slow": [20, 30]}
     out = walk_forward(sine_candle, MACross, grid, n_splits=3, metric="sharpe")
