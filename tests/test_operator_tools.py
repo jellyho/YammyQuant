@@ -496,3 +496,36 @@ def test_protect_scale_out_partial_then_disarms(tmp_path, fake_exchange):
     # remaining position still open, take-profit disarmed -> next pass proposes nothing
     again = ops.protect(store, state)
     assert again["proposals"] == []
+
+
+def test_decide_sets_bracket_on_entry_and_protect_uses_it(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.add_watch("BTCUSDT", "fake", "1d")
+    ProtectPolicy(stop_loss=0.05, take_profit=0.10).save(state)
+    # fake exchange rising series -> a BUY entry fills at last close (159)
+    out = ops.decide(store, state, weight=0.2, execute=True, mode="paper")
+    buys = [p for p in out["proposals"] if p["side"] == "BUY" and p.get("status") == "filled"]
+    assert buys and "bracket" in buys[0]
+    entry = buys[0]["price"]
+    bracket = state.get("BTCUSDT" and "protect.bracket.BTCUSDT")
+    assert bracket["stop"] == pytest.approx(entry * 0.95)
+    assert bracket["take"] == pytest.approx(entry * 1.10)
+    # protect should reference the snapshot (price 120 < stop ~151 -> bracket_stop)
+    prot = ops.protect(store, state)
+    assert prot["proposals"][0]["reason"] == "bracket_stop"
+
+
+def test_protect_clears_bracket_on_full_exit(tmp_path, fake_exchange):
+    from yammyquant.ops.risk_policy import ProtectPolicy
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.upsert_position("ETHUSDT", 1.0, 200.0)
+    state.set("protect.bracket.ETHUSDT", {"stop": 190.0, "take": 260.0})
+    ProtectPolicy(stop_loss=0.05).save(state)        # price 120 < bracket stop 190 -> exit
+    out = ops.protect(store, state, execute=True)
+    assert out["proposals"][0]["reason"] == "bracket_stop"
+    assert state.get("protect.bracket.ETHUSDT") is None   # cleared on flatten
