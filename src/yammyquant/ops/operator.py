@@ -540,38 +540,40 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
             except Exception:
                 atr_val = None
 
-        # STOP-type breaches (full close): fixed stop -> ATR stop -> trailing
-        stop_reason = None
-        if is_long:
-            if policy.stop_loss is not None and price <= avg * (1 - policy.stop_loss):
-                stop_reason = "stop_loss"
-            elif atr_val and policy.atr_stop is not None and price <= avg - policy.atr_stop * atr_val:
-                stop_reason = "atr_stop"
-            elif policy.trailing_stop is not None and price <= peak * (1 - policy.trailing_stop):
-                stop_reason = "trailing_stop"
-        else:
-            if policy.stop_loss is not None and price >= avg * (1 + policy.stop_loss):
-                stop_reason = "stop_loss"
-            elif atr_val and policy.atr_stop is not None and price >= avg + policy.atr_stop * atr_val:
-                stop_reason = "atr_stop"
-            elif policy.trailing_stop is not None and price >= peak * (1 + policy.trailing_stop):
-                stop_reason = "trailing_stop"
+        # Resolve absolute stop/take levels. A per-trade bracket snapshot (set by
+        # decide at entry, e.g. ATR fixed at entry) overrides the policy recompute.
+        sign = 1 if is_long else -1
+        bracket = state.get(f"protect.bracket.{ticker}") or {}
+        stop_level, stop_label = None, None
+        if bracket.get("stop") is not None:
+            stop_level, stop_label = float(bracket["stop"]), "bracket_stop"
+        elif policy.stop_loss is not None:
+            stop_level, stop_label = avg * (1 - sign * policy.stop_loss), "stop_loss"
+        elif atr_val and policy.atr_stop is not None:
+            stop_level, stop_label = avg - sign * policy.atr_stop * atr_val, "atr_stop"
+        take_level, take_label = None, None
+        if bracket.get("take") is not None:
+            take_level, take_label = float(bracket["take"]), "bracket_take"
+        elif policy.take_profit is not None:
+            take_level, take_label = avg * (1 + sign * policy.take_profit), "take_profit"
+        elif atr_val and policy.atr_take is not None:
+            take_level, take_label = avg + sign * policy.atr_take * atr_val, "atr_take"
 
-        # TAKE-type breaches (scale-out eligible): fixed take -> ATR take. Disarmed
-        # once scaled out so the remainder isn't flushed each cycle.
+        # STOP-type breaches (full close): fixed/ATR/bracket stop -> trailing
+        breached = (lambda lvl: price <= lvl) if is_long else (lambda lvl: price >= lvl)
+        stop_reason = None
+        if stop_level is not None and breached(stop_level):
+            stop_reason = stop_label
+        elif policy.trailing_stop is not None and breached(peak * (1 - sign * policy.trailing_stop)):
+            stop_reason = "trailing_stop"
+
+        # TAKE-type breaches (scale-out eligible), disarmed once scaled out
+        reached = (lambda lvl: price >= lvl) if is_long else (lambda lvl: price <= lvl)
         scaled_key = f"protect.scaled.{ticker}"
         take_reason = None
-        if stop_reason is None and not state.get(scaled_key):
-            if is_long:
-                if policy.take_profit is not None and price >= avg * (1 + policy.take_profit):
-                    take_reason = "take_profit"
-                elif atr_val and policy.atr_take is not None and price >= avg + policy.atr_take * atr_val:
-                    take_reason = "atr_take"
-            else:
-                if policy.take_profit is not None and price <= avg * (1 - policy.take_profit):
-                    take_reason = "take_profit"
-                elif atr_val and policy.atr_take is not None and price <= avg - policy.atr_take * atr_val:
-                    take_reason = "atr_take"
+        if stop_reason is None and not state.get(scaled_key) and take_level is not None \
+                and reached(take_level):
+            take_reason = take_label
 
         if stop_reason is None and take_reason is None:
             continue
@@ -590,8 +592,9 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
             if partial:
                 state.set(scaled_key, True)         # disarm take for the remainder
             else:
-                state.set(hwm_key, None)            # reset peak + scale flag once flat
+                state.set(hwm_key, None)            # reset peak + scale flag + bracket once flat
                 state.set(scaled_key, None)
+                state.set(f"protect.bracket.{ticker}", None)
         out["proposals"].append(prop)
 
     if out["proposals"]:
@@ -600,6 +603,40 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
         notify(state, "🛡️ protect " + verb + ": "
                + ", ".join(f"{p['symbol']} {p['reason']}" for p in out["proposals"]), "warn")
     return out
+
+
+def _set_bracket(state: LiveState, candle, ticker: str, entry_price: float) -> Optional[dict]:
+    """Snapshot per-trade stop/take levels at entry (OCO bracket) for protect to use.
+
+    Levels are fixed from the entry price + the ATR at entry, so a position keeps
+    the stop it was opened with rather than one that drifts as ATR moves. Long
+    entries only (decide opens longs). No-op when no ProtectPolicy is set.
+    """
+    from yammyquant.ops.risk_policy import ProtectPolicy
+
+    policy = ProtectPolicy.load(state)
+    if not policy.active:
+        return None
+    atr_val = None
+    if policy.atr_stop is not None or policy.atr_take is not None:
+        try:
+            a = float(candle.ind.atr(policy.atr_lookback).to_numpy()[-1])
+            atr_val = a if a == a and a > 0 else None
+        except Exception:
+            atr_val = None
+    bracket = {}
+    if policy.stop_loss is not None:
+        bracket["stop"] = entry_price * (1 - policy.stop_loss)
+    elif atr_val and policy.atr_stop is not None:
+        bracket["stop"] = entry_price - policy.atr_stop * atr_val
+    if policy.take_profit is not None:
+        bracket["take"] = entry_price * (1 + policy.take_profit)
+    elif atr_val and policy.atr_take is not None:
+        bracket["take"] = entry_price + policy.atr_take * atr_val
+    if bracket:
+        state.set(f"protect.bracket.{ticker}", bracket)
+        return bracket
+    return None
 
 
 def resample(store: DuckDBStore, ticker: str, source: str, target: str,
@@ -1043,6 +1080,11 @@ def decide(
                             order_type=order_type, context=decision["context"])
             decision["status"] = res["status"]
             decision["trade_id"] = res["id"]
+            # snapshot an OCO bracket on a filled entry so protect manages the exit
+            if decision["side"] == "BUY" and res.get("status") == "filled":
+                bracket = _set_bracket(state, candle, decision["symbol"], decision["price"])
+                if bracket:
+                    decision["bracket"] = bracket
         proposals.append(decision)
 
     state.log("decide", f"{len(proposals)} decision(s) (execute={execute}, mode={mode})",
