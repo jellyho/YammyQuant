@@ -286,6 +286,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
     p.add_argument("--allow-short", action="store_true",
                    help="permit short positions (SELL when flat opens a short, BUY covers)")
+    p.add_argument("--borrow-fee", type=float, default=0.0,
+                   help="annualized borrow/funding cost charged per bar on short notional")
     p.add_argument("--sizing", choices=["off", "fraction", "volatility", "kelly"],
                    help="position sizing policy (default: strategy's own quantity)")
     p.add_argument("--risk-fraction", type=float, help="fraction of equity per entry (sizing=fraction)")
@@ -612,7 +614,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
-                            allow_short=args.allow_short, risk=risk,
+                            allow_short=args.allow_short, borrow_fee=args.borrow_fee, risk=risk,
                             bootstrap=args.bootstrap, regime=regime, session=session,
                             start=args.start, end=args.end, state=state))
         return 0

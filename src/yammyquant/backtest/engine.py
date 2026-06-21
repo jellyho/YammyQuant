@@ -90,21 +90,25 @@ class Backtest:
         risk: "RiskConfig | None" = None,
         fill_timing: str = "next_open",
         allow_short: bool = False,
+        borrow_fee: float = 0.0,
     ):
         if fill_timing not in ("next_open", "close"):
             raise ValueError(f"fill_timing must be 'next_open' or 'close', got {fill_timing!r}")
+        from yammyquant.metrics.performance import _BARS_PER_YEAR
         self.candle = candle
         self.strategy = strategy
         self.lookback = lookback or strategy.warmup
         self.fill_timing = fill_timing
         self.allow_short = bool(allow_short)
+        self.ppy = _BARS_PER_YEAR.get(candle.interval or "", 252)
+        # per-bar borrow cost on short notional (annualized rate / bars-per-year)
+        self.borrow_per_bar = float(borrow_fee) / self.ppy if borrow_fee else 0.0
         self.portfolio = Portfolio(cash=cash, fee=fee, allow_short=allow_short)
         self.broker = broker or BacktestBroker(fee=fee, slippage=slippage)
         self.risk = None
         if risk is not None:
             from yammyquant.backtest.risk import RiskManager
-            from yammyquant.metrics.performance import _BARS_PER_YEAR
-            self.risk = RiskManager(risk, _BARS_PER_YEAR.get(candle.interval or "", 252))
+            self.risk = RiskManager(risk, self.ppy)
 
     def run(self) -> BacktestResult:
         self.strategy.reset()
@@ -176,6 +180,12 @@ class Backtest:
             # update the high-water mark with this bar's range for trailing/breakeven
             if self.risk is not None:
                 self._update_hwm(ticker, bar_high, bar_low)
+
+            # carry cost: borrow fee on an open short position, accrued each bar
+            if self.borrow_per_bar:
+                pos = self.portfolio.position(ticker)
+                if pos.is_short:
+                    self.portfolio.cash -= abs(pos.quantity) * ref_price * self.borrow_per_bar
 
             self.portfolio.mark(time, {ticker: ref_price})
 
