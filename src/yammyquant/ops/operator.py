@@ -1086,10 +1086,14 @@ def attribution(state: LiveState) -> dict:
     for row in ranked:
         pnls = row.pop("_pnls")
         wins = [p for p in pnls if p > 0]
+        losses = [p for p in pnls if p < 0]
+        gross_loss = -sum(losses)
         row["pnl"] = round(row["pnl"], 4)
         # which strategies actually carry a positive edge, not just total PnL
         row["win_rate"] = round(len(wins) / len(pnls), 4) if pnls else 0.0
         row["expectancy"] = round(row["pnl"] / len(pnls), 4) if pnls else 0.0
+        # None (not inf) when there are no losing round-trips — keeps it JSON-safe
+        row["profit_factor"] = round(sum(wins) / gross_loss, 3) if gross_loss else None
     return {"by_strategy": ranked}
 
 

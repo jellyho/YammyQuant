@@ -232,6 +232,7 @@ def test_attribution_win_rate_and_expectancy(tmp_path):
     assert row["pnl"] == pytest.approx(20.0)
     assert row["win_rate"] == pytest.approx(0.5)
     assert row["expectancy"] == pytest.approx(10.0)   # (30 - 10) / 2
+    assert row["profit_factor"] == pytest.approx(3.0)  # gross win 30 / gross loss 10
 
 
 def test_risk_parity_weights_inverse_vol(tmp_path):
