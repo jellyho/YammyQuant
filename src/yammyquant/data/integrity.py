@@ -16,7 +16,8 @@ import pandas as pd
 from yammyquant.data.candle import Candle
 
 
-def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None) -> dict:
+def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None,
+                     continuous: bool = True) -> dict:
     """Audit a candle series for structural and value problems.
 
     Parameters
@@ -26,6 +27,12 @@ def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None) -
     interval_seconds:
         Expected spacing between bars, in seconds. When given, gaps (missing
         bars) are detected against it; when ``None`` gap detection is skipped.
+    continuous:
+        Whether the market trades around the clock. ``True`` (crypto) treats
+        every gap as a real problem. ``False`` (stocks) treats gaps that span a
+        session boundary — overnight or a weekend, i.e. adjacent bars on
+        different calendar dates — as expected market closures and reports them
+        separately as ``session_breaks`` rather than missing bars.
 
     Returns a dict of issue counts plus an overall ``ok`` flag.
     """
@@ -33,7 +40,7 @@ def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None) -
     n = len(idx)
     out = {
         "bars": n, "duplicates": 0, "out_of_order": 0, "gaps": 0,
-        "missing_estimate": 0, "nan_rows": 0, "bad_ohlc": 0,
+        "missing_estimate": 0, "session_breaks": 0, "nan_rows": 0, "bad_ohlc": 0,
         "nonpositive": 0, "ok": True,
     }
     if n == 0:
@@ -45,11 +52,18 @@ def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None) -
     out["out_of_order"] = int((deltas <= 0).sum())  # zero/negative => unsorted/dup
     if interval_seconds and deltas.size:
         exp = float(interval_seconds)
-        forward = deltas[deltas > 0]
-        gap_mask = forward > 1.5 * exp
-        out["gaps"] = int(gap_mask.sum())
-        if gap_mask.any():
-            out["missing_estimate"] = int(np.round(forward[gap_mask] / exp - 1).sum())
+        gap_pos = np.where(deltas > 1.5 * exp)[0]   # i: idx[i] -> idx[i+1] is a gap
+        real = []
+        for i in gap_pos:
+            # for session markets, an overnight/weekend gap (adjacent bars on
+            # different calendar dates) is an expected closure, not missing data
+            if not continuous and idx[i].date() != idx[i + 1].date():
+                out["session_breaks"] += 1
+            else:
+                real.append(i)
+        out["gaps"] = len(real)
+        if real:
+            out["missing_estimate"] = int(np.round(deltas[real] / exp - 1).sum())
 
     # -- value sanity (OHLC) ----------------------------------------------
     op, hi, lo, cl = (candle.open.astype(float), candle.high.astype(float),
