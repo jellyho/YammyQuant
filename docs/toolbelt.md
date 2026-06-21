@@ -46,7 +46,8 @@ See [Information layer](information-layer.md) for the full picture.
 | `yq approve N` / `yq reject N` | Act on a pending live trade. |
 | `yq protect [--execute]` | Protective exits (stop/take/trailing/ATR/scale-out) on open positions. |
 | `yq mark` / `yq sync` | Mark to market / settle live orders. |
-| `yq cycle` | One maintenance pass: refresh → listen → scan → mark → protect → notify. |
+| `yq cancel N` | Cancel a pending or resting (submitted live) order. |
+| `yq cycle` | One maintenance pass: refresh → listen → scan → mark → protect → decide → sync → reconcile → notify. |
 | `yq schedule --interval 300` | Run cycles forever (or cron `yq cycle`). |
 | `yq listen` | Pull Slack/Discord messages into the inbox (also runs each cycle). |
 | `yq risk set max_open_positions=5 daily_loss_limit=200` | Account risk guardrails. |

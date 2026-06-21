@@ -93,6 +93,10 @@ class Exchange(ABC):
         """Fetch an order's current status (for live-order lifecycle sync)."""
         raise NotImplementedError(f"{self.name} adapter does not implement order_status()")
 
+    def cancel_order(self, order_id: str, ticker: str) -> dict:
+        """Cancel a resting order at the venue (for the order lifecycle)."""
+        raise NotImplementedError(f"{self.name} adapter does not implement cancel_order()")
+
     # -- HTTP (overridable / mockable in tests) ----------------------------
     def _request(self, method: str, url: str, headers: Optional[dict] = None,
                  params: Optional[dict] = None, json_body: Optional[dict] = None,

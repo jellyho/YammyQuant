@@ -145,7 +145,17 @@ class TradeManager:
                 )
                 return self.state.get_trade(trade_id)
             placer = place_live or self._place_live_order
-            result = placer(trade)
+            try:
+                result = placer(trade)
+            except Exception as exc:
+                # placement failed (network/exchange error): don't leave it dangling
+                # in pending — mark rejected, record why, and alert the human.
+                self.state.set_trade_meta(trade_id, place_error=str(exc))
+                self.state.set_trade_status(trade_id, "rejected")
+                self.state.log("trade", f"LIVE trade #{trade_id} placement failed: {exc}",
+                               trade_id=trade_id, level="warn")
+                self._notify(f"🚫 LIVE order #{trade_id} failed to place: {exc}", "warn")
+                return self.state.get_trade(trade_id)
             if isinstance(result, dict):
                 oid = result.get("orderId") or result.get("id") or result.get("uuid")
                 if oid is not None:
