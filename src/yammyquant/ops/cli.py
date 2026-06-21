@@ -427,7 +427,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("ticker")
     p.add_argument("side", choices=["BUY", "SELL", "buy", "sell"])
     p.add_argument("quantity", type=float)
-    p.add_argument("--price", type=float, required=True)
+    p.add_argument("--price", type=float, help="fill price; omit to use the live exchange price")
+    p.add_argument("--exchange", help="venue for live price + fees (default: configured default)")
     p.add_argument("--mode", choices=["paper", "live"], default="paper")
     p.add_argument("--rationale", default="")
 
@@ -751,8 +752,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "trade":
-        tm = TradeManager(state)
-        _print(tm.submit(args.ticker, args.side, args.quantity, args.price,
+        from yammyquant.exchanges import get_exchange, default_exchange
+        ex = get_exchange(args.exchange or default_exchange())
+        price = args.price if args.price is not None else float(ex.last_price(args.ticker))
+        tm = TradeManager(state, exchange=ex.name)   # real-time price + that venue's fees
+        _print(tm.submit(args.ticker, args.side, args.quantity, price,
                          args.mode, args.rationale))
         return 0
 

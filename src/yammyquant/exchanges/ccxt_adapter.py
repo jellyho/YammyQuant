@@ -39,6 +39,17 @@ class CCXTExchange(Exchange):
         src.client = self.client
         return src.read(ticker, interval, start=start, end=end, limit=count)
 
+    def fees(self) -> dict:
+        """Maker/taker from ccxt's published fee info, falling back to the schedule."""
+        try:
+            trading = (getattr(self.client, "fees", None) or {}).get("trading", {})
+            maker, taker = trading.get("maker"), trading.get("taker")
+            if maker is not None and taker is not None:
+                return {"maker": float(maker), "taker": float(taker)}
+        except Exception:
+            pass
+        return super().fees()
+
     def balances(self) -> dict:
         return self.client.fetch_balance()
 

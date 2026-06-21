@@ -30,3 +30,20 @@ def test_exchange_fees_method():
 def test_all_schedules_sane():
     for name, s in FEE_SCHEDULE.items():
         assert 0 <= s.maker < 0.01 and 0 <= s.taker < 0.01, name
+
+
+def test_ccxt_fees_reads_client_then_falls_back():
+    from yammyquant.exchanges.ccxt_adapter import CCXTExchange
+
+    ad = CCXTExchange.__new__(CCXTExchange)   # bypass ccxt init
+    ad.name = "bybit"
+
+    class _Client:
+        fees = {"trading": {"maker": 0.0002, "taker": 0.00055}}
+    ad.client = _Client()
+    assert ad.fees() == {"maker": 0.0002, "taker": 0.00055}
+
+    class _Bare:
+        fees = {}
+    ad.client = _Bare()                       # no info -> schedule fallback (default)
+    assert ad.fees() == {"maker": 0.001, "taker": 0.001}
