@@ -40,6 +40,9 @@ class RiskConfig:
       the trade runs
     - ``breakeven_trigger`` — once the trade gains this fraction, the stop ratchets
       up to the entry price (a free trade thereafter)
+    - ``scale_out`` — fraction of the position to close when a take-profit fires
+      (the rest rides the remaining stops); the take is then disarmed so the
+      remainder isn't immediately flushed
     - ``max_holding_bars`` — force an exit after holding this many bars (time stop)
 
     Kill switch
@@ -61,6 +64,7 @@ class RiskConfig:
     atr_lookback: int = 14
     trailing_stop: Optional[float] = None
     breakeven_trigger: Optional[float] = None
+    scale_out: Optional[float] = None
     max_holding_bars: Optional[int] = None
     max_drawdown: Optional[float] = None
 
@@ -121,30 +125,39 @@ class RiskManager:
         return float(np.std(recent_returns, ddof=0) * np.sqrt(self.ppy))
 
     # -- protective exits --------------------------------------------------
+    def stop_exit(self, avg_entry: float, bar_high: float, bar_low: float,
+                  is_short: bool = False) -> Optional[float]:
+        """Fixed stop-loss fill price if hit this bar (long: below entry / bar low;
+        short: above entry / bar high)."""
+        c = self.config
+        if avg_entry <= 0 or c.stop_loss is None:
+            return None
+        if is_short:
+            s = avg_entry * (1 + c.stop_loss)
+            return s if bar_high >= s else None
+        s = avg_entry * (1 - c.stop_loss)
+        return s if bar_low <= s else None
+
+    def take_exit(self, avg_entry: float, bar_high: float, bar_low: float,
+                  is_short: bool = False) -> Optional[float]:
+        """Fixed take-profit fill price if hit this bar (long: above entry / bar
+        high; short: below entry / bar low)."""
+        c = self.config
+        if avg_entry <= 0 or c.take_profit is None:
+            return None
+        if is_short:
+            t = avg_entry * (1 - c.take_profit)
+            return t if bar_low <= t else None
+        t = avg_entry * (1 + c.take_profit)
+        return t if bar_high >= t else None
+
     def exit_price(self, avg_entry: float, bar_high: float, bar_low: float,
                    is_short: bool = False) -> Optional[float]:
-        """Return the fill price if a stop-loss/take-profit triggers this bar.
-
-        Long: stop-loss checks the bar low, take-profit the bar high.
-        Short (``is_short=True``): the sides invert — a loss is price rising, so
-        the stop sits *above* entry and checks the bar high, while the profit
-        target sits *below* and checks the bar low.
-        Stop-loss takes precedence (conservative) when both could trigger.
-        """
-        c = self.config
-        if avg_entry <= 0:
-            return None
-        if not is_short:
-            if c.stop_loss is not None and bar_low <= avg_entry * (1 - c.stop_loss):
-                return avg_entry * (1 - c.stop_loss)
-            if c.take_profit is not None and bar_high >= avg_entry * (1 + c.take_profit):
-                return avg_entry * (1 + c.take_profit)
-        else:
-            if c.stop_loss is not None and bar_high >= avg_entry * (1 + c.stop_loss):
-                return avg_entry * (1 + c.stop_loss)
-            if c.take_profit is not None and bar_low <= avg_entry * (1 - c.take_profit):
-                return avg_entry * (1 - c.take_profit)
-        return None
+        """Stop-or-take fill price this bar (stop precedence, conservative)."""
+        stop = self.stop_exit(avg_entry, bar_high, bar_low, is_short)
+        if stop is not None:
+            return stop
+        return self.take_exit(avg_entry, bar_high, bar_low, is_short)
 
     def trailing_exit(self, hwm: float, bar_high: float, bar_low: float,
                       is_short: bool = False) -> Optional[float]:

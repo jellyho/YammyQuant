@@ -156,6 +156,7 @@ class Backtest:
         self._hwm = {}             # ticker -> high-water mark since entry (max high / min low)
         self._atr_stop_px = {}     # ticker -> absolute ATR stop level set at entry
         self._atr_take_px = {}     # ticker -> absolute ATR take-profit level set at entry
+        self._scaled = set()       # tickers whose take-profit already scaled out once
         self._atr = None
         if self.risk is not None and (self.risk.config.atr_stop or self.risk.config.atr_take):
             self._atr = candle.ind.atr(self.risk.config.atr_lookback).to_numpy()
@@ -258,26 +259,57 @@ class Backtest:
         is_short = pos.is_short
         avg = pos.avg_price
         hwm = self._hwm.get(ticker, avg)
-        # priority: fixed stop/take, then trailing stop, then breakeven, then time stop
-        exit_px = self.risk.exit_price(avg, bar_high, bar_low, is_short=is_short)
-        if exit_px is None:                              # volatility-scaled ATR stop / take
+        c = self.risk.config
+
+        # STOP-type exits (always flatten): fixed stop -> ATR stop -> trailing ->
+        # breakeven -> time stop. Checked first (conservative).
+        stop_px = self.risk.stop_exit(avg, bar_high, bar_low, is_short=is_short)
+        if stop_px is None:
             sp = self._atr_stop_px.get(ticker)
-            tp = self._atr_take_px.get(ticker)
             if sp is not None and (bar_high >= sp if is_short else bar_low <= sp):
-                exit_px = sp
-            elif tp is not None and (bar_low <= tp if is_short else bar_high >= tp):
-                exit_px = tp
-        if exit_px is None:
-            exit_px = self.risk.trailing_exit(hwm, bar_high, bar_low, is_short=is_short)
-        if exit_px is None:
-            exit_px = self.risk.breakeven_exit(avg, hwm, bar_high, bar_low, is_short=is_short)
-        if exit_px is None and self.risk.config.max_holding_bars is not None:
-            entry = self._entry_bar.get(ticker)
-            if entry is not None and (i - entry) >= self.risk.config.max_holding_bars:
-                exit_px = ref_price   # time stop: exit at this bar's close
-        if exit_px is not None:
-            self._close(ticker, exit_px, time)
+                stop_px = sp
+        if stop_px is None:
+            stop_px = self.risk.trailing_exit(hwm, bar_high, bar_low, is_short=is_short)
+        if stop_px is None:
+            stop_px = self.risk.breakeven_exit(avg, hwm, bar_high, bar_low, is_short=is_short)
+        if stop_px is not None:
+            self._close(ticker, stop_px, time)
             self._sync_tracker(ticker, i)
+            return
+        if c.max_holding_bars is not None:
+            entry = self._entry_bar.get(ticker)
+            if entry is not None and (i - entry) >= c.max_holding_bars:
+                self._close(ticker, ref_price, time)     # time stop at this bar's close
+                self._sync_tracker(ticker, i)
+                return
+
+        # TAKE-type exits (profit target): scale out a fraction if configured,
+        # else flatten. Disarmed after a scale-out so the remainder rides stops.
+        take_px = None if ticker in self._scaled \
+            else self.risk.take_exit(avg, bar_high, bar_low, is_short=is_short)
+        if take_px is None and ticker not in self._scaled:
+            tp = self._atr_take_px.get(ticker)
+            if tp is not None and (bar_low <= tp if is_short else bar_high >= tp):
+                take_px = tp
+        if take_px is not None:
+            if c.scale_out and 0.0 < c.scale_out < 1.0:
+                self._scale_out(ticker, take_px, c.scale_out, time)
+                self._scaled.add(ticker)                 # disarm take for the remainder
+                self._atr_take_px.pop(ticker, None)
+            else:
+                self._close(ticker, take_px, time)
+                self._sync_tracker(ticker, i)
+
+    def _scale_out(self, ticker: str, price: float, frac: float, time) -> None:
+        """Close ``frac`` of the open position at ``price`` (partial take-profit)."""
+        pos = self.portfolio.position(ticker)
+        qty = abs(pos.quantity) * frac
+        if qty <= 0:
+            return
+        action = Action.SELL if pos.is_long else Action.BUY
+        fill = self.broker.make_fill(Order(action, ticker, qty, price, time), price, time)
+        if fill is not None:
+            self.portfolio.apply_fill(fill)
 
     def _sync_tracker(self, ticker: str, i: int) -> None:
         """Record entry bar + reset hwm when a position opens; clear when flat."""
@@ -292,6 +324,7 @@ class Backtest:
             self._hwm.pop(ticker, None)
             self._atr_stop_px.pop(ticker, None)
             self._atr_take_px.pop(ticker, None)
+            self._scaled.discard(ticker)
 
     def _set_atr_levels(self, ticker: str, pos, i: int) -> None:
         """Fix volatility-scaled stop/take levels from the ATR at entry."""
