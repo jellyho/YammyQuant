@@ -307,6 +307,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--start")
     p.add_argument("--end")
 
+    p = sub.add_parser("cost", help="cost-sensitivity sweep (how fast the edge erodes)")
+    p.add_argument("ticker")
+    p.add_argument("interval")
+    p.add_argument("strategy")
+    p.add_argument("--fast", type=int)
+    p.add_argument("--slow", type=int)
+    p.add_argument("--k", type=float)
+    p.add_argument("--size", type=float)
+    p.add_argument("--fee", type=float, default=0.001)
+    p.add_argument("--slippages", type=float, nargs="+",
+                   help="slippage levels to sweep (default: 0 .0005 .001 .002 .005)")
+    p.add_argument("--allow-short", action="store_true")
+
     p = sub.add_parser("scan", help="scan tickers for signals")
     p.add_argument("tickers", nargs="+")
     p.add_argument("--interval", default="1d")
@@ -594,6 +607,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                             allow_short=args.allow_short, risk=risk,
                             bootstrap=args.bootstrap, regime=regime,
                             start=args.start, end=args.end, state=state))
+        return 0
+
+    if args.cmd == "cost":
+        params = {k: v for k, v in
+                  {"fast": args.fast, "slow": args.slow, "k": args.k, "size": args.size}.items()
+                  if v is not None}
+        _print(ops.cost_sensitivity(DuckDBStore(args.store), args.ticker, args.interval,
+                                    args.strategy, params, slippages=args.slippages,
+                                    fee=args.fee, allow_short=args.allow_short, state=state))
         return 0
 
     if args.cmd == "scan":

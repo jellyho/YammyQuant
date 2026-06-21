@@ -118,6 +118,25 @@ def test_report_expectancy_and_avgs(tmp_path):
     assert "sortino" in rep
 
 
+def test_cost_sensitivity_sweep(tmp_path):
+    import numpy as np
+    import pandas as pd
+    store = DuckDBStore(tmp_path / "store")
+    n = 250
+    idx = pd.date_range("2022-01-01", periods=n, freq="1D")
+    close = 100 + 10 * np.sin(np.arange(n) / 7.0)      # oscillating -> many trades
+    store.write(Candle("OSC", pd.DataFrame(
+        {"open": close, "high": close + 1, "low": close - 1, "close": close,
+         "volume": np.full(n, 1.0)}, index=idx), interval="1d"))
+    out = ops.cost_sensitivity(store, "OSC", "1d", "macross", {"fast": 5, "slow": 20},
+                               slippages=[0.0, 0.001, 0.01])
+    assert [r["slippage"] for r in out["rows"]] == [0.0, 0.001, 0.01]
+    # higher slippage never improves total return
+    rets = [r["total_return"] for r in out["rows"]]
+    assert rets[0] >= rets[-1]
+    assert "breakeven_slippage" in out
+
+
 def test_decide_proposes_buy_dry_run(tmp_path, fake_exchange):
     store = DuckDBStore(tmp_path / "store")
     state = LiveState(tmp_path / "s.db")
