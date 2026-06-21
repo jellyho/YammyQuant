@@ -473,3 +473,72 @@ class OpeningRangeBreakout(Strategy):
             self._side = "FLAT"
             return [Order(Action.SELL, window.ticker, self.size, price, ts)]
         return []
+
+
+class VWAPBandScalp(Strategy):
+    """Session-VWAP band mean-reversion scalp (intraday).
+
+    Buy when price is stretched below the lower VWAP band (``band`` × rolling
+    std of the price-VWAP deviation) and exit when it reverts back to the
+    session VWAP. Uses the daily-resetting ``session_vwap`` — intraday only.
+    """
+
+    def __init__(self, band: float = 1.5, std_period: int = 20, size: float = 1.0):
+        self.band, self.std_period, self.size = band, std_period, size
+        self.warmup = std_period + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        import pandas as pd
+        vw = window.ind.session_vwap().to_numpy()
+        close = window.close
+        std = pd.Series(close - vw).rolling(self.std_period).std().to_numpy()
+        price, time = float(close[-1]), window.index[-1]
+        lower, lower_prev = vw[-1] - self.band * std[-1], vw[-2] - self.band * std[-2]
+        if close[-1] < lower and close[-2] >= lower_prev:        # stretched below band
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] >= vw[-1] and close[-2] < vw[-2]:           # reverted to VWAP -> exit
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class VolumeSpikeBreakout(Strategy):
+    """Breakout confirmed by a volume spike — intraday momentum.
+
+    Go long when the latest bar's volume exceeds ``vol_mult`` × its recent
+    average *and* price closes above the prior ``lookback``-bar high; exit on a
+    close below the prior ``lookback``-bar low.
+    """
+
+    def __init__(self, lookback: int = 20, vol_mult: float = 1.5, size: float = 1.0):
+        self.lookback, self.vol_mult, self.size = lookback, vol_mult, size
+        self.warmup = lookback + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        high, low, close, vol = window.high, window.low, window.close, window.volume
+        price, time = float(close[-1]), window.index[-1]
+        avg_vol = float(vol[-self.lookback - 1:-1].mean())
+        spike = avg_vol > 0 and vol[-1] > self.vol_mult * avg_vol
+        if spike and close[-1] > float(high[-self.lookback - 1:-1].max()):
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if close[-1] < float(low[-self.lookback - 1:-1].min()):
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []
+
+
+class MicroPullback(Strategy):
+    """Buy a shallow pullback to the fast EMA inside an up-trend; exit on trend break."""
+
+    def __init__(self, fast: int = 9, slow: int = 21, size: float = 1.0):
+        self.fast, self.slow, self.size = fast, slow, size
+        self.warmup = slow + 2
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        ef = window.ind.ema(self.fast).to_numpy()
+        es = window.ind.ema(self.slow).to_numpy()
+        close = window.close
+        price, time = float(close[-1]), window.index[-1]
+        if ef[-1] > es[-1] and close[-2] <= ef[-2] and close[-1] > ef[-1]:   # pullback resumes
+            return [Order(Action.BUY, window.ticker, self.size, price, time)]
+        if ef[-1] < es[-1]:                                                  # trend broke -> exit
+            return [Order(Action.SELL, window.ticker, self.size, price, time)]
+        return []

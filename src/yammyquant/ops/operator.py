@@ -33,6 +33,9 @@ from yammyquant.strategy.builtin import (
     MFIReversion,
     VWAPReversion,
     OpeningRangeBreakout,
+    VWAPBandScalp,
+    VolumeSpikeBreakout,
+    MicroPullback,
 )
 from yammyquant.state.store import LiveState
 
@@ -60,6 +63,9 @@ STRATEGIES = {
     "mfi_reversion": MFIReversion,
     "vwap_reversion": VWAPReversion,
     "opening_range_breakout": OpeningRangeBreakout,
+    "vwap_band_scalp": VWAPBandScalp,
+    "volume_spike_breakout": VolumeSpikeBreakout,
+    "micro_pullback": MicroPullback,
 }
 
 
@@ -94,6 +100,9 @@ DEFAULT_GRIDS = {
     "mfi_reversion": {"period": [14], "oversold": [20.0], "overbought": [80.0]},
     "vwap_reversion": {"period": [14, 20], "threshold": [0.005, 0.01, 0.02]},
     "opening_range_breakout": {"opening_bars": [3, 6, 12]},
+    "vwap_band_scalp": {"band": [1.0, 1.5, 2.0], "std_period": [14, 20]},
+    "volume_spike_breakout": {"lookback": [10, 20], "vol_mult": [1.5, 2.0]},
+    "micro_pullback": {"fast": [5, 9], "slow": [21, 34]},
 }
 
 
