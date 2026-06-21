@@ -602,6 +602,25 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
     return out
 
 
+def resample(store: DuckDBStore, ticker: str, source: str, target: str,
+             write: bool = True, state: Optional[LiveState] = None) -> dict:
+    """Resample a stored series to a coarser interval and (by default) store it.
+
+    Lets you collect one fine timeframe (e.g. 1h) and derive others (4h, 1d)
+    without extra exchange calls.
+    """
+    from yammyquant.data.resample import resample_candle
+
+    candle = store.read(ticker, source)
+    out = resample_candle(candle, target)
+    if write:
+        store.write(out)
+    if state:
+        state.log("resample", f"resampled {ticker} {source}->{target} ({len(out)} bars)")
+    return {"ticker": ticker, "source": source, "target": target,
+            "source_bars": len(candle), "target_bars": len(out), "written": write}
+
+
 def integrity(store: DuckDBStore, ticker: Optional[str] = None,
               interval: Optional[str] = None) -> dict:
     """Audit stored candles for gaps, duplicates, bad OHLC and NaNs.

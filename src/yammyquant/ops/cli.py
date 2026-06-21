@@ -341,6 +341,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("ticker")
     p.add_argument("interval")
 
+    p = sub.add_parser("resample", help="resample stored candles to a coarser interval")
+    p.add_argument("ticker")
+    p.add_argument("source", help="source interval (e.g. 1h)")
+    p.add_argument("target", help="target interval, coarser (e.g. 4h, 1d)")
+    p.add_argument("--no-write", action="store_true", help="don't store; just report")
+
     p = sub.add_parser("news", help="collect/list news (RSS); operator judges sentiment")
     p.add_argument("symbol", nargs="?")
     p.add_argument("--collect", action="store_true", help="fetch feeds into the store")
@@ -652,6 +658,11 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "features":
         _print(ops.features(DuckDBStore(args.store), args.ticker, args.interval, state=state))
+        return 0
+
+    if args.cmd == "resample":
+        _print(ops.resample(DuckDBStore(args.store), args.ticker, args.source, args.target,
+                            write=not args.no_write, state=state))
         return 0
 
     if args.cmd == "news":
