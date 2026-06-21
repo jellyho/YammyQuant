@@ -197,6 +197,17 @@
 
     <section class="card">
       <div class="card-head">
+        <h2>Auto mode <span class="muted">(hands-off live)</span></h2>
+        <button id="toggleAuto" class="ghost">toggle</button>
+      </div>
+      <div id="automode" class="report"></div>
+      <p class="muted">Live orders place without per-order approval only when all four are on:
+        <code>auto_trade</code> · <code>trade_mode=live</code> · <code>auto_approve</code> · env <code>YQ_ALLOW_LIVE=1</code>.
+        The risk policy still vets every order; a daily-loss breach auto-disarms it.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
         <h2>Control center</h2>
         <span>
           <button id="runCycle" class="ghost">run cycle</button>

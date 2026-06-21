@@ -304,8 +304,28 @@ function drawEquity(eq) {
   }], layout("equity"), { displayModeBar: false, responsive: true });
 }
 
+// ---- auto mode -----------------------------------------------------------
+async function loadAutoMode() {
+  const r = await fetch("/api/automode"); if (!r.ok) return;
+  const d = await r.json();
+  const flag = (k, v) => `<div class="stat"><span>${k}</span><b class="${v ? 'buy' : 'muted'}">${v ? "on" : "off"}</b></div>`;
+  $("automode").innerHTML =
+    `<div class="stat"><span>armed</span><b class="${d.auto_live_armed ? 'sell' : 'muted'}">${d.auto_live_armed ? "🔴 LIVE — no approval" : "off"}</b></div>` +
+    flag("auto_trade", d.auto_trade) + flag("auto_approve", d.auto_approve) +
+    `<div class="stat"><span>trade_mode</span><b>${d.trade_mode}</b></div>` +
+    flag("YQ_ALLOW_LIVE", d.live_trading_allowed);
+  $("toggleAuto").dataset.on = d.auto_approve ? "1" : "";
+  $("toggleAuto").textContent = d.auto_approve ? "disarm (auto_approve off)" : "arm (auto_approve on)";
+}
+$("toggleAuto").onclick = async () => {
+  const turningOn = $("toggleAuto").dataset.on !== "1";
+  if (turningOn && !confirm("Arm auto-approve? Live orders may place WITHOUT per-order approval (still needs YQ_ALLOW_LIVE=1 + risk policy).")) return;
+  await post("/api/settings", { key: "auto_approve", value: turningOn });
+  loadAutoMode(); loadControl();
+};
+
 // ---- control center ------------------------------------------------------
-const CONTROL_FIELDS = ["auto_trade", "trade_mode", "ensemble_rule",
+const CONTROL_FIELDS = ["auto_trade", "auto_approve", "trade_mode", "ensemble_rule",
   "ensemble_threshold", "sentiment_gate", "sizing", "target_vol", "slippage", "exchange"];
 
 function parseVal(v) {
@@ -635,6 +655,7 @@ loadRisk();
 loadReport();
 loadPromote();
 loadFees();
+loadAutoMode();
 loadControl();
 loadPlugins();
 loadPluginFiles();

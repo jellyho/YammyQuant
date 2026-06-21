@@ -706,6 +706,23 @@ def test_doctor_flags_auto_live_armed(tmp_path, monkeypatch):
     assert ops.doctor(store, state)["auto_mode"]["auto_live_armed"] is False
 
 
+def test_auto_kill_switch_disarms_on_daily_loss(tmp_path):
+    from yammyquant.ops.risk_policy import AccountRiskPolicy
+    state = LiveState(tmp_path / "s.db")
+    state.set("auto_approve", True)
+    AccountRiskPolicy(daily_loss_limit=100.0).save(state)
+    # no loss yet -> stays armed
+    assert ops.auto_kill_switch(state)["tripped"] is False
+    assert state.get("auto_approve") is True
+    # a filled SELL today with a -150 realized PnL breaches the -100 limit
+    state.add_trade("BTCUSDT", "SELL", 1.0, 90.0, "live", "filled", "", realized=-150.0)
+    out = ops.auto_kill_switch(state)
+    assert out["tripped"] is True
+    assert state.get("auto_approve") is False        # auto mode disarmed -> must re-arm
+    # idempotent: already disarmed -> no longer trips
+    assert ops.auto_kill_switch(state)["tripped"] is False
+
+
 def test_promotion_per_strategy_from_attribution(tmp_path):
     state = LiveState(tmp_path / "s.db")
     # baseline for macross with a backtested win-rate

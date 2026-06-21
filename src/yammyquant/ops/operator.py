@@ -784,6 +784,33 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
     }
 
 
+def auto_kill_switch(state: LiveState) -> dict:
+    """Circuit breaker: disable auto mode when today's loss hits the daily limit.
+
+    The risk policy already rejects new *buys* at the limit; this goes further —
+    it turns OFF hands-off execution (``auto_approve``) so the operator must
+    consciously re-arm, instead of the loop re-attempting (and getting rejected)
+    all day. Exits still work (sells are never gated). One-shot per breach.
+    """
+    from yammyquant.ops.risk_policy import AccountRiskPolicy, _today_realized
+    from yammyquant.ops.notify import notify
+
+    p = AccountRiskPolicy.load(state)
+    if not state.get("auto_approve") or p.daily_loss_limit is None:
+        return {"tripped": False}
+    realized = _today_realized(state)
+    limit = -abs(p.daily_loss_limit)
+    if realized <= limit:
+        state.set("auto_approve", False)
+        state.log("risk", f"kill-switch: daily loss {realized:.2f} <= {limit}; "
+                  "auto mode disabled", level="warn")
+        notify(state, f"🛑 kill-switch: daily loss {realized:.2f} hit the limit — auto mode "
+               "disabled. Re-arm with `yq settings auto_approve=true` once you've reviewed.",
+               "warn")
+        return {"tripped": True, "realized": round(realized, 2), "limit": limit}
+    return {"tripped": False, "realized": round(realized, 2)}
+
+
 def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None,
               count: int = 200, notify_signals: bool = True) -> dict:
     """
@@ -861,6 +888,8 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
         state.log("protect", f"cycle protect failed: {exc}", level="warn")
 
     decisions = None
+    # circuit breaker first: a daily-loss breach disarms auto mode for the day
+    killed = auto_kill_switch(state)
     if state.get("auto_trade"):  # opt-in autonomous trading
         decisions = decide(store, state, exchange=exchange,
                            mode=state.get("trade_mode", "paper"), execute=True)
@@ -890,7 +919,8 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
     return {"refreshed": refreshed, "signals": signals, "equity": equity,
             "decisions": decisions, "protection": protection, "inbound": inbound,
-            "synced": synced, "drift": drift, "promotion": promotion}
+            "synced": synced, "drift": drift, "promotion": promotion,
+            "kill_switch": killed}
 
 
 def collect_news(

@@ -124,6 +124,18 @@ def test_integrity_endpoint(client):
     assert "session_breaks" in body["series"][0]
 
 
+def test_automode_endpoint(client):
+    c, state = client
+    body = c.get("/api/automode").json()
+    assert body["auto_live_armed"] is False          # nothing armed by default
+    state.set("auto_trade", True)
+    state.set("auto_approve", True)
+    state.set("trade_mode", "live")
+    body2 = c.get("/api/automode").json()
+    # still not armed without YQ_ALLOW_LIVE in the env
+    assert body2["auto_approve"] is True and body2["auto_live_armed"] is False
+
+
 def test_promote_endpoint(client):
     c, state = client
     state.set("expectations", {"macross:BTCUSDT:1d": {"sharpe": 1.0, "total_return": 0.2,

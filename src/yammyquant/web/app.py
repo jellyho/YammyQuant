@@ -355,6 +355,19 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         except Exception as e:
             raise HTTPException(502, f"integrity failed: {e}")
 
+    @app.get("/api/automode")
+    def get_automode():
+        """Auto-mode status: the three opt-in settings + the env flag, and whether
+        hands-off live execution is currently armed (all four true)."""
+        auto_trade = bool(state.get("auto_trade"))
+        auto_approve = bool(state.get("auto_approve"))
+        trade_mode = state.get("trade_mode", "paper")
+        allowed = live_trading_allowed()
+        return {"auto_trade": auto_trade, "auto_approve": auto_approve,
+                "trade_mode": trade_mode, "live_trading_allowed": allowed,
+                "auto_live_armed": auto_trade and auto_approve
+                and trade_mode == "live" and allowed}
+
     @app.get("/api/promote")
     def get_promote():
         """Backtest→paper→live readiness: graded paper performance vs baselines."""
