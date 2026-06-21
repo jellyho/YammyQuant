@@ -52,14 +52,14 @@ def candle_integrity(candle: Candle, interval_seconds: Optional[float] = None) -
             out["missing_estimate"] = int(np.round(forward[gap_mask] / exp - 1).sum())
 
     # -- value sanity (OHLC) ----------------------------------------------
-    o, h, l, c = (candle.open.astype(float), candle.high.astype(float),
-                  candle.low.astype(float), candle.close.astype(float))
-    stack = np.vstack([o, h, l, c])
+    op, hi, lo, cl = (candle.open.astype(float), candle.high.astype(float),
+                      candle.low.astype(float), candle.close.astype(float))
+    stack = np.vstack([op, hi, lo, cl])
     nan_row = np.isnan(stack).any(axis=0)
     out["nan_rows"] = int(nan_row.sum())
     finite = ~nan_row
     out["nonpositive"] = int((finite & (stack <= 0).any(axis=0)).sum())
-    bad = finite & ((h < l) | (h < o) | (h < c) | (l > o) | (l > c))
+    bad = finite & ((hi < lo) | (hi < op) | (hi < cl) | (lo > op) | (lo > cl))
     out["bad_ohlc"] = int(bad.sum())
 
     out["ok"] = not (out["duplicates"] or out["out_of_order"] or out["gaps"]
