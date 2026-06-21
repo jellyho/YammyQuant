@@ -77,3 +77,48 @@ def test_operator_integrity_scans_store(tmp_path):
          "volume": np.full(8, 3.0)}, index=idx), interval="1d"))
     out = ops.integrity(store, "AAA", "1d")
     assert out["ok"] and out["series"][0]["bars"] == 8
+
+
+def test_resample_hourly_to_4h():
+    from yammyquant.data.resample import resample_candle
+    # 8 hourly bars -> two 4h bars; check OHLCV aggregation
+    idx = pd.date_range("2023-01-01 00:00", periods=8, freq="1h")
+    df = pd.DataFrame({
+        "open":  [10, 11, 12, 13, 20, 21, 22, 23],
+        "high":  [15, 16, 17, 18, 25, 26, 27, 28],
+        "low":   [5, 6, 7, 8, 15, 16, 17, 18],
+        "close": [11, 12, 13, 14, 21, 22, 23, 24],
+        "volume": [1, 1, 1, 1, 2, 2, 2, 2],
+    }, index=idx, dtype=float)
+    out = resample_candle(Candle("X", df, interval="1h"), "4h")
+    assert len(out) == 2
+    assert list(out.open) == [10.0, 20.0]        # first
+    assert list(out.high) == [18.0, 28.0]        # max
+    assert list(out.low) == [5.0, 15.0]          # min
+    assert list(out.close) == [14.0, 24.0]       # last
+    assert list(out.volume) == [4.0, 8.0]        # sum
+
+
+def test_resample_rejects_finer_target():
+    import pytest
+    from yammyquant.data.resample import resample_candle
+    idx = pd.date_range("2023-01-01", periods=4, freq="1D")
+    c = np.array([100.0, 101, 102, 103])
+    df = pd.DataFrame({"open": c, "high": c + 1, "low": c - 1, "close": c,
+                       "volume": [1.0] * 4}, index=idx)
+    with pytest.raises(ValueError, match="finer"):
+        resample_candle(Candle("X", df, interval="1d"), "1h")
+
+
+def test_operator_resample_writes(tmp_path):
+    from yammyquant.data.sources.store import DuckDBStore
+    from yammyquant.ops import operator as ops
+    store = DuckDBStore(tmp_path / "store")
+    idx = pd.date_range("2023-01-01", periods=48, freq="1h")
+    close = 100 + np.arange(48, dtype=float)
+    store.write(Candle("BTCUSDT", pd.DataFrame(
+        {"open": close, "high": close + 1, "low": close - 1, "close": close,
+         "volume": [1.0] * 48}, index=idx), interval="1h"))
+    out = ops.resample(store, "BTCUSDT", "1h", "1d")
+    assert out["target_bars"] == 2 and out["written"]
+    assert len(store.read("BTCUSDT", "1d")) == 2
