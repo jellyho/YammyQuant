@@ -425,17 +425,20 @@ class OpeningRangeBreakout(Strategy):
 
     Each calendar day the first ``opening_bars`` bars define an opening range.
     After the range is set, break above its high goes long; a drop back below the
-    range low exits, and the position is flattened at the next day's open
-    (intraday only — no overnight hold). Works on any session-bearing intraday
-    series; degenerate on daily bars (each bar is its own "day").
+    range low exits. With ``flatten_eod`` (default) the position is closed at the
+    next day's open — the right behavior for stock sessions. For 24h crypto, where
+    the daily boundary is arbitrary, set ``flatten_eod=False`` to carry the
+    position across days (it still exits on a range-low break). Degenerate on
+    daily bars (each bar is its own "day").
     """
 
     warmup = 1
 
-    def __init__(self, opening_bars: int = 6, size: float = 1.0):
+    def __init__(self, opening_bars: int = 6, flatten_eod: bool = True, size: float = 1.0):
         if opening_bars < 1:
             raise ValueError("opening_bars must be >= 1")
         self.opening_bars = int(opening_bars)
+        self.flatten_eod = bool(flatten_eod)
         self.size = size
         self.reset()
 
@@ -451,11 +454,13 @@ class OpeningRangeBreakout(Strategy):
         price = float(window.close[-1])
         hi, lo = float(window.high[-1]), float(window.low[-1])
 
-        # new session: flatten any carry, reset the opening range
+        # new session: reset the opening range; flatten the carry only for
+        # session markets (crypto is 24h, so flatten_eod=False holds across days)
         if day != self._day:
-            close_long = self._side == "LONG"
-            self._day, self._hi, self._lo, self._count, self._side = day, hi, lo, 1, "FLAT"
+            close_long = self.flatten_eod and self._side == "LONG"
+            self._day, self._hi, self._lo, self._count = day, hi, lo, 1
             if close_long:
+                self._side = "FLAT"
                 return [Order(Action.SELL, window.ticker, self.size, price, ts)]
             return []
 
