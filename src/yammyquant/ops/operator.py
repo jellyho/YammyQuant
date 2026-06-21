@@ -524,33 +524,68 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
             else (min(prev, price) if prev is not None else min(avg, price))
         state.set(hwm_key, peak)
 
-        reason = None
+        # ATR (volatility-scaled distance), computed from stored candles if requested
+        atr_val = None
+        if policy.atr_stop is not None or policy.atr_take is not None:
+            try:
+                series = store.read(ticker, policy.atr_interval).ind.atr(policy.atr_lookback)
+                a = float(series.to_numpy()[-1])
+                atr_val = a if a == a and a > 0 else None     # guard NaN/0
+            except Exception:
+                atr_val = None
+
+        # STOP-type breaches (full close): fixed stop -> ATR stop -> trailing
+        stop_reason = None
         if is_long:
             if policy.stop_loss is not None and price <= avg * (1 - policy.stop_loss):
-                reason = "stop_loss"
-            elif policy.take_profit is not None and price >= avg * (1 + policy.take_profit):
-                reason = "take_profit"
+                stop_reason = "stop_loss"
+            elif atr_val and policy.atr_stop is not None and price <= avg - policy.atr_stop * atr_val:
+                stop_reason = "atr_stop"
             elif policy.trailing_stop is not None and price <= peak * (1 - policy.trailing_stop):
-                reason = "trailing_stop"
+                stop_reason = "trailing_stop"
         else:
             if policy.stop_loss is not None and price >= avg * (1 + policy.stop_loss):
-                reason = "stop_loss"
-            elif policy.take_profit is not None and price <= avg * (1 - policy.take_profit):
-                reason = "take_profit"
+                stop_reason = "stop_loss"
+            elif atr_val and policy.atr_stop is not None and price >= avg + policy.atr_stop * atr_val:
+                stop_reason = "atr_stop"
             elif policy.trailing_stop is not None and price >= peak * (1 + policy.trailing_stop):
-                reason = "trailing_stop"
-        if not reason:
+                stop_reason = "trailing_stop"
+
+        # TAKE-type breaches (scale-out eligible): fixed take -> ATR take. Disarmed
+        # once scaled out so the remainder isn't flushed each cycle.
+        scaled_key = f"protect.scaled.{ticker}"
+        take_reason = None
+        if stop_reason is None and not state.get(scaled_key):
+            if is_long:
+                if policy.take_profit is not None and price >= avg * (1 + policy.take_profit):
+                    take_reason = "take_profit"
+                elif atr_val and policy.atr_take is not None and price >= avg + policy.atr_take * atr_val:
+                    take_reason = "atr_take"
+            else:
+                if policy.take_profit is not None and price <= avg * (1 - policy.take_profit):
+                    take_reason = "take_profit"
+                elif atr_val and policy.atr_take is not None and price <= avg - policy.atr_take * atr_val:
+                    take_reason = "atr_take"
+
+        if stop_reason is None and take_reason is None:
             continue
 
         side = "SELL" if is_long else "BUY"
-        prop = {"symbol": ticker, "side": side, "quantity": abs(qty),
+        partial = take_reason is not None and policy.scale_out and 0.0 < policy.scale_out < 1.0
+        exit_qty = abs(qty) * policy.scale_out if partial else abs(qty)
+        reason = (take_reason or stop_reason) + (" (scale-out)" if partial else "")
+        prop = {"symbol": ticker, "side": side, "quantity": round(exit_qty, 8),
                 "price": round(price, 6), "reason": reason}
         if execute:
-            res = tm.submit(ticker, side, abs(qty), price, mode=mode,
+            res = tm.submit(ticker, side, exit_qty, price, mode=mode,
                             rationale=f"protect:{reason}",
                             context={"protect": reason, "entry": avg, "peak": peak})
             prop["status"] = res.get("status")
-            state.set(hwm_key, None)            # reset the peak once flattened
+            if partial:
+                state.set(scaled_key, True)         # disarm take for the remainder
+            else:
+                state.set(hwm_key, None)            # reset peak + scale flag once flat
+                state.set(scaled_key, None)
         out["proposals"].append(prop)
 
     if out["proposals"]:
