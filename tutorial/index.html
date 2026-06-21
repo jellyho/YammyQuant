@@ -1,0 +1,1677 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="An agentic quant research cockpit — Claude Code is the operator, no paid LLM API in the loop.">
+      
+      
+      
+        <link rel="canonical" href="https://jellyho.github.io/YammyQuant/tutorial/">
+      
+      
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="../examples/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tutorial - YammyQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tutorial-from-zero-to-a-running-cockpit" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="YammyQuant" class="md-header__button md-logo" aria-label="YammyQuant" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m16 11.78 4.24-7.33 1.73 1-5.23 9.05-6.51-3.75L5.46 19H22v2H2V3h2v14.54L9.5 8z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            YammyQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tutorial
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/jellyho/YammyQuant" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jellyho/YammyQuant
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tutorial
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Worked examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../toolbelt/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operating
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../library/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="YammyQuant" class="md-nav__button md-logo" aria-label="YammyQuant" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m16 11.78 4.24-7.33 1.73 1-5.23 9.05-6.51-3.75L5.46 19H22v2H2V3h2v14.54L9.5 8z"/></svg>
+
+    </a>
+    YammyQuant
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/jellyho/YammyQuant" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jellyho/YammyQuant
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-orient-yourself" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Orient yourself
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-collect-candles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Collect candles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-research-a-symbol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Research a symbol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-backtest-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Backtest a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-optimize-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Optimize parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-ensemble-several-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Ensemble several strategies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-build-a-watchlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Build a watchlist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-signals-orders-with-yq-decide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Signals → orders with yq decide
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-set-risk-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Set risk guardrails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-track-strategy-decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Track strategy decay
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-trade-paper-now-live-with-two-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Trade — paper now, live with two gates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-portfolio-targets-rebalance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Portfolio targets &amp; rebalance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-automate-while-youre-away" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Automate while you're away
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-remember-for-next-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Remember for next time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-watch-it-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Watch it live
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operating
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operating
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../toolbelt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The toolbelt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../information-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Information layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory & persistence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Strategies & risk
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-improvement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-improvement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Money safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../live-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live exchange testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXCHANGES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exchanges
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BENCHMARK/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-orient-yourself" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Orient yourself
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-collect-candles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Collect candles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-research-a-symbol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Research a symbol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-backtest-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Backtest a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-optimize-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Optimize parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-ensemble-several-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Ensemble several strategies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-build-a-watchlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Build a watchlist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-signals-orders-with-yq-decide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Signals → orders with yq decide
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-set-risk-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Set risk guardrails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-track-strategy-decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Track strategy decay
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-trade-paper-now-live-with-two-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Trade — paper now, live with two gates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-portfolio-targets-rebalance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Portfolio targets &amp; rebalance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-automate-while-youre-away" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Automate while you're away
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-remember-for-next-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Remember for next time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-watch-it-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Watch it live
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tutorial-from-zero-to-a-running-cockpit">Tutorial — from zero to a running cockpit<a class="headerlink" href="#tutorial-from-zero-to-a-running-cockpit" title="Permanent link">&para;</a></h1>
+<p>A hands-on walkthrough of the whole loop: collect → research → backtest →
+ensemble → signal → risk → trade → automate. Every step is a real <code>yq</code> command.</p>
+<div class="admonition tip">
+<p class="admonition-title">You are the operator</p>
+<p>There's no paid LLM in the loop — <em>you</em> (Claude Code) drive these commands.
+Paper trading is the default, so you can run this entire tutorial with <strong>zero
+real-money risk</strong>.</p>
+</div>
+<hr />
+<h2 id="0-orient-yourself">0. Orient yourself<a class="headerlink" href="#0-orient-yourself" title="Permanent link">&para;</a></h2>
+<p>Each session starts by reloading memory and checking health:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>yq<span class="w"> </span>recall<span class="w">          </span><span class="c1"># unread instructions + salient past notes + open positions</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>yq<span class="w"> </span>doctor<span class="w">          </span><span class="c1"># data freshness / config / account health</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>yq<span class="w"> </span>status<span class="w">          </span><span class="c1"># full cockpit snapshot (JSON)</span>
+</code></pre></div>
+<p>If you opened the repo in Claude Code on the web, the <a href="../getting-started/">SessionStart hook</a>
+already installed everything and greeted you with this.</p>
+<hr />
+<h2 id="1-collect-candles">1. Collect candles<a class="headerlink" href="#1-collect-candles" title="Permanent link">&para;</a></h2>
+<p>Backfill OHLCV into the local DuckDB store. The first positional args after the
+symbol are intervals.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Crypto (Binance)</label><label for="__tabbed_1_2">Korean crypto (Upbit)</label><label for="__tabbed_1_3">Korean stock (KIS)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>yq<span class="w"> </span>collect<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>1h<span class="w"> </span>15m
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>yq<span class="w"> </span>collect<span class="w"> </span>KRW-BTC<span class="w"> </span>1d<span class="w"> </span>--exchange<span class="w"> </span>upbit
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>yq<span class="w"> </span>collect<span class="w"> </span><span class="m">005930</span><span class="w"> </span>1d<span class="w"> </span>--exchange<span class="w"> </span>kis
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>Check what venues are available with <code>yq exchanges</code>, and configure keys once with
+<code>yq config set binance api_key=… secret=…</code> (see <a href="../EXCHANGES/">Exchanges</a>).</p>
+<hr />
+<h2 id="2-research-a-symbol">2. Research a symbol<a class="headerlink" href="#2-research-a-symbol" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>yq<span class="w"> </span>features<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w">        </span><span class="c1"># returns, vol, RSI, MACD hist, ADX, CCI, ...</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>yq<span class="w"> </span>news<span class="w"> </span>--collect<span class="w">            </span><span class="c1"># pull RSS headlines, tag watchlist, score sentiment</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>yq<span class="w"> </span>brief<span class="w"> </span>BTCUSDT<span class="w">             </span><span class="c1"># one-screen digest: price + features + news + position</span>
+</code></pre></div>
+<p>The 30+ indicators behind these features are all callable via <code>candle.ind.&lt;name&gt;</code>:</p>
+<p><img alt="Indicator panel: Bollinger Bands, RSI, MACD" src="../assets/indicators.png" /></p>
+<p><code>yq brief</code> is the command to read <strong>before</strong> you decide — it folds price action,
+the latest features, recent news sentiment, fundamentals (for stocks), and your
+current position into a single JSON blob.</p>
+<hr />
+<h2 id="3-backtest-a-strategy">3. Backtest a strategy<a class="headerlink" href="#3-backtest-a-strategy" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>yq<span class="w"> </span>backtest<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w"> </span>--fast<span class="w"> </span><span class="m">5</span><span class="w"> </span>--slow<span class="w"> </span><span class="m">20</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sharpe&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.42</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;max_drawdown&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.18</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;win_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.55</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_trades&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The crossover entries/exits and the resulting equity curve (vs buy-and-hold):</p>
+<p><img alt="Buy/sell signals on price" src="../assets/signals.png" /></p>
+<p><img alt="Strategy equity curve vs buy and hold" src="../assets/equity.png" /></p>
+<p>There are <strong>19 strategies</strong> across trend, breakout, and mean-reversion/scalping —
+see <a href="../strategies/">Strategies &amp; risk</a>. Swap <code>macross</code> for any of them, e.g.
+<code>supertrend</code>, <code>stochastic_scalp</code>, <code>bollinger_reversion</code>.</p>
+<hr />
+<h2 id="4-optimize-parameters">4. Optimize parameters<a class="headerlink" href="#4-optimize-parameters" title="Permanent link">&para;</a></h2>
+<p>Grid-search the parameter space, then validate out-of-sample with walk-forward:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>yq<span class="w"> </span>optimize<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w"> </span>--metric<span class="w"> </span>sharpe<span class="w">        </span><span class="c1"># grid search</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>yq<span class="w"> </span>optimize<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w"> </span>--walk-forward<span class="w"> </span><span class="m">4</span><span class="w">       </span><span class="c1"># 4-fold out-of-sample</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Beware overfitting</p>
+<p>A great in-sample grid score means little. Always confirm with
+<code>--walk-forward</code>, and record a baseline (step 9) so <code>yq decay</code> can warn you
+when live performance erodes.</p>
+</div>
+<hr />
+<h2 id="5-ensemble-several-strategies">5. Ensemble several strategies<a class="headerlink" href="#5-ensemble-several-strategies" title="Permanent link">&para;</a></h2>
+<p>Blending diversifies away any single strategy's blind spots. Backtest an explicit
+blend:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>yq<span class="w"> </span>ensemble<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>--members<span class="w"> </span>macross,supertrend,rsi_reversion<span class="w"> </span>--rule<span class="w"> </span>weighted
+</code></pre></div>
+<p><img alt="Ensemble vs member equity curves" src="../assets/ensemble.png" /></p>
+<p>The <strong>rule</strong> decides how member votes combine:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Fires when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>any</code></td>
+<td>any member signals (permissive default for <code>decide</code>).</td>
+</tr>
+<tr>
+<td><code>weighted</code></td>
+<td>net weighted vote ≥ ±<code>threshold</code>.</td>
+</tr>
+<tr>
+<td><code>majority</code></td>
+<td>the leading side has ≥ <code>threshold</code> of voters.</td>
+</tr>
+<tr>
+<td><code>unanimous</code></td>
+<td>all voters agree.</td>
+</tr>
+</tbody>
+</table>
+<p>Weight members differently with <code>--weights 2,1,1</code>. The same engine powers
+multi-strategy <code>yq decide</code> (step 7) — configure it once with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>yq<span class="w"> </span>strategies<span class="w"> </span>--rule<span class="w"> </span>weighted<span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--weight<span class="w"> </span><span class="nv">macross</span><span class="o">=</span><span class="m">2</span>
+</code></pre></div>
+<hr />
+<h2 id="6-build-a-watchlist">6. Build a watchlist<a class="headerlink" href="#6-build-a-watchlist" title="Permanent link">&para;</a></h2>
+<p>The watchlist is the universe that cycles and <code>decide</code> operate over:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>yq<span class="w"> </span>watch<span class="w"> </span>add<span class="w"> </span>BTCUSDT<span class="w"> </span>--interval<span class="w"> </span>1d
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>yq<span class="w"> </span>watch<span class="w"> </span>add<span class="w"> </span>ETHUSDT<span class="w"> </span>--interval<span class="w"> </span>1d
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>yq<span class="w"> </span>watch<span class="w"> </span>list
+</code></pre></div>
+<hr />
+<h2 id="7-signals-orders-with-yq-decide">7. Signals → orders with <code>yq decide</code><a class="headerlink" href="#7-signals-orders-with-yq-decide" title="Permanent link">&para;</a></h2>
+<p><code>decide</code> aggregates every enabled strategy's signal per watchlist symbol into one
+risk-sized order. Dry-run first, then execute:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>yq<span class="w"> </span>decide<span class="w"> </span>--weight<span class="w"> </span><span class="m">0</span>.1<span class="w">                 </span><span class="c1"># preview (dry-run): what it *would* do</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>yq<span class="w"> </span>decide<span class="w"> </span>--weight<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>--execute<span class="w">       </span><span class="c1"># submit as PAPER orders</span>
+</code></pre></div>
+<ul>
+<li><code>--weight 0.1</code> sizes each entry to 10% of equity.</li>
+<li><code>--type limit</code> rests live orders until <code>yq sync</code> settles them.</li>
+<li>The blend rule from step 5 (<code>ensemble_rule</code> / <code>ensemble_threshold</code>) controls how
+  conflicting strategy votes resolve.</li>
+</ul>
+<hr />
+<h2 id="8-set-risk-guardrails">8. Set risk guardrails<a class="headerlink" href="#8-set-risk-guardrails" title="Permanent link">&para;</a></h2>
+<p>The account risk policy is enforced on <strong>every</strong> order — paper or live — and can
+reject a trade before it fills:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>yq<span class="w"> </span>risk<span class="w"> </span><span class="nb">set</span><span class="w"> </span><span class="nv">max_open_positions</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">max_order_value</span><span class="o">=</span><span class="m">1000</span><span class="w"> </span><span class="nv">daily_loss_limit</span><span class="o">=</span><span class="m">200</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>yq<span class="w"> </span>risk<span class="w">                                </span><span class="c1"># show the current policy</span>
+</code></pre></div>
+<p>You can also gate entries on news: <code>yq risk set sentiment_gate=-0.5</code> skips BUYs
+when recent sentiment for a symbol is strongly negative.</p>
+<hr />
+<h2 id="9-track-strategy-decay">9. Track strategy decay<a class="headerlink" href="#9-track-strategy-decay" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>yq<span class="w"> </span>expect<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w">           </span><span class="c1"># record a backtest baseline</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>yq<span class="w"> </span>decay<span class="w">                               </span><span class="c1"># alert when realized &lt; baseline</span>
+</code></pre></div>
+<hr />
+<h2 id="10-trade-paper-now-live-with-two-gates">10. Trade — paper now, live with two gates<a class="headerlink" href="#10-trade-paper-now-live-with-two-gates" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Paper (default)</label><label for="__tabbed_2_2">Live (guarded)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>yq<span class="w"> </span>trade<span class="w"> </span>BTCUSDT<span class="w"> </span>BUY<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>--price<span class="w"> </span><span class="m">65000</span><span class="w"> </span>--mode<span class="w"> </span>paper<span class="w">   </span><span class="c1"># fills immediately</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>yq<span class="w"> </span>trade<span class="w"> </span>BTCUSDT<span class="w"> </span>BUY<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>--price<span class="w"> </span><span class="m">65000</span><span class="w"> </span>--mode<span class="w"> </span>live<span class="w">    </span><span class="c1"># → pending approval</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>yq<span class="w"> </span>approve<span class="w"> </span><span class="m">7</span><span class="w">                                          </span><span class="c1"># needs YQ_ALLOW_LIVE=1</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition danger">
+<p class="admonition-title">Live needs both gates</p>
+<p>A live order executes only with the env flag <code>YQ_ALLOW_LIVE=1</code> <strong>and</strong> explicit
+approval (<code>yq approve</code> or the dashboard button). See <a href="../safety/">Money safety</a>.</p>
+</div>
+<hr />
+<h2 id="11-portfolio-targets-rebalance">11. Portfolio targets &amp; rebalance<a class="headerlink" href="#11-portfolio-targets-rebalance" title="Permanent link">&para;</a></h2>
+<p>Instead of one-off trades, steer toward target weights:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>yq<span class="w"> </span>target<span class="w"> </span><span class="nv">BTCUSDT</span><span class="o">=</span><span class="m">0</span>.5<span class="w"> </span><span class="nv">ETHUSDT</span><span class="o">=</span><span class="m">0</span>.3<span class="w">      </span><span class="c1"># 50% BTC, 30% ETH, rest cash</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>yq<span class="w"> </span>rebalance<span class="w"> </span>--execute<span class="w">                 </span><span class="c1"># move holdings toward the targets</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>yq<span class="w"> </span>mark<span class="w">                                </span><span class="c1"># mark positions to live prices</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>yq<span class="w"> </span>report<span class="w">                              </span><span class="c1"># realized PnL, drawdown, per-symbol</span>
+</code></pre></div>
+<hr />
+<h2 id="12-automate-while-youre-away">12. Automate while you're away<a class="headerlink" href="#12-automate-while-youre-away" title="Permanent link">&para;</a></h2>
+<p>One maintenance pass, or a forever loop:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>yq<span class="w"> </span>cycle<span class="w">                               </span><span class="c1"># refresh → scan → mark → notify (once)</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>yq<span class="w"> </span>schedule<span class="w"> </span>--interval<span class="w"> </span><span class="m">300</span><span class="w">             </span><span class="c1"># run a cycle every 5 minutes</span>
+</code></pre></div>
+<p>Set <code>auto_trade=true</code> to let cycles call <code>decide --execute</code> automatically (paper
+unless <code>trade_mode=live</code>). Wire <code>DISCORD_WEBHOOK_URL</code> for notifications when a
+live order needs approval or a cycle finds signals.</p>
+<hr />
+<h2 id="13-remember-for-next-time">13. Remember for next time<a class="headerlink" href="#13-remember-for-next-time" title="Permanent link">&para;</a></h2>
+<p>You're ephemeral — leave yourself a trail:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>yq<span class="w"> </span>journal<span class="w"> </span><span class="s2">&quot;entered BTC on supertrend flip + weighted ensemble, conviction high&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">           </span>--tag<span class="w"> </span>thesis<span class="w"> </span>--importance<span class="w"> </span><span class="m">8</span>
+</code></pre></div>
+<p>Next session, <code>yq recall</code> surfaces it (ranked by recency × importance ×
+relevance). See <a href="../memory/">Memory &amp; persistence</a>.</p>
+<hr />
+<h2 id="14-watch-it-live">14. Watch it live<a class="headerlink" href="#14-watch-it-live" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>yq<span class="w"> </span>dashboard<span class="w">          </span><span class="c1"># → http://127.0.0.1:8000</span>
+</code></pre></div>
+<p>The cockpit shows price/equity charts, positions, the news feed, pending-trade
+approvals, and an inbox where the user leaves you instructions — see
+<a href="../dashboard/">The dashboard</a> for a panel-by-panel tour.</p>
+<hr />
+<h2 id="where-to-next">Where to next<a class="headerlink" href="#where-to-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../toolbelt/">The toolbelt</a> — every command, grouped.</li>
+<li><a href="../strategies/">Strategies &amp; risk</a> — all 19 strategies + 30+ indicators.</li>
+<li><a href="../information-layer/">Information layer</a> — news, disclosures, fundamentals.</li>
+<li><a href="../library/">Python library</a> — use the framework directly in code.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      The agentic quant cockpit whose brain is your Claude Code session.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1588 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="An agentic quant research cockpit — Claude Code is the operator, no paid LLM API in the loop.">
+      
+      
+      
+        <link rel="canonical" href="https://jellyho.github.io/YammyQuant/examples/">
+      
+      
+        <link rel="prev" href="../tutorial/">
+      
+      
+        <link rel="next" href="../toolbelt/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Worked examples - YammyQuant</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#worked-examples" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="YammyQuant" class="md-header__button md-logo" aria-label="YammyQuant" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m16 11.78 4.24-7.33 1.73 1-5.23 9.05-6.51-3.75L5.46 19H22v2H2V3h2v14.54L9.5 8z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            YammyQuant
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Worked examples
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/jellyho/YammyQuant" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jellyho/YammyQuant
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../tutorial/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tutorial
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Worked examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../toolbelt/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operating
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../library/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="YammyQuant" class="md-nav__button md-logo" aria-label="YammyQuant" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m16 11.78 4.24-7.33 1.73 1-5.23 9.05-6.51-3.75L5.46 19H22v2H2V3h2v14.54L9.5 8z"/></svg>
+
+    </a>
+    YammyQuant
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/jellyho/YammyQuant" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jellyho/YammyQuant
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#research-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Research a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimize-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimize parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optimize parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validate-out-of-sample-walk-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validate out-of-sample (walk-forward)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rank-every-strategy-leaderboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rank every strategy (leaderboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#blend-strategies-ensemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blend strategies (ensemble)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#portfolio-backtest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portfolio backtest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risk-parity-target-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risk-parity target weights
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#correlation-matrix-diversification-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Correlation matrix (diversification check)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trade-paper-and-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade (paper) and report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-journal-then-recall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory: journal then recall
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-improvement-author-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-improvement: author a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-the-latest-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect the latest features
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operating
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operating
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../toolbelt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The toolbelt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../information-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Information layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory & persistence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Strategies & risk
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-improvement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-improvement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Money safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../live-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live exchange testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXCHANGES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exchanges
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BENCHMARK/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#research-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Research a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimize-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimize parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optimize parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validate-out-of-sample-walk-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validate out-of-sample (walk-forward)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rank-every-strategy-leaderboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rank every strategy (leaderboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#blend-strategies-ensemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blend strategies (ensemble)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#portfolio-backtest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portfolio backtest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risk-parity-target-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risk-parity target weights
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#correlation-matrix-diversification-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Correlation matrix (diversification check)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trade-paper-and-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade (paper) and report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-journal-then-recall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory: journal then recall
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-improvement-author-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-improvement: author a strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-the-latest-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect the latest features
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="worked-examples">Worked examples<a class="headerlink" href="#worked-examples" title="Permanent link">&para;</a></h1>
+<p>Real <code>yq</code> sessions on seeded data (BTCUSDT / ETHUSDT / SOLUSDT, 500×1d each) —
+every command below was actually run; the JSON is its real output. Pipe output is
+JSON; in a terminal the same data renders as colored tables/boxes.</p>
+<div class="admonition note">
+<p class="admonition-title">Setup</p>
+<p>These use a local store so they run offline. In normal use <code>yq collect</code>
+fills the store from an exchange first. All commands accept <code>--store</code> /
+<code>--state</code> to point at specific files.</p>
+</div>
+<h2 id="research-a-strategy">Research a strategy<a class="headerlink" href="#research-a-strategy" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>yq<span class="w"> </span>backtest<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>keltner_breakout
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">{</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">  &quot;bars&quot;: 479, &quot;start_equity&quot;: 10000.0, &quot;end_equity&quot;: 10379.65,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">  &quot;total_return&quot;: 0.038, &quot;sharpe&quot;: 1.732, &quot;sortino&quot;: 1.908, &quot;calmar&quot;: 4.22,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">  &quot;max_drawdown&quot;: -0.0068, &quot;num_trades&quot;: 24, &quot;num_closed&quot;: 5, &quot;win_rate&quot;: 0.0,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">  &quot;benchmark_return&quot;: 0.1174, &quot;excess_return&quot;: -0.0794</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">}</span>
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">vs buy &amp; hold</p>
+<p>Every backtest now reports <code>benchmark_return</code> (holding the asset over the
+same window) and <code>excess_return</code> (strategy minus benchmark). A <em>negative</em>
+<code>excess_return</code> — as here — means buy-and-hold beat the strategy; the edge
+has to clear that bar to be worth trading. The dashboard draws the same
+benchmark as a dashed line on the equity curve.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Reading it</p>
+<p><code>total_return</code> is equity-based (includes the <strong>unrealized</strong> mark-to-market of
+an open position), while <code>win_rate</code> / <code>best_trade</code> cover only <strong>closed</strong>
+round-trips. A trend strategy that ends holding a winning long can show a
+positive return with few/no closed wins — the gains are still on the book.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Drawdown</p>
+<p>The dashboard Research panel draws an <strong>underwater chart</strong> beneath the equity
+curve — equity as a percentage below its running peak. Its trough is exactly
+the <code>max_drawdown</code> stat, so you can <em>see</em> how long and how deep each
+drawdown ran, not just its worst point.</p>
+</div>
+<p><img alt="Underwater drawdown chart" src="../assets/drawdown.png" /></p>
+<div class="admonition tip">
+<p class="admonition-title">Monthly returns</p>
+<p>The panel also renders a <strong>calendar heatmap</strong> of month-by-month returns
+(green positive / red negative). Compounding the cells reconciles with
+<code>total_return</code>; the grid makes consistency and seasonality obvious — a few
+big months vs a steady drip read very differently for the same total.</p>
+</div>
+<p><img alt="Monthly returns calendar heatmap" src="../assets/monthly.png" /></p>
+<h2 id="optimize-parameters">Optimize parameters<a class="headerlink" href="#optimize-parameters" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">$ </span>yq<span class="w"> </span>optimize<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w"> </span>--metric<span class="w"> </span>sharpe
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">{</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">  &quot;metric&quot;: &quot;sharpe&quot;,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="go">  &quot;best_params&quot;: {&quot;fast&quot;: 20, &quot;slow&quot;: 100},</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">  &quot;best_score&quot;: 1.431,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="go">  &quot;top&quot;: [</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="go">    {&quot;params&quot;: {&quot;fast&quot;: 20, &quot;slow&quot;: 100}, &quot;score&quot;: 1.431},</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="go">    {&quot;params&quot;: {&quot;fast&quot;: 10, &quot;slow&quot;: 100}, &quot;score&quot;: 1.092},</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="go">    {&quot;params&quot;: {&quot;fast&quot;: 5,  &quot;slow&quot;: 100}, &quot;score&quot;: 1.015}</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="go">  ]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="go">}</span>
+</code></pre></div>
+<p>The response also carries the <strong>full grid</strong> under <code>results</code> (every combo, not
+just the top 5). When a grid varies exactly two parameters, the dashboard
+Research panel renders it as a <strong>sensitivity heatmap</strong> (e.g. <code>fast</code> × <code>slow</code> →
+Sharpe) — a robust plateau of good scores beats a lone spike that's likely
+overfit.</p>
+<p><img alt="Sharpe sensitivity across a fast × slow grid" src="../assets/sensitivity.png" /></p>
+<h3 id="validate-out-of-sample-walk-forward">Validate out-of-sample (walk-forward)<a class="headerlink" href="#validate-out-of-sample-walk-forward" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>yq<span class="w"> </span>optimize<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>macross<span class="w"> </span>--walk-forward<span class="w"> </span><span class="m">4</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">{</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="go">  &quot;metric&quot;: &quot;sharpe&quot;, &quot;n_folds&quot;: 4, &quot;avg_out_of_sample&quot;: 0.348,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">  &quot;folds&quot;: [</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">    {&quot;fold&quot;: 0, &quot;best_params&quot;: {&quot;fast&quot;: 10, &quot;slow&quot;: 50}, &quot;in_sample&quot;: 0.0,   &quot;oos_sharpe&quot;: -1.365},</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">    {&quot;fold&quot;: 1, &quot;best_params&quot;: {&quot;fast&quot;: 20, &quot;slow&quot;: 30}, &quot;in_sample&quot;: 0.307, &quot;oos_sharpe&quot;: 0.0},</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="go">    {&quot;fold&quot;: 2, &quot;best_params&quot;: {&quot;fast&quot;: 5,  &quot;slow&quot;: 50}, &quot;in_sample&quot;: 0.0,   &quot;oos_sharpe&quot;: 2.757},</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">    {&quot;fold&quot;: 3, &quot;best_params&quot;: {&quot;fast&quot;: 5,  &quot;slow&quot;: 50}, &quot;in_sample&quot;: 2.757, &quot;oos_sharpe&quot;: 0.0}</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="go">  ]</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="go">}</span>
+</code></pre></div>
+<p>The per-fold gap between <code>in_sample</code> and <code>oos_sharpe</code> is the overfitting tell —
+chase the <code>avg_out_of_sample</code>, not the grid's best in-sample score. The dashboard
+Research panel plots exactly this, in-sample vs out-of-sample per fold:</p>
+<p><img alt="Walk-forward in-sample vs out-of-sample per fold" src="../assets/walkforward.png" /></p>
+<h2 id="rank-every-strategy-leaderboard">Rank every strategy (leaderboard)<a class="headerlink" href="#rank-every-strategy-leaderboard" title="Permanent link">&para;</a></h2>
+<p>Don't guess which edge fits a symbol — run them all and rank:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gp">$ </span>yq<span class="w"> </span>compare<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>--strategies<span class="w"> </span>keltner_breakout,donchian_breakout,rsi_reversion<span class="w"> </span>--metric<span class="w"> </span>sharpe
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="go">  &quot;ticker&quot;: &quot;BTCUSDT&quot;, &quot;interval&quot;: &quot;1d&quot;, &quot;metric&quot;: &quot;sharpe&quot;,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="go">  &quot;benchmark_return&quot;: 0.1442,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="go">  &quot;ranking&quot;: [</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="go">    {&quot;strategy&quot;: &quot;keltner_breakout&quot;,  &quot;sharpe&quot;: 1.732, &quot;total_return&quot;: 0.038,  &quot;excess_return&quot;: -0.0794, &quot;num_trades&quot;: 24},</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="go">    {&quot;strategy&quot;: &quot;donchian_breakout&quot;, &quot;sharpe&quot;: 1.520, &quot;total_return&quot;: 0.0409, &quot;excess_return&quot;: -0.0714, &quot;num_trades&quot;: 34},</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="go">    {&quot;strategy&quot;: &quot;rsi_reversion&quot;,     &quot;sharpe&quot;: 1.217, &quot;total_return&quot;: 0.0173, &quot;excess_return&quot;: -0.0723, &quot;num_trades&quot;: 15}</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="go">  ],</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="go">  &quot;errors&quot;: {}</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="go">}</span>
+</code></pre></div>
+<p>Add <code>--optimize</code> to grid-search each strategy first and rank them at their
+<strong>best</strong> params (a fair, tuned comparison — a strategy whose defaults don't suit
+the symbol gets a fair shot; the chosen params land in each row's <code>params</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp">$ </span>yq<span class="w"> </span>compare<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>--strategies<span class="w"> </span>macross,donchian_breakout<span class="w"> </span>--optimize
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="gp"># </span>macross:<span class="w"> </span>-0.15<span class="w"> </span>sharpe<span class="w"> </span>at<span class="w"> </span>defaults<span class="w"> </span>-&gt;<span class="w"> </span><span class="m">1</span>.43<span class="w"> </span>tuned<span class="w"> </span><span class="o">{</span>fast:20,<span class="w"> </span>slow:100<span class="o">}</span>
+</code></pre></div>
+<p>Omit <code>--strategies</code> to rank all 19. <code>benchmark_return</code> is buy-and-hold over the
+full window (a stable reference for every row); <code>--metric</code> accepts
+<code>sharpe</code> / <code>total_return</code> / <code>excess_return</code> / <code>sortino</code> / <code>calmar</code> / <code>cagr</code> /
+<code>win_rate</code>. The dashboard <strong>Strategy leaderboard</strong> panel plots the same ranking
+as a bar chart. Strategies that error (e.g. too little data) land in <code>errors</code>
+instead of failing the whole run.</p>
+<p><img alt="Strategy leaderboard ranked by Sharpe" src="../assets/leaderboard.png" /></p>
+<h2 id="blend-strategies-ensemble">Blend strategies (ensemble)<a class="headerlink" href="#blend-strategies-ensemble" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp">$ </span>yq<span class="w"> </span>ensemble<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>--members<span class="w"> </span>macross,supertrend,rsi_reversion<span class="w"> </span>--rule<span class="w"> </span>weighted<span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.4
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">  &quot;bars&quot;: 449, &quot;total_return&quot;: 0.0013, &quot;sharpe&quot;: 0.533, &quot;num_trades&quot;: 3,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="go">  &quot;members&quot;: [&quot;macross&quot;, &quot;supertrend&quot;, &quot;rsi_reversion&quot;], &quot;rule&quot;: &quot;weighted&quot;</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="go">}</span>
+</code></pre></div>
+<h2 id="portfolio-backtest">Portfolio backtest<a class="headerlink" href="#portfolio-backtest" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="gp">$ </span>yq<span class="w"> </span>portfolio<span class="w"> </span>BTCUSDT<span class="w"> </span>ETHUSDT<span class="w"> </span>SOLUSDT<span class="w"> </span>--strategy<span class="w"> </span>keltner_breakout<span class="w">   </span><span class="c1"># add --risk-parity for inverse-vol sizing</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="go">{</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="go">  &quot;portfolio&quot;: {&quot;total_return&quot;: 0.1808, &quot;sharpe&quot;: 2.254, &quot;max_drawdown&quot;: -0.0333},</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="go">  &quot;benchmark_return&quot;: 0.7442,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="go">  &quot;per_symbol&quot;: {</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="go">    &quot;BTCUSDT&quot;: {&quot;total_return&quot;: 0.1139, &quot;weight&quot;: 0.3333},</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="go">    &quot;ETHUSDT&quot;: {&quot;total_return&quot;: -0.0558, &quot;weight&quot;: 0.3333},</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="go">    &quot;SOLUSDT&quot;: {&quot;total_return&quot;: 0.4843, &quot;weight&quot;: 0.3333}</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="go">  }</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="go">}</span>
+</code></pre></div>
+<p><code>benchmark_return</code> is <strong>holding the weighted basket</strong> over the same window (the
+dashboard overlays it as a dashed line on the portfolio equity) — the same
+beat-the-market bar a single backtest gets.</p>
+<h2 id="risk-parity-target-weights">Risk-parity target weights<a class="headerlink" href="#risk-parity-target-weights" title="Permanent link">&para;</a></h2>
+<p>Size holdings by inverse volatility so each contributes roughly equal risk:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="gp">$ </span>yq<span class="w"> </span>target<span class="w"> </span>--risk-parity<span class="w"> </span>BTCUSDT<span class="w"> </span>ETHUSDT<span class="w"> </span>SOLUSDT
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">{&quot;BTCUSDT&quot;: 0.3667, &quot;ETHUSDT&quot;: 0.3131, &quot;SOLUSDT&quot;: 0.3202}</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="gp">$ </span>yq<span class="w"> </span>rebalance<span class="w"> </span>--execute<span class="w">     </span><span class="c1"># then move holdings toward those weights</span>
+</code></pre></div>
+<h2 id="correlation-matrix-diversification-check">Correlation matrix (diversification check)<a class="headerlink" href="#correlation-matrix-diversification-check" title="Permanent link">&para;</a></h2>
+<p>Before committing weight to a basket, check that the legs aren't all the same
+bet. Low/negative off-diagonals mean real diversification; values near +1 mean
+you're doubling down on one factor.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp">$ </span>yq<span class="w"> </span>correlate<span class="w"> </span>BTCUSDT<span class="w"> </span>ETHUSDT<span class="w"> </span>SOLUSDT
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="go">  &quot;symbols&quot;: [&quot;BTCUSDT&quot;, &quot;ETHUSDT&quot;, &quot;SOLUSDT&quot;],</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="go">  &quot;matrix&quot;: [</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">    [ 1.0,   -0.059,  0.109],</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="go">    [-0.059,  1.0,    0.057],</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="go">    [ 0.109,  0.057,  1.0  ]</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="go">  ],</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="go">  &quot;lookback&quot;: 120, &quot;bars&quot;: 120</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="go">}</span>
+</code></pre></div>
+<p>In a terminal the matrix renders as a colored table; the dashboard <strong>Correlation</strong>
+panel draws the same numbers as a red→green heatmap. Pearson correlation of daily
+returns over the last <code>lookback</code> bars (default 120).</p>
+<p><img alt="Return-correlation heatmap" src="../assets/correlation.png" /></p>
+<h2 id="trade-paper-and-report">Trade (paper) and report<a class="headerlink" href="#trade-paper-and-report" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gp">$ </span>yq<span class="w"> </span>trade<span class="w"> </span>BTCUSDT<span class="w"> </span>BUY<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>--price<span class="w"> </span><span class="m">65000</span><span class="w"> </span>--mode<span class="w"> </span>paper
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">{&quot;id&quot;: 1, &quot;status&quot;: &quot;filled&quot;, &quot;mode&quot;: &quot;paper&quot;, &quot;side&quot;: &quot;BUY&quot;, &quot;quantity&quot;: 0.1, &quot;price&quot;: 65000.0}</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gp">$ </span>yq<span class="w"> </span>trade<span class="w"> </span>BTCUSDT<span class="w"> </span>SELL<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>--price<span class="w"> </span><span class="m">71000</span><span class="w"> </span>--mode<span class="w"> </span>paper
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="go">{&quot;id&quot;: 2, &quot;status&quot;: &quot;filled&quot;, &quot;side&quot;: &quot;SELL&quot;, &quot;price&quot;: 71000.0}</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="gp">$ </span>yq<span class="w"> </span>report
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="go">{&quot;equity_now&quot;: 10586.4, &quot;realized_pnl&quot;: 592.9, &quot;total_return&quot;: 0.0593,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="go"> &quot;closed_trades&quot;: 1, &quot;win_rate&quot;: 1.0}</span>
+</code></pre></div>
+<h2 id="memory-journal-then-recall">Memory: journal then recall<a class="headerlink" href="#memory-journal-then-recall" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="gp">$ </span>yq<span class="w"> </span>journal<span class="w"> </span><span class="s2">&quot;entered BTC on keltner breakout, vol expanding&quot;</span><span class="w"> </span>--tag<span class="w"> </span>thesis<span class="w"> </span>--importance<span class="w"> </span><span class="m">8</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="gp">$ </span>yq<span class="w"> </span>journal<span class="w"> </span><span class="s2">&quot;minor note&quot;</span><span class="w"> </span>--importance<span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="gp">$ </span>yq<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;BTC breakout&quot;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="go">memories: [(8.0, &quot;entered BTC on keltner breakout, vol e…&quot;)]   # low-importance note filtered out</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="go">open_positions: []</span>
+</code></pre></div>
+<h2 id="self-improvement-author-a-strategy">Self-improvement: author a strategy<a class="headerlink" href="#self-improvement-author-a-strategy" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp">$ </span>yq<span class="w"> </span>new<span class="w"> </span>strategy<span class="w"> </span>demo_breakout
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">{&quot;created&quot;: &quot;user_plugins/strategies/demo_breakout.py&quot;, &quot;kind&quot;: &quot;strategy&quot;}</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp">$ </span>yq<span class="w"> </span>plugins
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">{&quot;strategies&quot;: [&quot;demo_breakout&quot;], &quot;indicators&quot;: [], &quot;errors&quot;: []}</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp">$ </span>yq<span class="w"> </span>backtest<span class="w"> </span>BTCUSDT<span class="w"> </span>1d<span class="w"> </span>demo_breakout<span class="w">      </span><span class="c1"># usable immediately</span>
+</code></pre></div>
+<h2 id="inspect-the-latest-features">Inspect the latest features<a class="headerlink" href="#inspect-the-latest-features" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp">$ </span>yq<span class="w"> </span>features<span class="w"> </span>BTCUSDT<span class="w"> </span>1d
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">{&quot;close&quot;: 115.33, &quot;rsi_14&quot;: 59.1, &quot;adx_14&quot;: 40.75, &quot;atr_pct&quot;: 0.0285, &quot;macd_hist&quot;: -0.716}</span>
+</code></pre></div>
+<hr />
+<p>Every command above is also a dashboard action — see <a href="../dashboard/">The dashboard</a>
+for the point-and-click equivalents (Research, Manual trade, Control center, …).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      The agentic quant cockpit whose brain is your Claude Code session.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
