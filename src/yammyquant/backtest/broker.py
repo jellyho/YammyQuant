@@ -60,6 +60,19 @@ class BacktestBroker(Broker):
             return None
         return self.make_fill(order, ref_price, time)
 
+    def _slipped(self, order: Order, price: float) -> float:
+        """Apply slippage to crossing (taker) fills only.
+
+        A resting LIMIT fills at its price (maker) and is not slipped — mirroring
+        the paper broker. MARKET and triggered STOP orders cross the book (taker)
+        and pay slippage: buys fill higher, sells lower.
+        """
+        from yammyquant.backtest.order import OrderType
+        if self.slippage <= 0 or order.type == OrderType.LIMIT:
+            return price
+        return price * (1 + self.slippage) if order.action == Action.BUY \
+            else price * (1 - self.slippage)
+
     def make_fill(self, order: Order, price: float, time: datetime) -> Optional[Fill]:
         """Build a slippage- and fee-adjusted :class:`Fill` at ``price``.
 
@@ -67,8 +80,7 @@ class BacktestBroker(Broker):
         """
         if order.action == Action.HOLD or order.quantity <= 0:
             return None
-        fill_price = price * (1 + self.slippage) if order.action == Action.BUY \
-            else price * (1 - self.slippage)
+        fill_price = self._slipped(order, price)
         fee = fill_price * order.quantity * self._rate(order)
         return Fill(order=order, fill_price=fill_price, fill_quantity=order.quantity,
                     fee=fee, time=time)
