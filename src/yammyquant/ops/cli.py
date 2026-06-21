@@ -284,6 +284,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
     p.add_argument("--allow-short", action="store_true",
                    help="permit short positions (SELL when flat opens a short, BUY covers)")
+    p.add_argument("--sizing", choices=["off", "fraction", "volatility"],
+                   help="position sizing policy (default: strategy's own quantity)")
+    p.add_argument("--risk-fraction", type=float, help="fraction of equity per entry (sizing=fraction)")
+    p.add_argument("--stop-loss", type=float, help="fractional stop-loss from entry (0.05 = 5%%)")
+    p.add_argument("--take-profit", type=float, help="fractional take-profit from entry")
+    p.add_argument("--trailing-stop", type=float, help="trailing stop: give-back from the best price")
+    p.add_argument("--breakeven", type=float, help="gain that ratchets the stop to entry (breakeven)")
+    p.add_argument("--max-holding-bars", type=int, help="time stop: exit after N bars")
+    p.add_argument("--max-drawdown", type=float, help="equity drawdown kill switch (flatten + halt)")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -552,10 +561,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         params = {k: v for k, v in
                   {"fast": args.fast, "slow": args.slow, "k": args.k, "size": args.size}.items()
                   if v is not None}
+        risk = {"sizing": args.sizing, "risk_fraction": args.risk_fraction,
+                "stop_loss": args.stop_loss, "take_profit": args.take_profit,
+                "trailing_stop": args.trailing_stop, "breakeven_trigger": args.breakeven,
+                "max_holding_bars": args.max_holding_bars, "max_drawdown": args.max_drawdown}
+        risk = {k: v for k, v in risk.items() if v is not None} or None
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
-                            allow_short=args.allow_short,
+                            allow_short=args.allow_short, risk=risk,
                             start=args.start, end=args.end, state=state))
         return 0
 

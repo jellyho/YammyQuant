@@ -29,6 +29,12 @@ class RiskConfig:
     -------------------------------------------------------------
     - ``stop_loss``   — fractional loss from entry that forces an exit (0.05 = 5%)
     - ``take_profit`` — fractional gain from entry that forces an exit
+    - ``trailing_stop`` — fractional give-back from the best price seen since
+      entry (the high-water mark) that forces an exit; locks in open profit as
+      the trade runs
+    - ``breakeven_trigger`` — once the trade gains this fraction, the stop ratchets
+      up to the entry price (a free trade thereafter)
+    - ``max_holding_bars`` — force an exit after holding this many bars (time stop)
 
     Kill switch
     -----------
@@ -42,6 +48,9 @@ class RiskConfig:
     max_position_fraction: float = 1.0
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
+    trailing_stop: Optional[float] = None
+    breakeven_trigger: Optional[float] = None
+    max_holding_bars: Optional[int] = None
     max_drawdown: Optional[float] = None
 
 
@@ -100,6 +109,41 @@ class RiskManager:
             if c.take_profit is not None and bar_low <= avg_entry * (1 - c.take_profit):
                 return avg_entry * (1 - c.take_profit)
         return None
+
+    def trailing_exit(self, hwm: float, bar_high: float, bar_low: float,
+                      is_short: bool = False) -> Optional[float]:
+        """Exit price if a trailing stop triggers, given the high-water mark.
+
+        ``hwm`` is the most favorable price seen since entry — the running max
+        for a long, the running min for a short. The stop trails ``trailing_stop``
+        away from it; for a long it sits below the hwm (checks the bar low), for
+        a short above it (checks the bar high).
+        """
+        c = self.config
+        if c.trailing_stop is None or hwm <= 0:
+            return None
+        if is_short:
+            stop = hwm * (1 + c.trailing_stop)
+            return stop if bar_high >= stop else None
+        stop = hwm * (1 - c.trailing_stop)
+        return stop if bar_low <= stop else None
+
+    def breakeven_exit(self, avg_entry: float, hwm: float, bar_high: float,
+                       bar_low: float, is_short: bool = False) -> Optional[float]:
+        """Exit at the entry price once the trade has gained ``breakeven_trigger``.
+
+        The hwm crossing the trigger arms a breakeven stop at ``avg_entry``; the
+        exit fires when price trades back to entry (bar low for a long, bar high
+        for a short).
+        """
+        c = self.config
+        if c.breakeven_trigger is None or avg_entry <= 0:
+            return None
+        if is_short:
+            armed = hwm <= avg_entry * (1 - c.breakeven_trigger)
+            return avg_entry if armed and bar_high >= avg_entry else None
+        armed = hwm >= avg_entry * (1 + c.breakeven_trigger)
+        return avg_entry if armed and bar_low <= avg_entry else None
 
     # -- kill switch -------------------------------------------------------
     def drawdown_breached(self, peak_equity: float, equity: float) -> bool:

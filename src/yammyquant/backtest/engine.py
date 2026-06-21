@@ -125,10 +125,13 @@ class Backtest:
         halted = False
         next_open = self.fill_timing == "next_open"
         pending: list[Order] = []  # orders decided last bar, awaiting this bar's open
+        self._entry_bar = {}       # ticker -> bar index the open position was entered
+        self._hwm = {}             # ticker -> high-water mark since entry (max high / min low)
 
         for i in range(self.lookback - 1, n):
             window = candle[i - self.lookback + 1 : i + 1]
             ref_price = float(close[i])
+            bar_high, bar_low = float(high[i]), float(low[i])
             time = index[i]
 
             # 0) fill orders decided on the previous bar at THIS bar's open
@@ -139,13 +142,16 @@ class Backtest:
                     if fill is not None:
                         self.portfolio.apply_fill(fill)
                 pending = []
+                if self.risk is not None:
+                    self._sync_tracker(ticker, i)
 
             # 1) protective exits + drawdown kill switch (intrabar, always immediate)
             if self.risk is not None:
-                self._apply_risk_exits(ticker, float(high[i]), float(low[i]), time)
+                self._apply_risk_exits(ticker, bar_high, bar_low, ref_price, time, i)
                 peak_equity = max(peak_equity, self.portfolio.equity())
                 if not halted and self.risk.drawdown_breached(peak_equity, self.portfolio.equity()):
                     self._flatten(ticker, ref_price, time)
+                    self._sync_tracker(ticker, i)
                     halted = True
 
             # 2) strategy orders (suppressed once the kill switch has fired)
@@ -159,6 +165,12 @@ class Backtest:
                         fill = self.broker.execute(order, ref_price=ref_price, time=time)
                         if fill is not None:
                             self.portfolio.apply_fill(fill)
+                if not next_open and self.risk is not None:
+                    self._sync_tracker(ticker, i)
+
+            # update the high-water mark with this bar's range for trailing/breakeven
+            if self.risk is not None:
+                self._update_hwm(ticker, bar_high, bar_low)
 
             self.portfolio.mark(time, {ticker: ref_price})
 
@@ -173,13 +185,45 @@ class Backtest:
         )
 
     # -- risk helpers ------------------------------------------------------
-    def _apply_risk_exits(self, ticker: str, bar_high: float, bar_low: float, time) -> None:
+    def _apply_risk_exits(self, ticker: str, bar_high: float, bar_low: float,
+                          ref_price: float, time, i: int) -> None:
         pos = self.portfolio.position(ticker)
         if not pos.is_open:
             return
-        exit_px = self.risk.exit_price(pos.avg_price, bar_high, bar_low, is_short=pos.is_short)
+        is_short = pos.is_short
+        avg = pos.avg_price
+        hwm = self._hwm.get(ticker, avg)
+        # priority: fixed stop/take, then trailing stop, then breakeven, then time stop
+        exit_px = self.risk.exit_price(avg, bar_high, bar_low, is_short=is_short)
+        if exit_px is None:
+            exit_px = self.risk.trailing_exit(hwm, bar_high, bar_low, is_short=is_short)
+        if exit_px is None:
+            exit_px = self.risk.breakeven_exit(avg, hwm, bar_high, bar_low, is_short=is_short)
+        if exit_px is None and self.risk.config.max_holding_bars is not None:
+            entry = self._entry_bar.get(ticker)
+            if entry is not None and (i - entry) >= self.risk.config.max_holding_bars:
+                exit_px = ref_price   # time stop: exit at this bar's close
         if exit_px is not None:
             self._close(ticker, exit_px, time)
+            self._sync_tracker(ticker, i)
+
+    def _sync_tracker(self, ticker: str, i: int) -> None:
+        """Record entry bar + reset hwm when a position opens; clear when flat."""
+        pos = self.portfolio.position(ticker)
+        if pos.is_open:
+            if ticker not in self._entry_bar:
+                self._entry_bar[ticker] = i
+                self._hwm[ticker] = pos.avg_price
+        else:
+            self._entry_bar.pop(ticker, None)
+            self._hwm.pop(ticker, None)
+
+    def _update_hwm(self, ticker: str, bar_high: float, bar_low: float) -> None:
+        pos = self.portfolio.position(ticker)
+        if not pos.is_open:
+            return
+        cur = self._hwm.get(ticker, pos.avg_price)
+        self._hwm[ticker] = min(cur, bar_low) if pos.is_short else max(cur, bar_high)
 
     def _flatten(self, ticker: str, price: float, time) -> None:
         self._close(ticker, price, time)

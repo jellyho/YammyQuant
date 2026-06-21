@@ -237,15 +237,26 @@ def backtest(
     slippage: float = 0.0,
     fill_timing: str = "next_open",
     allow_short: bool = False,
+    risk: Optional[dict] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
 ) -> dict:
-    """Run a backtest and return its headline stats (+ buy-and-hold benchmark)."""
+    """Run a backtest and return its headline stats (+ buy-and-hold benchmark).
+
+    ``risk`` is an optional dict of :class:`RiskConfig` fields (sizing,
+    stop_loss, take_profit, trailing_stop, breakeven_trigger, max_holding_bars,
+    max_drawdown, ...) wiring the protective-exit / position-sizing layer.
+    """
     candle = store.read(ticker, interval, start=start, end=end)
     strat = build_strategy(strategy, **(params or {}))
+    risk_cfg = None
+    if risk:
+        from yammyquant.backtest.risk import RiskConfig
+        risk_cfg = RiskConfig(**{k: v for k, v in risk.items() if v is not None})
     result = Backtest(candle, strat, cash=cash, fee=fee, slippage=slippage,
-                      fill_timing=fill_timing, allow_short=allow_short).run()
+                      fill_timing=fill_timing, allow_short=allow_short,
+                      risk=risk_cfg).run()
     stats = dict(result.stats)
     eq = result.equity_curve
     if len(eq):
