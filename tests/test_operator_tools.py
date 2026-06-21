@@ -622,6 +622,28 @@ def test_decide_min_edge_gate_vetoes_thin_edge(tmp_path, fake_exchange):
     assert [p for p in out2["proposals"] if p["side"] == "BUY"]
 
 
+def test_promotion_gate(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    # no recorded baselines -> nothing to grade
+    assert ops.promotion_check(state)["checks"] == []
+    # a hand-recorded baseline (avoids needing a store/backtest here)
+    state.set("expectations", {"macross:BTCUSDT:1d":
+                               {"sharpe": 1.0, "total_return": 0.2, "max_drawdown": -0.1}})
+    # no closed trades yet -> not ready (insufficient sample / not profitable)
+    out = ops.promotion_check(state, min_trades=1)
+    assert out["checks"][0]["ready"] is False and out["checks"][0]["blockers"]
+    # a profitable paper round-trip -> one closed trade, positive return
+    tm.submit("BTCUSDT", "BUY", 1.0, 100.0)
+    tm.submit("BTCUSDT", "SELL", 1.0, 130.0)
+    out2 = ops.promotion_check(state, min_trades=1, sharpe_floor=0.0)
+    c = out2["checks"][0]
+    assert c["closed_trades"] == 1 and c["ready"] is True
+    assert "macross:BTCUSDT:1d" in out2["ready"]
+    assert out2["live_trading_allowed"] is False   # not armed without YQ_ALLOW_LIVE
+
+
 def test_backtest_fee_exchange_applies_schedule(tmp_path):
     store = DuckDBStore(tmp_path / "store")
     n = 250

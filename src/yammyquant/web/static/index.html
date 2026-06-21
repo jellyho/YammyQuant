@@ -119,6 +119,17 @@
 
     <section class="card">
       <div class="card-head">
+        <h2>Promotion readiness (backtest → paper → live)</h2>
+        <button id="refreshPromote" class="ghost">check</button>
+      </div>
+      <table id="promote"><thead><tr>
+        <th>baseline</th><th>exp. sharpe</th><th>real sharpe</th>
+        <th>exp. return</th><th>real return</th><th>trades</th><th>ready</th><th>blockers</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
         <h2>Decisions (signal → order)</h2>
         <span>
           <button id="previewDecide" class="ghost">preview</button>

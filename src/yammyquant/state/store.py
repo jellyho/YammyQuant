@@ -233,7 +233,9 @@ class LiveState:
             )
 
     def equity_curve(self, limit: int = 1000) -> list[dict]:
-        rows = self._fetch("SELECT * FROM equity ORDER BY ts DESC LIMIT ?", (limit,))
+        # rowid breaks ties when several snapshots share a timestamp (same-second
+        # fills), so insertion order — and thus the curve's direction — is stable.
+        rows = self._fetch("SELECT * FROM equity ORDER BY ts DESC, rowid DESC LIMIT ?", (limit,))
         return list(reversed(rows))
 
     # -- signals -----------------------------------------------------------
