@@ -667,6 +667,26 @@ def test_reconcile_flags_position_drift(tmp_path):
     assert out["drift"][0]["diff"] == pytest.approx(-0.6)
 
 
+def test_reconcile_cash_drift_and_adopt(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 9_000.0)                       # local cash stale
+
+    class _Ex:
+        name = "fake"
+        def balances(self):
+            return {"total": {"USDT": 9_500.0}}      # venue has more quote cash
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: _Ex())
+        mp.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+        out = ops.reconcile(state)                    # report only
+        assert out["cash_drift"]["diff"] == pytest.approx(500.0)
+        assert state.get("cash") == 9_000.0           # not changed
+        out2 = ops.reconcile(state, adopt_cash=True)  # adopt
+        assert out2["cash_drift"]["adopted"] is True
+        assert state.get("cash") == pytest.approx(9_500.0)
+
+
 def test_promotion_gate(tmp_path):
     state = LiveState(tmp_path / "s.db")
     tm = TradeManager(state, fee=0.0)

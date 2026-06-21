@@ -23,6 +23,43 @@ def live_trading_allowed() -> bool:
     return os.getenv("YQ_ALLOW_LIVE") == "1"
 
 
+def _extract_live_fill(result, req_price: float, req_qty: float):
+    """Best-effort ``(price, qty, fee)`` from a placed-order result, across adapters.
+
+    Reads ccxt's unified shape (``average`` / ``filled`` / ``fee.cost``) and
+    Binance's (``fills[]`` / ``cummulativeQuoteQty`` / ``executedQty``). Falls back
+    to the requested price/qty and ``fee=None`` (caller computes from the schedule),
+    so the local book reflects the *actual* fill rather than what we asked for.
+    """
+    if not isinstance(result, dict):
+        return req_price, req_qty, None
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    qty = _num(result.get("filled")) or _num(result.get("executedQty")) or req_qty
+    price = _num(result.get("average")) or _num(result.get("price"))
+    if price is None:                                    # binance: quote / base
+        cq, eq = _num(result.get("cummulativeQuoteQty")), qty
+        price = cq / eq if (cq and eq) else None
+    if not price or price <= 0:
+        price = req_price
+
+    fee = None
+    f = result.get("fee")
+    if isinstance(f, dict):
+        fee = _num(f.get("cost"))
+    elif isinstance(result.get("fills"), list) and result["fills"]:
+        parts = [_num(x.get("commission")) for x in result["fills"]]
+        fee = sum(p for p in parts if p is not None) or None
+    if not qty or qty <= 0:
+        qty = req_qty
+    return price, qty, fee
+
+
 class TradeManager:
     def __init__(self, state: LiveState, fee: float = 0.001, exchange: Optional[str] = None):
         self.state = state
@@ -186,7 +223,17 @@ class TradeManager:
                 self.state.set_trade_status(trade_id, "submitted")
                 self.state.log("trade", f"LIVE limit #{trade_id} submitted (awaiting fill)")
                 return self.state.get_trade(trade_id)
+            # market order: reconcile the local book to the ACTUAL fill (price/qty/fee
+            # the venue reports), not the price we requested — keeps PnL honest.
+            fp, fq, ff = _extract_live_fill(result, trade["price"], trade["quantity"])
+            self.state.set_trade_meta(trade_id, fill_price=fp, fill_qty=fq, fill_fee=ff)
+            self._fill(trade_id, trade["ticker"], trade["side"], fq, fp, "market",
+                       fee=ff, slip=False)
+            self.state.log("trade", f"LIVE #{trade_id} filled {fq} @ {fp} (actual)",
+                           trade_id=trade_id)
+            return self.state.get_trade(trade_id)
 
+        # paper approval of a pending trade: fill against the simulated book
         otype = (trade.get("meta") or {}).get("order_type", "market") \
             if isinstance(trade.get("meta"), dict) else "market"
         self._fill(trade_id, trade["ticker"], trade["side"],
@@ -218,10 +265,17 @@ class TradeManager:
 
     # -- internals ---------------------------------------------------------
     def _apply(self, ticker: str, side: str, qty: float, price: float,
-               order_type: str = "market"):
-        """Apply a fill to cash + position. Returns (ok, realized_pnl)."""
-        price = self._fill_price(side, price, order_type)
-        fee = price * qty * self._fee_rate(order_type)
+               order_type: str = "market", fee: Optional[float] = None, slip: bool = True):
+        """Apply a fill to cash + position. Returns (ok, realized_pnl).
+
+        ``slip``/``fee`` default to the simulated model (paper/backtest). For a real
+        live fill pass the exchange's actual price with ``slip=False`` and the
+        reported ``fee`` so the local book matches reality.
+        """
+        if slip:
+            price = self._fill_price(side, price, order_type)
+        if fee is None:
+            fee = price * qty * self._fee_rate(order_type)
         pos = {p["ticker"]: p for p in self.state.positions()}.get(
             ticker, {"quantity": 0.0, "avg_price": 0.0})
         if side == "BUY":
@@ -242,8 +296,8 @@ class TradeManager:
         return True, realized
 
     def _fill(self, trade_id: int, ticker: str, side: str, qty: float, price: float,
-              order_type: str = "market") -> None:
-        ok, realized = self._apply(ticker, side, qty, price, order_type)
+              order_type: str = "market", fee: Optional[float] = None, slip: bool = True) -> None:
+        ok, realized = self._apply(ticker, side, qty, price, order_type, fee=fee, slip=slip)
         if not ok:
             self.state.set_trade_status(trade_id, "rejected")
             self.state.log("trade", f"trade #{trade_id} rejected: insufficient funds/holdings")

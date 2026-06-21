@@ -470,8 +470,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("message", nargs="?", help="text to send (omit for a status digest)")
     p.add_argument("--status", action="store_true", help="send the status digest")
 
-    p = sub.add_parser("reconcile", help="compare local positions to exchange balances")
+    p = sub.add_parser("reconcile", help="compare local positions/cash to exchange balances")
     p.add_argument("--exchange")
+    p.add_argument("--adopt-cash", action="store_true",
+                   help="overwrite local cash with the venue's free quote-currency balance")
 
     p = sub.add_parser("settings", help="view/set cockpit settings (sizing, slippage, auto_trade, ...)")
     p.add_argument("args", nargs="*", help="key=value ... to set; omit to show all")
@@ -834,7 +836,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "reconcile":
-        _print(ops.reconcile(state, exchange=args.exchange))
+        _print(ops.reconcile(state, exchange=args.exchange, adopt_cash=args.adopt_cash))
         return 0
 
     if args.cmd == "settings":

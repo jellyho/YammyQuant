@@ -1924,12 +1924,19 @@ def cancel_order(state: LiveState, trade_id: int, exchange: Optional[str] = None
     return {"canceled": trade_id, "trade": state.get_trade(trade_id)}
 
 
-def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:
-    """Compare local positions to the exchange's reported balances.
+def reconcile(state: LiveState, exchange: Optional[str] = None,
+              adopt_cash: bool = False) -> dict:
+    """Compare the local book to the exchange's reported balances.
 
-    Read-only. When balances expose per-asset amounts, computes a ``drift`` list of
-    positions whose local quantity differs from the venue's — the early warning that
-    the local book and the exchange have diverged (important for unattended trading).
+    Read-only by default. Computes:
+      * ``drift`` — positions whose local quantity differs from the venue's;
+      * ``cash_drift`` — local ``cash`` vs the venue's free **quote-currency**
+        balance (``quote_currency`` setting, default ``USDT``), so sizing isn't run
+        on a stale equity figure.
+    Both are notified on mismatch — the early warning that the books have diverged
+    (important for unattended trading). ``adopt_cash=True`` overwrites local cash
+    with the venue's quote balance (cash is unambiguous once the quote is known;
+    positions are never overwritten, to preserve cost basis).
     """
     from yammyquant.exchanges import get_exchange, default_exchange
 
@@ -1948,12 +1955,32 @@ def reconcile(state: LiveState, exchange: Optional[str] = None) -> dict:
         if venue_qty is not None and abs(venue_qty - pos["quantity"]) > 1e-6:
             drift.append({"ticker": pos["ticker"], "local": pos["quantity"],
                           "exchange": venue_qty, "diff": round(venue_qty - pos["quantity"], 8)})
+
+    # cash drift against the venue's free quote-currency balance
+    quote = str(state.get("quote_currency", "USDT"))
+    venue_cash = _venue_qty(balances, quote)
+    local_cash = float(state.get("cash", 0.0))
+    cash_drift = None
+    if venue_cash is not None and abs(venue_cash - local_cash) > 1e-6:
+        cash_drift = {"local": round(local_cash, 2), "exchange": round(venue_cash, 2),
+                      "quote": quote, "diff": round(venue_cash - local_cash, 2)}
+        if adopt_cash:
+            state.set("cash", venue_cash)
+            cash_drift["adopted"] = True
+
+    msgs = []
     if drift:
-        notify(state, f"⚠️ position drift vs {ex.name}: "
-               + ", ".join(f"{d['ticker']} {d['local']}→{d['exchange']}" for d in drift), "warn")
-    state.log("reconcile", f"reconciled against {ex.name}; {len(drift)} drift", drift=drift)
+        msgs.append("position drift " + ", ".join(
+            f"{d['ticker']} {d['local']}→{d['exchange']}" for d in drift))
+    if cash_drift:
+        msgs.append(f"cash {cash_drift['local']}→{cash_drift['exchange']} {quote}"
+                    + (" (adopted)" if cash_drift.get("adopted") else ""))
+    if msgs:
+        notify(state, f"⚠️ drift vs {ex.name}: " + "; ".join(msgs), "warn")
+    state.log("reconcile", f"reconciled against {ex.name}; {len(drift)} pos drift",
+              drift=drift, cash_drift=cash_drift)
     return {"exchange": ex.name, "state_positions": state.positions(),
-            "exchange_balances": balances, "drift": drift}
+            "exchange_balances": balances, "drift": drift, "cash_drift": cash_drift}
 
 
 def _venue_qty(balances: dict, ticker: str):

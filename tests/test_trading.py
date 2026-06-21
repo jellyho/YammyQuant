@@ -79,6 +79,21 @@ def test_live_approval_with_flag_uses_placer(tm, monkeypatch):
     assert tm.state.get_trade(trade["id"])["status"] == "filled"
 
 
+def test_live_market_fill_uses_actual_price_qty_fee(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    # venue reports a worse average price, a smaller fill, and an explicit fee
+    placed = {"id": "OID1", "average": 101.0, "filled": 0.8, "fee": {"cost": 0.5}}
+    tm.approve(trade["id"], place_live=lambda t: placed)
+    pos = tm.state.positions()[0]
+    assert pos["quantity"] == pytest.approx(0.8)       # actual filled qty, not 1.0
+    assert pos["avg_price"] == pytest.approx(101.0)     # actual price, not 100.0
+    # cash reflects actual notional + the venue's reported fee (no simulated slippage)
+    assert tm.cash == pytest.approx(10_000.0 - (101.0 * 0.8 + 0.5))
+    meta = tm.state.get_trade(trade["id"])["meta"]
+    assert meta["fill_qty"] == 0.8 and meta["fill_fee"] == 0.5
+
+
 def test_live_placement_failure_rejects_not_dangling(tm, monkeypatch):
     monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
     trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
