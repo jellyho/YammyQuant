@@ -126,6 +126,22 @@ def test_stop_order_fills_on_breakout():
     assert len(buys) == 1 and float(buys.iloc[0]["price"]) == 122.0
 
 
+def test_broker_slips_market_but_not_limit():
+    from datetime import datetime
+    from yammyquant.backtest.broker import BacktestBroker
+    b = BacktestBroker(fee=0.0, slippage=0.01)
+    t = datetime(2023, 1, 1)
+    # MARKET (taker) buy fills 1% higher
+    mkt = b.make_fill(Order(Action.BUY, "X", 1.0, 100.0, type=OrderType.MARKET), 100.0, t)
+    assert mkt.fill_price == 101.0
+    # resting LIMIT (maker) fills at its price, unslipped — mirrors paper
+    lim = b.make_fill(Order(Action.BUY, "X", 1.0, 100.0, type=OrderType.LIMIT), 100.0, t)
+    assert lim.fill_price == 100.0
+    # triggered STOP crosses the book -> slipped like a market order
+    stp = b.make_fill(Order(Action.SELL, "X", 1.0, 100.0, type=OrderType.STOP), 100.0, t)
+    assert stp.fill_price == 99.0
+
+
 def test_limit_order_requires_price():
     import pytest
     with pytest.raises(ValueError, match="require a price"):
