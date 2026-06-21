@@ -3,7 +3,14 @@ name: tests
 on:
   push:
     branches: [master]
+    paths-ignore: ["**.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
+
+# cancel an in-progress run when a newer commit arrives on the same ref
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -18,6 +25,9 @@ jobs:
         run: ruff check .
 
   test:
+    # the full suite gates every PR (the exact diff); the squash-merge to master
+    # is that same diff, so we skip the redundant master-push re-run
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
