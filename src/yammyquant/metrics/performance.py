@@ -47,6 +47,19 @@ def calmar(cagr: float, max_dd: float) -> float:
     return float(cagr / abs(max_dd)) if max_dd else 0.0
 
 
+def expectancy(pnl: pd.Series) -> float:
+    """Expected PnL per closed trade — the headline "is this edge positive?" stat.
+
+    `win_rate * avg_win + loss_rate * avg_loss` over the realized-PnL series.
+    Positive means the average trade makes money; algebraically equal to the
+    mean of `pnl`, but expressed via the win/loss decomposition traders reason
+    about. Returns 0.0 for an empty series.
+    """
+    if pnl is None or len(pnl) == 0:
+        return 0.0
+    return float(pnl.mean())
+
+
 def summary(
     equity_curve: pd.DataFrame,
     trades: pd.DataFrame,
@@ -93,6 +106,7 @@ def summary(
         "profit_factor": round(gross_win / gross_loss, 3) if gross_loss else None,
         "avg_win": round(float(wins.mean()), 4) if len(wins) else 0.0,
         "avg_loss": round(float(losses.mean()), 4) if len(losses) else 0.0,
+        "expectancy": round(expectancy(pnl), 4) if n_closed else 0.0,
         "best_trade": round(float(pnl.max()), 4) if n_closed else 0.0,
         "worst_trade": round(float(pnl.min()), 4) if n_closed else 0.0,
     }

@@ -870,7 +870,9 @@ def decay_check(state: LiveState, tolerance: float = 0.5) -> dict:
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
     """Performance report from recorded equity + trades (realized PnL, drawdown…)."""
     import pandas as pd
-    from yammyquant.metrics.performance import max_drawdown, sharpe, _BARS_PER_YEAR
+    from yammyquant.metrics.performance import (
+        max_drawdown, sharpe, sortino, expectancy, _BARS_PER_YEAR,
+    )
 
     eqrows = state.equity_curve()
     equity = pd.Series([r["equity"] for r in eqrows], dtype=float)
@@ -887,6 +889,7 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
             by_symbol[t["ticker"]] = round(by_symbol.get(t["ticker"], 0.0) + r, 4)
     wins = [r for r in realized if r > 0]
     losses = [r for r in realized if r < 0]
+    pnl = pd.Series(realized, dtype=float)
 
     out = {
         "equity_start": round(float(equity.iloc[0]), 2) if len(equity) else None,
@@ -895,10 +898,14 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
                         if len(equity) > 1 and equity.iloc[0] else 0.0,
         "max_drawdown": round(max_drawdown(equity), 4) if len(equity) else 0.0,
         "sharpe": round(sharpe(rets, ppy), 3),
+        "sortino": round(sortino(rets, ppy), 3),
         "realized_pnl": round(sum(realized), 4),
         "closed_trades": len(realized),
         "win_rate": round(len(wins) / len(realized), 4) if realized else 0.0,
         "profit_factor": round(sum(wins) / abs(sum(losses)), 3) if losses else None,
+        "expectancy": round(expectancy(pnl), 4) if realized else 0.0,
+        "avg_win": round(sum(wins) / len(wins), 4) if wins else 0.0,
+        "avg_loss": round(sum(losses) / len(losses), 4) if losses else 0.0,
         "realized_by_symbol": by_symbol,
         "open_positions": state.positions(),
         "cash": state.get("cash", 0.0),

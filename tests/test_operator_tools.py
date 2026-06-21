@@ -100,6 +100,24 @@ def test_report_realized_pnl(tmp_path):
     assert rep["realized_by_symbol"]["AAA"] == pytest.approx(200.0)
 
 
+def test_report_expectancy_and_avgs(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    tm.submit("AAA", "BUY", 10, 100)
+    tm.submit("AAA", "SELL", 10, 120)               # +200 realized (win)
+    tm.submit("BBB", "BUY", 10, 100)
+    tm.submit("BBB", "SELL", 10, 90)                # -100 realized (loss)
+    rep = ops.report(state)
+    assert rep["closed_trades"] == 2
+    assert rep["win_rate"] == pytest.approx(0.5)
+    assert rep["avg_win"] == pytest.approx(200.0)
+    assert rep["avg_loss"] == pytest.approx(-100.0)
+    # expectancy == mean realized PnL per trade == (200 - 100) / 2
+    assert rep["expectancy"] == pytest.approx(50.0)
+    assert "sortino" in rep
+
+
 def test_decide_proposes_buy_dry_run(tmp_path, fake_exchange):
     store = DuckDBStore(tmp_path / "store")
     state = LiveState(tmp_path / "s.db")
