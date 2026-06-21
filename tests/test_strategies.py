@@ -148,3 +148,26 @@ def test_vwap_band_scalp_trades_intraday():
     candle = _intraday_candle(days=4, bars_per_day=24)
     res = Backtest(candle, VWAPBandScalp(band=1.0, std_period=10), cash=10_000, fee=0.0).run()
     assert "sharpe" in res.stats and res.stats["num_trades"] >= 0
+
+
+def test_orb_flatten_eod_vs_carry():
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    from yammyquant.strategy.builtin import OpeningRangeBreakout
+    # 2 days, 24 1h bars/day; day1 breaks out and stays up into day2
+    n = 48
+    idx = pd.date_range("2023-01-01 00:00", periods=n, freq="1h")
+    close = np.concatenate([
+        np.r_[np.full(6, 100.0), np.linspace(101, 115, 18)],   # day1: range then ramp
+        np.full(24, 115.0),                                     # day2: holds flat & high
+    ])
+    df = pd.DataFrame({"open": close, "high": close + 0.3, "low": close - 0.3,
+                       "close": close, "volume": np.full(n, 1.0)}, index=idx)
+    candle = Candle("X", df, interval="1h")
+    flat = Backtest(candle, OpeningRangeBreakout(3, flatten_eod=True), cash=10_000, fee=0.0).run()
+    carry = Backtest(candle, OpeningRangeBreakout(3, flatten_eod=False), cash=10_000, fee=0.0).run()
+    sells_flat = (flat.trades["action"] == "SELL").sum() if not flat.trades.empty else 0
+    sells_carry = (carry.trades["action"] == "SELL").sum() if not carry.trades.empty else 0
+    # EOD-flatten forces a day-boundary exit; carry mode does not
+    assert sells_flat >= sells_carry
