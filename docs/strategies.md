@@ -241,20 +241,28 @@ yq decay                          # warn when realized < baseline (edge erosion)
 ## Promotion: backtest → paper → live
 
 The development pipeline is **backtest → paper → live**. `yq promote` is the gate
-between paper and live: it grades the realized **paper** record against the
-recorded baselines and flags each as *ready* only when every guard passes —
+between paper and live, with two views:
+
+**Account-level** — grades the whole paper account against each baseline:
 
 - enough closed round-trips (`--min-trades`, default 20),
 - realized Sharpe ≥ `--sharpe-floor` (default 0.7) × the backtested Sharpe,
 - positive paper return,
 - realized drawdown ≤ `--max-dd-mult` (default 1.5) × the backtested drawdown.
 
+**Per-strategy** — grades each baseline's strategy on its *own* attributed paper
+record (from `yq attribution`): enough round-trips, positive attributed PnL, and
+realized win-rate ≥ `--win-rate-floor` (default 0.8) × the backtested win-rate.
+This isolates which strategy actually earns its keep when several share the book
+(Sharpe/return aren't attributable, so they stay account-level).
+
 ```bash
 yq expect BTCUSDT 1d macross      # 1. validate & baseline in backtest
 # ... run it in paper for a while (auto_trade / yq cycle) ...
-yq promote                        # 2. ready to graduate to live?
+yq promote                        # 2. ready to graduate to live? (account + per-strategy)
 ```
 
-Like `yq decay`, this is account-level, so it's most meaningful when one strategy
-drives the book. **Ready ≠ armed:** going live still requires `YQ_ALLOW_LIVE=1`
-and per-order approval — see [Money safety](safety.md).
+`yq cycle` also runs the promotion check automatically when baselines exist, so an
+unattended loop notifies you the moment something is ready. **Ready ≠ armed:**
+going live still requires `YQ_ALLOW_LIVE=1` and approval (or auto mode) — see
+[Money safety](safety.md).
