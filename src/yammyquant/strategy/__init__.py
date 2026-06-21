@@ -22,6 +22,9 @@ from yammyquant.strategy.builtin import (
     MFIReversion,
     VWAPReversion,
     OpeningRangeBreakout,
+    VWAPBandScalp,
+    VolumeSpikeBreakout,
+    MicroPullback,
 )
 
 __all__ = [
@@ -50,4 +53,7 @@ __all__ = [
     "MFIReversion",
     "VWAPReversion",
     "OpeningRangeBreakout",
+    "VWAPBandScalp",
+    "VolumeSpikeBreakout",
+    "MicroPullback",
 ]

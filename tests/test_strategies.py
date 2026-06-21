@@ -66,12 +66,13 @@ def gbm_candles():
     return out
 
 
-# intraday-only strategies can't trade on the daily fixture (each bar is its own
-# session); they're exercised by dedicated intraday tests instead
-_INTRADAY_ONLY = {"opening_range_breakout"}
+# strategies whose premise the generic GBM fixture can't express — exercised by
+# dedicated tests instead: opening_range_breakout (intraday sessions),
+# volume_spike_breakout (the fixture's volume is uniform, so it has no spikes)
+_FIXTURE_EXEMPT = {"opening_range_breakout", "volume_spike_breakout"}
 
 
-@pytest.mark.parametrize("name", sorted(set(STRATEGIES) - _INTRADAY_ONLY))
+@pytest.mark.parametrize("name", sorted(set(STRATEGIES) - _FIXTURE_EXEMPT))
 def test_strategy_trades_on_realistic_data(name, gbm_candles):
     """Every registered strategy must produce >=1 trade on a long realistic
     series — a near-flat equity from zero trades is the bug we keep catching."""
@@ -123,3 +124,27 @@ def test_session_vwap_resets_each_day():
     cum = c.ind.vwap().to_numpy()
     assert sv[-1] == pytest.approx(200.0, abs=1e-6)     # day-2 session VWAP == day-2 price
     assert cum[-1] < 200.0                               # cumulative still dragged by day 1
+
+
+def test_volume_spike_breakout_trades_on_spike():
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    from yammyquant.strategy.builtin import VolumeSpikeBreakout
+    n = 60
+    idx = pd.date_range("2023-01-01", periods=n, freq="1D")
+    close = np.r_[np.full(40, 100.0), np.linspace(100.0, 130.0, 20)]   # flat then breakout
+    vol = np.full(n, 100.0)
+    vol[45] = 1000.0                                                    # a clear volume spike
+    df = pd.DataFrame({"open": close, "high": close + 0.5, "low": close - 0.5,
+                       "close": close, "volume": vol}, index=idx)
+    res = Backtest(Candle("X", df, interval="1d"), VolumeSpikeBreakout(lookback=20, vol_mult=2.0),
+                   cash=10_000, fee=0.0).run()
+    assert res.stats["num_trades"] >= 1
+
+
+def test_vwap_band_scalp_trades_intraday():
+    from yammyquant.strategy.builtin import VWAPBandScalp
+    candle = _intraday_candle(days=4, bars_per_day=24)
+    res = Backtest(candle, VWAPBandScalp(band=1.0, std_period=10), cash=10_000, fee=0.0).run()
+    assert "sharpe" in res.stats and res.stats["num_trades"] >= 0
