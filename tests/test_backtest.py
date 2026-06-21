@@ -1,5 +1,68 @@
+import pandas as pd
+
 from yammyquant.backtest.engine import Backtest, BacktestResult
+from yammyquant.backtest.order import Action, Order
+from yammyquant.data.candle import Candle
+from yammyquant.strategy.base import Strategy
 from yammyquant.strategy.builtin import MACross, VolatilityBreakout
+
+
+class _BuyOnceStrategy(Strategy):
+    """Emits a single BUY on the very first eligible bar, then holds."""
+
+    warmup = 1
+
+    def reset(self):
+        self._fired = False
+
+    def on_bar(self, window):
+        if getattr(self, "_fired", False):
+            return []
+        self._fired = True
+        return [Order(Action.BUY, window.ticker, quantity=1.0)]
+
+
+def _ohlc_candle():
+    # open and close differ each bar so a fill price reveals which bar/field filled
+    idx = pd.date_range("2023-01-01", periods=4, freq="1D")
+    df = pd.DataFrame(
+        {"open": [100.0, 110.0, 120.0, 130.0],
+         "high": [105.0, 115.0, 125.0, 135.0],
+         "low": [95.0, 105.0, 115.0, 125.0],
+         "close": [101.0, 111.0, 121.0, 131.0],
+         "volume": [1.0, 1.0, 1.0, 1.0]},
+        index=idx,
+    )
+    return Candle("T", df, interval="1d")
+
+
+def test_fill_timing_next_open_fills_at_next_bar_open():
+    candle = _ohlc_candle()
+    # BUY decided on bar 0 (close 101) should fill at bar 1's OPEN (110), not close 101
+    res = Backtest(candle, _BuyOnceStrategy(), cash=10_000.0, fee=0.0,
+                   fill_timing="next_open").run()
+    buys = res.trades[res.trades["action"] == "BUY"]
+    assert len(buys) == 1
+    assert float(buys.iloc[0]["price"]) == 110.0
+
+
+def test_fill_timing_close_is_legacy_same_bar():
+    candle = _ohlc_candle()
+    # legacy mode fills on the signal bar's own close (101)
+    res = Backtest(candle, _BuyOnceStrategy(), cash=10_000.0, fee=0.0,
+                   fill_timing="close").run()
+    buys = res.trades[res.trades["action"] == "BUY"]
+    assert len(buys) == 1
+    assert float(buys.iloc[0]["price"]) == 101.0
+
+
+def test_fill_timing_rejects_bad_value():
+    try:
+        Backtest(_ohlc_candle(), _BuyOnceStrategy(), fill_timing="bogus")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for bad fill_timing")
 
 
 def test_macross_runs_and_trades(sine_candle):
