@@ -759,6 +759,15 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
     integ = integrity(store)
     issues += [f"{p} data integrity" for p in integ["problems"]]
 
+    # auto mode awareness: surface whether hands-off LIVE execution is armed
+    from yammyquant.ops.trading import live_trading_allowed
+    auto_trade = bool(state.get("auto_trade"))
+    auto_approve = bool(state.get("auto_approve"))
+    live_mode = state.get("trade_mode", "paper") == "live"
+    auto_live_armed = auto_trade and auto_approve and live_mode and live_trading_allowed()
+    if auto_live_armed:
+        issues.append("AUTO LIVE armed: cycles place live orders without approval")
+
     return {
         "ok": not issues,
         "issues": issues,
@@ -768,6 +777,10 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
         "default_exchange": cfg["default_exchange"],
         "pending_trades": len(state.trades(status="pending")),
         "open_positions": len(state.positions()),
+        "auto_mode": {"auto_trade": auto_trade, "auto_approve": auto_approve,
+                      "trade_mode": state.get("trade_mode", "paper"),
+                      "live_trading_allowed": live_trading_allowed(),
+                      "auto_live_armed": auto_live_armed},
     }
 
 

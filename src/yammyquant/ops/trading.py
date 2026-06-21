@@ -42,6 +42,13 @@ class TradeManager:
     def _fee_rate(self, order_type: str = "market") -> float:
         return self._sched.rate(order_type) if self._sched else self.fee
 
+    def _auto_approve_live(self) -> bool:
+        """Hands-off live execution — needs BOTH the user's opt-in setting
+        (``auto_approve``) AND the env flag (``YQ_ALLOW_LIVE=1``). Neither is ever
+        set by the operator; this only skips the per-order approval, not the env
+        gate or the risk policy."""
+        return bool(self.state.get("auto_approve", False)) and live_trading_allowed()
+
     def _fill_price(self, side: str, price: float, order_type: str = "market") -> float:
         """Apply slippage to a market fill — worse for the taker (buy up, sell down)."""
         if self.slippage <= 0 or order_type == "limit":
@@ -102,6 +109,19 @@ class TradeManager:
             trade_id = self.state.add_trade(
                 ticker, side, quantity, price, "live", "pending", rationale, **meta
             )
+            # AUTO MODE: when the user has opted into hands-off live trading
+            # (auto_approve setting) AND live is enabled (YQ_ALLOW_LIVE=1), place
+            # the order now without waiting for per-order approval — for AFK
+            # scalping where confirming every trade isn't feasible. The risk policy
+            # already vetted this order above, and the fill is still notified.
+            if self._auto_approve_live():
+                self.state.log("trade", f"LIVE {order_type} {side} {quantity} {ticker} "
+                               f"@ {price} auto-approved (#{trade_id})", trade_id=trade_id)
+                trade = self.approve(trade_id)
+                self._notify_trade(trade, context,
+                                   headline=f"🤖 LIVE order auto-executed ({trade['status']})",
+                                   level="action")
+                return trade
             self.state.log(
                 "trade",
                 f"LIVE {order_type} {side} {quantity} {ticker} @ {price} queued for approval (#{trade_id})",

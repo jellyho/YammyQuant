@@ -689,6 +689,23 @@ def test_promotion_gate(tmp_path):
     assert out2["live_trading_allowed"] is False   # not armed without YQ_ALLOW_LIVE
 
 
+def test_doctor_flags_auto_live_armed(tmp_path, monkeypatch):
+    store = _seed_store(tmp_path, stale=False)
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    # all three opt-ins + the env flag -> hands-off live is armed
+    state.set("auto_trade", True)
+    state.set("auto_approve", True)
+    state.set("trade_mode", "live")
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    rep = ops.doctor(store, state)
+    assert rep["auto_mode"]["auto_live_armed"] is True
+    assert any("AUTO LIVE armed" in i for i in rep["issues"])
+    # drop the env flag -> not armed
+    monkeypatch.delenv("YQ_ALLOW_LIVE", raising=False)
+    assert ops.doctor(store, state)["auto_mode"]["auto_live_armed"] is False
+
+
 def test_promotion_per_strategy_from_attribution(tmp_path):
     state = LiveState(tmp_path / "s.db")
     # baseline for macross with a backtested win-rate
