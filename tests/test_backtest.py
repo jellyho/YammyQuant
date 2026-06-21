@@ -353,3 +353,21 @@ def test_var_cvar_empty_safe():
 def test_summary_includes_tail_risk(sine_candle):
     res = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
     assert "var_95" in res.stats and "cvar_95" in res.stats
+
+
+def test_monte_carlo_paths_and_risk_of_ruin():
+    import numpy as np
+    from yammyquant.metrics.performance import monte_carlo
+    rng = np.random.default_rng(0)
+    # mildly positive drift -> median final > 0, ordered percentiles
+    rets = pd.Series(rng.normal(0.001, 0.02, 500))
+    mc = monte_carlo(rets, n_sims=300, ruin_drawdown=0.5)
+    assert mc["mc_return_p5"] <= mc["mc_return_median"] <= mc["mc_return_p95"]
+    assert mc["mc_maxdd_worst5"] <= mc["mc_maxdd_median"] <= 0
+    assert 0.0 <= mc["risk_of_ruin"] <= 1.0
+
+
+def test_monte_carlo_empty_safe():
+    from yammyquant.metrics.performance import monte_carlo
+    out = monte_carlo(pd.Series([0.01]), n_sims=50)
+    assert out["risk_of_ruin"] == 0.0

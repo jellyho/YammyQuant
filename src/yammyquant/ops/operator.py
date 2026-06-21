@@ -251,6 +251,8 @@ def backtest(
     borrow_fee: float = 0.0,
     risk: Optional[dict] = None,
     bootstrap: int = 0,
+    monte_carlo: int = 0,
+    ruin: float = 0.5,
     regime: Optional[dict] = None,
     session: Optional[dict] = None,
     start: Optional[str] = None,
@@ -297,6 +299,10 @@ def backtest(
         ppy = _BARS_PER_YEAR.get(interval or "", 252)
         stats.update(bootstrap_sharpe_ci(rets, ppy, n_boot=int(bootstrap)))
         stats["psr"] = probabilistic_sharpe_ratio(rets)
+    if monte_carlo and len(eq) > 2:
+        from yammyquant.metrics.performance import monte_carlo as _mc
+        stats.update(_mc(eq["equity"].pct_change().dropna(), n_sims=int(monte_carlo),
+                         ruin_drawdown=ruin))
     if state:
         state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **stats)
     return stats
