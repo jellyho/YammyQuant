@@ -405,3 +405,20 @@ def test_alpha_beta_empty_safe():
     from yammyquant.metrics.performance import alpha_beta
     ab = alpha_beta(pd.Series([0.01]), pd.Series([0.01]), 252)
     assert ab == {"alpha": 0.0, "beta": 0.0}
+
+
+def test_maker_taker_fees_by_order_type():
+    import pytest
+    # market (taker) and limit (maker) fills charged at their respective rates
+    candle = _ohlc_candle()   # opens 100,110,120,130; lows 95,105,115,125
+    mkt = Backtest(candle, _OrderOnce(Action.BUY, price=101.0), cash=10_000.0,
+                   maker_fee=0.001, taker_fee=0.005, fill_timing="next_open").run()
+    fee_mkt = float(mkt.trades.iloc[0]["fee"])
+    px_mkt = float(mkt.trades.iloc[0]["price"])              # 110 (next open)
+    assert fee_mkt == pytest.approx(px_mkt * 1.0 * 0.005)    # taker rate
+
+    lim = Backtest(candle, _OrderOnce(Action.BUY, price=108.0, otype=OrderType.LIMIT),
+                   cash=10_000.0, maker_fee=0.001, taker_fee=0.005).run()
+    fee_lim = float(lim.trades.iloc[0]["fee"])
+    px_lim = float(lim.trades.iloc[0]["price"])              # 108 (limit)
+    assert fee_lim == pytest.approx(px_lim * 1.0 * 0.001)    # maker rate

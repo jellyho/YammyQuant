@@ -589,3 +589,17 @@ def test_decide_session_gate_vetoes_entry(tmp_path, fake_exchange):
     state.set("session_days", None)
     out2 = ops.decide(store, state, weight=0.2, execute=False)
     assert [p for p in out2["proposals"] if p["side"] == "BUY"]
+
+
+def test_backtest_fee_exchange_applies_schedule(tmp_path):
+    store = DuckDBStore(tmp_path / "store")
+    n = 250
+    idx = pd.date_range("2022-01-01", periods=n, freq="1D")
+    close = 100 + 10 * np.sin(np.arange(n) / 7.0)
+    store.write(Candle("OSC", pd.DataFrame(
+        {"open": close, "high": close + 1, "low": close - 1, "close": close,
+         "volume": np.full(n, 1.0)}, index=idx), interval="1d"))
+    out = ops.backtest(store, "OSC", "1d", "macross", {"fast": 5, "slow": 20},
+                       fee_exchange="binance")
+    assert out["fee_exchange"] == "binance"
+    assert out["maker_fee"] == 0.001 and out["taker_fee"] == 0.001
