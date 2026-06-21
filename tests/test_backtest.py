@@ -189,6 +189,27 @@ def test_significance_safe_on_short_series():
     assert out["sharpe_p_value"] == 1.0
 
 
+def test_borrow_fee_drags_short_equity():
+    candle = _ohlc_candle()   # opens 100,110,120,130
+    strat_args = [Action.SELL, None, None]   # open a short at bar1, hold to the end
+    base = Backtest(candle, _ScriptedStrategy(list(strat_args)), cash=10_000.0, fee=0.0,
+                    fill_timing="next_open", allow_short=True, borrow_fee=0.0).run()
+    charged = Backtest(candle, _ScriptedStrategy(list(strat_args)), cash=10_000.0, fee=0.0,
+                       fill_timing="next_open", allow_short=True, borrow_fee=0.50).run()
+    # a borrow cost can only reduce the short's ending equity
+    assert charged.equity_curve["equity"].iloc[-1] < base.equity_curve["equity"].iloc[-1]
+
+
+def test_no_borrow_fee_when_flat_or_long():
+    candle = _ohlc_candle()
+    a = Backtest(candle, _BuyOnceStrategy(), cash=10_000.0, fee=0.0,
+                 fill_timing="next_open", borrow_fee=0.0).run()
+    b = Backtest(candle, _BuyOnceStrategy(), cash=10_000.0, fee=0.0,
+                 fill_timing="next_open", borrow_fee=0.50).run()
+    # long-only run is unaffected by a short borrow fee
+    assert a.equity_curve["equity"].iloc[-1] == b.equity_curve["equity"].iloc[-1]
+
+
 def test_engine_shorts_through_full_loop():
     candle = _ohlc_candle()  # opens 100,110,120,130 (rising)
     # SELL on bar0 -> short opens at bar1 open (110); BUY on bar2 -> cover at bar3 open (130)

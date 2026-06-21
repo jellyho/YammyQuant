@@ -240,6 +240,7 @@ def backtest(
     slippage: float = 0.0,
     fill_timing: str = "next_open",
     allow_short: bool = False,
+    borrow_fee: float = 0.0,
     risk: Optional[dict] = None,
     bootstrap: int = 0,
     regime: Optional[dict] = None,
@@ -272,7 +273,7 @@ def backtest(
         risk_cfg = RiskConfig(**{k: v for k, v in risk.items() if v is not None})
     result = Backtest(candle, strat, cash=cash, fee=fee, slippage=slippage,
                       fill_timing=fill_timing, allow_short=allow_short,
-                      risk=risk_cfg).run()
+                      borrow_fee=borrow_fee, risk=risk_cfg).run()
     stats = dict(result.stats)
     eq = result.equity_curve
     if len(eq):
