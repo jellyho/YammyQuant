@@ -428,6 +428,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--weights", help="comma list of floats matching symbols")
     p.add_argument("--risk-parity", action="store_true",
                    help="size by inverse volatility instead of equal weight")
+    p.add_argument("--diversified", action="store_true",
+                   help="correlation-aware inverse-vol (downweight correlated holdings)")
 
     p = sub.add_parser("correlate", help="return-correlation matrix across symbols")
     p.add_argument("symbols", nargs="+")
@@ -743,7 +745,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         weights = [float(x) for x in args.weights.split(",")] if args.weights else None
         out = ops.portfolio_backtest(DuckDBStore(args.store), args.symbols, args.interval,
                                      args.strategy, weights=weights,
-                                     risk_parity=args.risk_parity)
+                                     risk_parity=args.risk_parity,
+                                     diversified=args.diversified)
         _print({"portfolio": out["portfolio"], "per_symbol": out["per_symbol"]})
         return 0
 

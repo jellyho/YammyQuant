@@ -1070,13 +1070,14 @@ def listen(state: LiveState) -> dict:
 def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str,
                        params: Optional[dict] = None, weights: Optional[list] = None,
                        cash: float = 10_000.0, fee: float = 0.001,
-                       risk_parity: bool = False) -> dict:
+                       risk_parity: bool = False, diversified: bool = False) -> dict:
     """Backtest a strategy across several symbols and combine into one portfolio.
 
-    Capital is split by ``weights`` (equal by default, or inverse-volatility when
-    ``risk_parity=True``); each symbol runs its own single-symbol backtest with
-    its slice of cash, and the per-symbol equity curves are aligned and summed
-    into a portfolio curve + headline stats.
+    Capital is split by ``weights`` (equal by default; inverse-volatility when
+    ``risk_parity=True``; correlation-aware inverse-vol when ``diversified=True``);
+    each symbol runs its own single-symbol backtest with its slice of cash, and
+    the per-symbol equity curves are aligned and summed into a portfolio curve +
+    headline stats.
     """
     import pandas as pd
     from yammyquant.metrics.performance import summary
@@ -1084,8 +1085,9 @@ def portfolio_backtest(store: DuckDBStore, symbols, interval: str, strategy: str
     symbols = [s for s in symbols if s]
     if not symbols:
         raise ValueError("need at least one symbol")
-    if risk_parity and weights is None:
-        wmap = risk_parity_weights(store, symbols, interval)
+    if weights is None and (diversified or risk_parity):
+        wmap = (diversified_weights(store, symbols, interval) if diversified
+                else risk_parity_weights(store, symbols, interval))
         symbols = list(wmap)
         weights = [wmap[s] for s in symbols]
     weights = weights or [1.0 / len(symbols)] * len(symbols)
@@ -1182,6 +1184,52 @@ def risk_parity_weights(store: DuckDBStore, symbols, interval: str = "1d",
     if not total:
         raise ValueError("no symbols with usable volatility")
     return {sym: round(w / total, 4) for sym, w in inv_vol.items()}
+
+
+def diversified_weights(store: DuckDBStore, symbols, interval: str = "1d",
+                        lookback: int = 60) -> dict:
+    """Correlation-aware weights: inverse-vol tilted toward diversifiers.
+
+    Starts from inverse-volatility (risk parity) and multiplies each symbol's
+    weight by a diversification factor ``1 - mean(correlation to the others)``,
+    so assets that move with the rest of the book are downweighted and genuine
+    diversifiers (low or negative correlation) are boosted. Falls back to
+    inverse-vol when fewer than two symbols have overlapping data.
+    """
+    import numpy as np
+    import pandas as pd
+
+    symbols = [s for s in symbols if s]
+    if not symbols:
+        raise ValueError("need at least one symbol")
+    series = {}
+    for sym in symbols:
+        try:
+            candle = store.read(sym, interval)
+        except Exception:
+            continue
+        r = pd.Series(candle.close, index=pd.DatetimeIndex(candle.index),
+                      dtype=float).pct_change()
+        if r.notna().sum() >= 2:
+            series[sym] = r
+    if not series:
+        raise ValueError("no symbols with usable data")
+
+    frame = pd.concat(series, axis=1).dropna().tail(lookback)
+    if frame.shape[1] < 2 or len(frame) < 3:
+        return risk_parity_weights(store, list(series), interval, lookback)
+
+    vol = frame.std() * (252 ** 0.5)
+    inv_vol = (1.0 / vol).replace([np.inf, -np.inf], np.nan).dropna()
+    corr = frame.corr()
+    n = corr.shape[1]
+    avg_corr = (corr.sum(axis=1) - 1.0) / (n - 1)          # mean signed corr to others
+    divers = (1.0 - avg_corr).clip(lower=0.05)             # downweight the crowd, boost diversifiers
+    raw = (inv_vol * divers).dropna()
+    total = float(raw.sum())
+    if total <= 0:
+        raise ValueError("no symbols with usable volatility")
+    return {sym: round(float(w) / total, 4) for sym, w in raw.items()}
 
 
 def attribution(state: LiveState) -> dict:

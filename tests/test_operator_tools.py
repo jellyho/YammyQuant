@@ -270,6 +270,46 @@ def test_risk_parity_weights_inverse_vol(tmp_path):
     assert w["CALM"] > w["WILD"]          # lower vol -> larger weight
 
 
+def test_diversified_weights_downweights_correlated(tmp_path):
+    import numpy as np
+    import pandas as pd
+    store = DuckDBStore(tmp_path / "store")
+    n = 300
+    idx = pd.date_range("2022-01-01", periods=n, freq="1D")
+    rng = np.random.default_rng(7)
+    base = rng.normal(0, 0.02, n)
+    # A and B are near-identical (redundant); C is an independent diversifier,
+    # all at the same volatility so only correlation differs
+    rets = {
+        "A": base,
+        "B": base + rng.normal(0, 0.002, n),
+        "C": rng.normal(0, 0.02, n),
+    }
+    for sym, r in rets.items():
+        close = 100 * np.exp(np.cumsum(r))
+        store.write(Candle(sym, pd.DataFrame(
+            {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+             "volume": np.full(n, 1000.0)}, index=idx), interval="1d"))
+    w = ops.diversified_weights(store, ["A", "B", "C"], "1d", lookback=200)
+    assert abs(sum(w.values()) - 1.0) < 1e-6
+    # the independent diversifier should get more than either correlated twin
+    assert w["C"] > w["A"] and w["C"] > w["B"]
+
+
+def test_diversified_weights_single_symbol_fallback(tmp_path):
+    import numpy as np
+    import pandas as pd
+    store = DuckDBStore(tmp_path / "store")
+    n = 100
+    idx = pd.date_range("2022-01-01", periods=n, freq="1D")
+    close = 100 * np.exp(np.cumsum(np.random.default_rng(1).normal(0, 0.02, n)))
+    store.write(Candle("ONE", pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+         "volume": np.full(n, 1.0)}, index=idx), interval="1d"))
+    w = ops.diversified_weights(store, ["ONE"], "1d")
+    assert w == {"ONE": 1.0}
+
+
 def test_portfolio_risk_parity_weights(tmp_path):
     import numpy as np
     import pandas as pd
