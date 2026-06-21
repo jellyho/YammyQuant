@@ -24,9 +24,19 @@ def live_trading_allowed() -> bool:
 
 
 class TradeManager:
-    def __init__(self, state: LiveState, fee: float = 0.001):
+    def __init__(self, state: LiveState, fee: float = 0.001, exchange: Optional[str] = None):
         self.state = state
         self.fee = fee
+        self.exchange = exchange
+        # when an exchange is given, paper/live fills cost that venue's real
+        # maker/taker fees (so paper mirrors live); otherwise the flat ``fee``
+        self._sched = None
+        if exchange:
+            from yammyquant.exchanges.fees import fee_schedule
+            self._sched = fee_schedule(exchange)
+
+    def _fee_rate(self, order_type: str = "market") -> float:
+        return self._sched.rate(order_type) if self._sched else self.fee
 
     # -- cash --------------------------------------------------------------
     @property
@@ -97,7 +107,7 @@ class TradeManager:
         trade_id = self.state.add_trade(
             ticker, side, quantity, price, "paper", "pending", rationale, **meta
         )
-        self._fill(trade_id, ticker, side, quantity, price)
+        self._fill(trade_id, ticker, side, quantity, price, order_type)
         trade = self.state.get_trade(trade_id)
         filled = trade["status"] == "filled"
         self._notify_trade(
@@ -137,8 +147,10 @@ class TradeManager:
                 self.state.log("trade", f"LIVE limit #{trade_id} submitted (awaiting fill)")
                 return self.state.get_trade(trade_id)
 
+        otype = (trade.get("meta") or {}).get("order_type", "market") \
+            if isinstance(trade.get("meta"), dict) else "market"
         self._fill(trade_id, trade["ticker"], trade["side"],
-                   trade["quantity"], trade["price"])
+                   trade["quantity"], trade["price"], otype)
         self.state.log("trade", f"approved & filled trade #{trade_id}", trade_id=trade_id)
         return self.state.get_trade(trade_id)
 
@@ -165,9 +177,10 @@ class TradeManager:
         return equity
 
     # -- internals ---------------------------------------------------------
-    def _apply(self, ticker: str, side: str, qty: float, price: float):
+    def _apply(self, ticker: str, side: str, qty: float, price: float,
+               order_type: str = "market"):
         """Apply a fill to cash + position. Returns (ok, realized_pnl)."""
-        fee = price * qty * self.fee
+        fee = price * qty * self._fee_rate(order_type)
         pos = {p["ticker"]: p for p in self.state.positions()}.get(
             ticker, {"quantity": 0.0, "avg_price": 0.0})
         if side == "BUY":
@@ -187,8 +200,9 @@ class TradeManager:
         self.state.upsert_position(ticker, remaining, pos["avg_price"] if remaining > 1e-12 else 0.0)
         return True, realized
 
-    def _fill(self, trade_id: int, ticker: str, side: str, qty: float, price: float) -> None:
-        ok, realized = self._apply(ticker, side, qty, price)
+    def _fill(self, trade_id: int, ticker: str, side: str, qty: float, price: float,
+              order_type: str = "market") -> None:
+        ok, realized = self._apply(ticker, side, qty, price, order_type)
         if not ok:
             self.state.set_trade_status(trade_id, "rejected")
             self.state.log("trade", f"trade #{trade_id} rejected: insufficient funds/holdings")
@@ -200,7 +214,9 @@ class TradeManager:
 
     def _fill_partial(self, trade: dict, qty: float) -> None:
         """Apply a partial fill (delta qty) without closing the order."""
-        ok, realized = self._apply(trade["ticker"], trade["side"], qty, trade["price"])
+        otype = (trade.get("meta") or {}).get("order_type", "market") \
+            if isinstance(trade.get("meta"), dict) else "market"
+        ok, realized = self._apply(trade["ticker"], trade["side"], qty, trade["price"], otype)
         if ok and trade["side"] == "SELL":
             prev = (trade.get("meta") or {}).get("realized", 0.0) if isinstance(trade.get("meta"), dict) else 0.0
             self.state.set_trade_meta(trade["id"], realized=prev + realized)

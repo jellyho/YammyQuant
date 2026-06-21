@@ -603,3 +603,31 @@ def test_backtest_fee_exchange_applies_schedule(tmp_path):
                        fee_exchange="binance")
     assert out["fee_exchange"] == "binance"
     assert out["maker_fee"] == 0.001 and out["taker_fee"] == 0.001
+
+
+def test_paper_fill_uses_exchange_fees():
+    import tempfile
+    import pathlib
+    from yammyquant.ops.trading import TradeManager
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    state = LiveState(tmp / "s.db")
+    tm = TradeManager(state, exchange="binance")     # 0.001 taker
+    tm.cash = 10_000.0
+    tm.submit("BTCUSDT", "BUY", 1.0, 100.0, order_type="market")
+    trade = state.trades()[0]
+    assert trade["status"] == "filled"
+    # cash reduced by notional + binance taker fee (100*1*0.001 = 0.1)
+    assert tm.cash == pytest.approx(10_000.0 - 100.0 - 0.1)
+
+
+def test_paper_fill_limit_uses_maker_fee():
+    import tempfile
+    import pathlib
+    from yammyquant.ops.trading import TradeManager
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    state = LiveState(tmp / "s.db")
+
+    tm = TradeManager(state, exchange="upbit")       # 0.0005 maker == taker
+    tm.cash = 10_000.0
+    tm.submit("KRW-BTC", "BUY", 1.0, 100.0, order_type="limit")
+    assert tm.cash == pytest.approx(10_000.0 - 100.0 - 100.0 * 0.0005)
