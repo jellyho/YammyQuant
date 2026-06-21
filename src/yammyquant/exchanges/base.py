@@ -72,6 +72,16 @@ class Exchange(ABC):
             raise RuntimeError(f"no price available for {ticker}")
         return float(candle.close[-1])
 
+    def fees(self) -> dict:
+        """Maker/taker trading fees as fractions, e.g. ``{"maker": .001, "taker": .001}``.
+
+        Defaults to this venue's published schedule; live adapters may override to
+        fetch the account's actual fee tier from the API.
+        """
+        from yammyquant.exchanges.fees import fee_schedule
+        s = fee_schedule(self.name)
+        return {"maker": s.maker, "taker": s.taker}
+
     def balances(self) -> dict:
         raise NotImplementedError(f"{self.name} adapter does not implement balances()")
 
