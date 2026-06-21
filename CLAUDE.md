@@ -135,7 +135,11 @@ order needs approval, a risk rejection happens, or a cycle finds signals.
 (`DISCORD_BOT_TOKEN`+`DISCORD_CHANNEL_ID` and/or `SLACK_BOT_TOKEN`+`SLACK_CHANNEL_ID`)
 and `yq listen` (also run automatically each `yq cycle`) polls that channel and
 drops your messages into the inbox — so you can steer the operator from Slack/Discord
-and it picks the intent up on the next `yq recall`. Keep a
+and it picks the intent up on the next `yq recall`. **Remote commands**: a message
+that is a single keyword or is prefixed with `/`/`!` is acted on immediately —
+`arm` / `disarm` (toggle `auto_approve`), `pause` / `resume` (toggle `auto_trade`),
+`flat` (flatten all positions), `status` (push a digest) — so you can disarm or
+flatten from your phone while AFK without waiting for a session. Keep a
 **journal** — you're ephemeral across sessions, so record why you entered/exited;
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
 keeps data fresh and signals current while you're away.
