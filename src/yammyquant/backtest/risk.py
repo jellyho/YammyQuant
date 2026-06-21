@@ -24,6 +24,9 @@ class RiskConfig:
     - ``sizing="fraction"``   — invest ``risk_fraction`` of equity per entry
     - ``sizing="volatility"`` — size so that ``vol_target`` (annualized) is met,
       using recent return volatility; caps at ``max_position_fraction``
+    - ``sizing="kelly"``      — size by the capped Kelly fraction from the realized
+      record (``kelly_scale`` × full Kelly, e.g. 0.5 for half-Kelly); falls back
+      to ``risk_fraction`` until ``kelly_min_trades`` closes exist
 
     Protective exits (checked each bar against intrabar high/low)
     -------------------------------------------------------------
@@ -48,6 +51,8 @@ class RiskConfig:
     risk_fraction: float = 0.1
     vol_target: float = 0.5
     vol_lookback: int = 20
+    kelly_scale: float = 1.0
+    kelly_min_trades: int = 10
     max_position_fraction: float = 1.0
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
@@ -69,7 +74,8 @@ class RiskManager:
 
     # -- position sizing ---------------------------------------------------
     def size_entry(self, equity: float, price: float,
-                   recent_returns: Optional[np.ndarray] = None) -> float:
+                   recent_returns: Optional[np.ndarray] = None,
+                   realized_pnls: Optional[np.ndarray] = None) -> float:
         """Quantity (base units) to buy for an entry, per the sizing policy."""
         c = self.config
         if c.sizing == "off" or price <= 0:
@@ -80,10 +86,34 @@ class RiskManager:
             vol = self._annualized_vol(recent_returns)
             scale = c.vol_target / vol if vol > 0 else c.max_position_fraction
             notional = equity * min(scale, c.max_position_fraction)
+        elif c.sizing == "kelly":
+            notional = equity * self.kelly_fraction(realized_pnls)
         else:
             raise ValueError(f"unknown sizing {c.sizing!r}")
         notional = min(notional, equity * c.max_position_fraction)
         return max(notional / price, 0.0)
+
+    def kelly_fraction(self, realized_pnls: Optional[np.ndarray]) -> float:
+        """Capped Kelly fraction from the realized record: ``W - (1-W)/R``.
+
+        ``W`` is the win rate and ``R`` the payoff ratio (avg win / avg loss).
+        Scaled by ``kelly_scale`` (e.g. 0.5 for half-Kelly) and clamped to
+        ``[0, max_position_fraction]``. Until ``kelly_min_trades`` closed trades
+        exist (or with no losses to anchor the ratio) it falls back to
+        ``risk_fraction`` so early sizing isn't wild.
+        """
+        c = self.config
+        pnls = np.asarray(realized_pnls, dtype=float) if realized_pnls is not None \
+            else np.array([])
+        if pnls.size < c.kelly_min_trades:
+            return min(c.risk_fraction, c.max_position_fraction)
+        wins, losses = pnls[pnls > 0], pnls[pnls < 0]
+        if wins.size == 0 or losses.size == 0:
+            return min(c.risk_fraction, c.max_position_fraction)
+        win_rate = wins.size / pnls.size
+        payoff = wins.mean() / abs(losses.mean())
+        f = win_rate - (1 - win_rate) / payoff
+        return float(min(max(f * c.kelly_scale, 0.0), c.max_position_fraction))
 
     def _annualized_vol(self, recent_returns: Optional[np.ndarray]) -> float:
         if recent_returns is None or len(recent_returns) < 2:

@@ -287,6 +287,15 @@ class Backtest:
         if i >= lookback:
             seg = close[i - lookback : i + 1]
             recent = seg[1:] / seg[:-1] - 1.0
-        qty = self.risk.size_entry(self.portfolio.equity(), ref_price, recent)
+        realized = None
+        if self.risk.config.sizing == "kelly":
+            realized = self._closed_pnls()
+        qty = self.risk.size_entry(self.portfolio.equity(), ref_price, recent,
+                                   realized_pnls=realized)
         if qty > 0:
             order.quantity = qty
+
+    def _closed_pnls(self):
+        """Realized PnL of closed trades so far (for Kelly sizing)."""
+        rows = self.portfolio._trades
+        return [r["realized_pnl"] for r in rows if r.get("closing")]

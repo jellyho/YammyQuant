@@ -286,9 +286,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
     p.add_argument("--allow-short", action="store_true",
                    help="permit short positions (SELL when flat opens a short, BUY covers)")
-    p.add_argument("--sizing", choices=["off", "fraction", "volatility"],
+    p.add_argument("--sizing", choices=["off", "fraction", "volatility", "kelly"],
                    help="position sizing policy (default: strategy's own quantity)")
     p.add_argument("--risk-fraction", type=float, help="fraction of equity per entry (sizing=fraction)")
+    p.add_argument("--kelly-scale", type=float, help="fraction of full Kelly (0.5 = half-Kelly)")
     p.add_argument("--stop-loss", type=float, help="fractional stop-loss from entry (0.05 = 5%%)")
     p.add_argument("--take-profit", type=float, help="fractional take-profit from entry")
     p.add_argument("--atr-stop", type=float, help="stop at N×ATR from entry (volatility-scaled)")
@@ -579,6 +580,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                   {"fast": args.fast, "slow": args.slow, "k": args.k, "size": args.size}.items()
                   if v is not None}
         risk = {"sizing": args.sizing, "risk_fraction": args.risk_fraction,
+                "kelly_scale": args.kelly_scale,
                 "stop_loss": args.stop_loss, "take_profit": args.take_profit,
                 "atr_stop": args.atr_stop, "atr_take": args.atr_take,
                 "trailing_stop": args.trailing_stop, "breakeven_trigger": args.breakeven,
