@@ -408,8 +408,43 @@ def mark(state: LiveState, exchange: Optional[str] = None, interval: str = "1m")
     return {"equity": equity, "prices": prices}
 
 
+def integrity(store: DuckDBStore, ticker: Optional[str] = None,
+              interval: Optional[str] = None) -> dict:
+    """Audit stored candles for gaps, duplicates, bad OHLC and NaNs.
+
+    With no ``ticker`` it scans every stored series; with a ``ticker`` (and
+    optional ``interval``) it narrows the scan. Returns a per-series report and
+    the list of series that flagged problems.
+    """
+    from yammyquant.data.integrity import candle_integrity
+
+    targets = []
+    for tk, intervals in store.info().items():
+        if ticker and tk != ticker:
+            continue
+        for iv in intervals:
+            if interval and iv != interval:
+                continue
+            targets.append((tk, iv))
+
+    series, problems = [], []
+    for tk, iv in targets:
+        try:
+            candle = store.read(tk, iv)
+        except Exception as exc:
+            series.append({"ticker": tk, "interval": iv, "error": str(exc), "ok": False})
+            problems.append(f"{tk}/{iv}")
+            continue
+        rep = candle_integrity(candle, _INTERVAL_SECONDS.get(iv))
+        rep.update(ticker=tk, interval=iv)
+        series.append(rep)
+        if not rep["ok"]:
+            problems.append(f"{tk}/{iv}")
+    return {"ok": not problems, "problems": problems, "series": series}
+
+
 def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> dict:
-    """Health check: data freshness, config completeness, account sanity."""
+    """Health check: data freshness, integrity, config completeness, account sanity."""
     from datetime import datetime, timezone
     from yammyquant.exchanges import describe
 
@@ -431,10 +466,14 @@ def doctor(store: DuckDBStore, state: LiveState, stale_factor: float = 3.0) -> d
     if not state.get("cash"):
         issues.append("cash not initialized (set via a paper trade or config)")
 
+    integ = integrity(store)
+    issues += [f"{p} data integrity" for p in integ["problems"]]
+
     return {
         "ok": not issues,
         "issues": issues,
         "data_freshness": data,
+        "data_integrity": integ["problems"],
         "exchanges_configured": configured,
         "default_exchange": cfg["default_exchange"],
         "pending_trades": len(state.trades(status="pending")),
