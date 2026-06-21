@@ -14,6 +14,7 @@ watch everything live and leave you instructions.
    ```bash
    yq recall                 # session-start memory digest
    yq recall "BTC thesis"    # bias retrieval toward a topic
+   yq listen                 # pull new Slack/Discord messages into the inbox first
    yq inbox --mark-read      # then clear the instructions you've read
    ```
 2. **Do the work** with the toolbelt (below). Every command logs to the shared
@@ -71,6 +72,7 @@ yq recall "BTC"                            # ranked memory digest (recency×impo
 yq new strategy my_edge                    # scaffold your own strategy (also: indicator / skill)
 yq plugins                                 # list operator-authored plugins (auto-loaded)
 yq notify --status                         # push a status digest to Discord/Slack
+yq listen                                   # pull user messages from Slack/Discord into the inbox
 yq status           # full cockpit state snapshot (JSON)
 yq dashboard        # launch the cockpit web app (http://127.0.0.1:8000)
 ```
@@ -111,7 +113,12 @@ performance falls below it (out-of-sample edge erosion).
 enforced on every order (paper + live) — it can reject a trade before it fills.
 **Notifications** (Discord webhook via `DISCORD_WEBHOOK_URL` and/or Slack via
 `SLACK_WEBHOOK_URL`; `yq notify [msg]` / `yq notify --status`) fire when a live
-order needs approval, a risk rejection happens, or a cycle finds signals. Keep a
+order needs approval, a risk rejection happens, or a cycle finds signals.
+**Inbound control** is the return path: set read **bot** credentials
+(`DISCORD_BOT_TOKEN`+`DISCORD_CHANNEL_ID` and/or `SLACK_BOT_TOKEN`+`SLACK_CHANNEL_ID`)
+and `yq listen` (also run automatically each `yq cycle`) polls that channel and
+drops your messages into the inbox — so you can steer the operator from Slack/Discord
+and it picks the intent up on the next `yq recall`. Keep a
 **journal** — you're ephemeral across sessions, so record why you entered/exited;
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
 keeps data fresh and signals current while you're away.
