@@ -133,6 +133,29 @@ def deflated_sharpe_ratio(returns: pd.Series, trial_sharpes: list,
     return probabilistic_sharpe_ratio(returns, sr_benchmark=e_max)
 
 
+def value_at_risk(returns: pd.Series, alpha: float = 0.05) -> float:
+    """Historical Value-at-Risk: the per-bar loss not exceeded with ``1-alpha``
+    confidence, as a positive magnitude (VaR 95% → ``alpha=0.05``)."""
+    r = pd.Series(returns).dropna()
+    if r.empty:
+        return 0.0
+    q = float(np.quantile(r, alpha))
+    return round(-q, 6)
+
+
+def expected_shortfall(returns: pd.Series, alpha: float = 0.05) -> float:
+    """Conditional VaR / expected shortfall: the mean per-bar loss in the worst
+    ``alpha`` tail, as a positive magnitude — how bad the bad days actually are."""
+    r = pd.Series(returns).dropna()
+    if r.empty:
+        return 0.0
+    q = float(np.quantile(r, alpha))
+    tail = r[r <= q]
+    if tail.empty:
+        return round(-q, 6)
+    return round(-float(tail.mean()), 6)
+
+
 def expectancy(pnl: pd.Series) -> float:
     """Expected PnL per closed trade — the headline "is this edge positive?" stat.
 
@@ -249,6 +272,8 @@ def summary(
         "sortino": round(sortino(returns, ppy), 3),
         "calmar": round(calmar(cagr, mdd), 3),
         "max_drawdown": round(mdd, 4),
+        "var_95": value_at_risk(returns, 0.05),
+        "cvar_95": expected_shortfall(returns, 0.05),
         "num_trades": int(len(trades)),
         "num_closed": n_closed,
         "win_rate": round(len(wins) / n_closed, 4) if n_closed else 0.0,

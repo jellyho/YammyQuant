@@ -329,3 +329,27 @@ def test_not_enough_data_raises(sine_candle):
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_var_and_cvar_tail_risk():
+    import numpy as np
+    from yammyquant.metrics.performance import value_at_risk, expected_shortfall
+    rng = np.random.default_rng(0)
+    rets = pd.Series(rng.normal(0.0, 0.02, 5000))
+    var = value_at_risk(rets, 0.05)
+    cvar = expected_shortfall(rets, 0.05)
+    assert var > 0 and cvar > 0
+    assert cvar >= var                    # the average tail loss is worse than the threshold
+    # ~95% VaR of N(0, .02) ≈ 1.645*0.02 ≈ 0.033
+    assert 0.02 < var < 0.05
+
+
+def test_var_cvar_empty_safe():
+    from yammyquant.metrics.performance import value_at_risk, expected_shortfall
+    assert value_at_risk(pd.Series(dtype=float)) == 0.0
+    assert expected_shortfall(pd.Series(dtype=float)) == 0.0
+
+
+def test_summary_includes_tail_risk(sine_candle):
+    res = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
+    assert "var_95" in res.stats and "cvar_95" in res.stats
