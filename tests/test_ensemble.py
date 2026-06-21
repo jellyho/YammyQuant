@@ -81,6 +81,9 @@ def test_decide_default_rule_is_any(tmp_path, fake_exchange):
     state = LiveState(tmp_path / "s.db")
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
+    # pin a single BUY voter so the result is independent of the strategy registry
+    for n in ops.STRATEGIES:
+        state.set(f"strategy.{n}.enabled", n == "volatility_breakout")
     out = ops.decide(store, state, weight=0.2, execute=False)
     assert any(p["side"] == "BUY" for p in out["proposals"])
 

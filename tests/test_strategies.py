@@ -9,6 +9,25 @@ from yammyquant.state.store import LiveState
 def test_new_strategies_registered():
     assert "rsi_reversion" in STRATEGIES
     assert "donchian_breakout" in STRATEGIES
+    # scalping additions
+    for name in ("rsi2_reversion", "keltner_squeeze_breakout", "stoch_momentum"):
+        assert name in STRATEGIES and name in DEFAULT_GRIDS
+
+
+def test_rsi2_buys_oversold_dip_in_uptrend():
+    import numpy as np
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    from yammyquant.strategy.builtin import RSI2Reversion
+    # a steep up-trend (so SMA(20) lags well below price) with a sharp 2-bar dip
+    # that crushes RSI(2) yet leaves price above the lagging trend SMA, then recovery
+    close = np.concatenate([np.linspace(100, 300, 51), [285, 272], np.linspace(285, 360, 20)])
+    idx = pd.date_range("2023-01-01", periods=len(close), freq="1D")
+    df = pd.DataFrame({"open": close, "high": close + 0.5, "low": close - 0.5,
+                       "close": close, "volume": np.full(len(close), 1.0)}, index=idx)
+    res = Backtest(Candle("X", df, interval="1d"), RSI2Reversion(period=2, trend=20),
+                   cash=10_000, fee=0.0).run()
+    assert res.stats["num_trades"] >= 1   # the dip is bought while above the trend SMA
 
 
 @pytest.mark.parametrize("name", sorted(STRATEGIES))

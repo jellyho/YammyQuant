@@ -25,6 +25,9 @@ from yammyquant.strategy.builtin import (
     VWAPBandScalp,
     VolumeSpikeBreakout,
     MicroPullback,
+    RSI2Reversion,
+    KeltnerSqueezeBreakout,
+    StochMomentum,
 )
 
 __all__ = [
@@ -56,4 +59,7 @@ __all__ = [
     "VWAPBandScalp",
     "VolumeSpikeBreakout",
     "MicroPullback",
+    "RSI2Reversion",
+    "KeltnerSqueezeBreakout",
+    "StochMomentum",
 ]

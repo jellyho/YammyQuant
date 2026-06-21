@@ -124,13 +124,16 @@ and it picks the intent up on the next `yq recall`. Keep a
 read it back next session. A **scheduler** (`yq schedule`, or cron + `yq cycle`)
 keeps data fresh and signals current while you're away.
 
-Strategies (19, all in `yq strategies` / optimizable via `yq optimize`):
+Strategies (26, all in `yq strategies` / optimizable via `yq optimize`):
 *trend* — `macross`, `ema_cross`, `triple_ema`, `macd_momentum`, `supertrend`,
 `adx_trend`, `parabolic_sar`; *breakout/vol* — `volatility_breakout`,
-`donchian_breakout`, `bollinger_breakout`, `keltner_breakout`; *mean-reversion/
-scalp* — `rsi_reversion`, `bollinger_reversion`, `stochastic_scalp`,
+`donchian_breakout`, `bollinger_breakout`, `keltner_breakout`,
+`opening_range_breakout`, `volume_spike_breakout`, `keltner_squeeze_breakout`;
+*mean-reversion/scalp* — `rsi_reversion`, `bollinger_reversion`, `stochastic_scalp`,
 `stoch_rsi_scalp`, `williams_r_scalp`, `cci_reversion`, `mfi_reversion`,
-`vwap_reversion`. Toggles set in the dashboard are read via `enabled_strategies(state)`.
+`vwap_reversion`, `vwap_band_scalp`, `micro_pullback`, `rsi2_reversion`,
+`stoch_momentum`. Wrap any with `RegimeFilter` / `SessionFilter` (meta). Toggles
+set in the dashboard are read via `enabled_strategies(state)`.
 
 Indicators (`candle.ind.<name>(...)`, 30+): `sma ema wma hma dema tema vwma vwap`,
 `rsi macd ppo roc momentum trix stoch stoch_rsi williams_r cci mfi`,

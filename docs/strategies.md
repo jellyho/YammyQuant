@@ -29,6 +29,7 @@ via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
     | `keltner_breakout` | Break of the Keltner channel (EMA ± ATR). |
     | `opening_range_breakout` | Break of the day's opening range (intraday; optional end-of-day flatten). |
     | `volume_spike_breakout` | Breakout confirmed by a volume spike vs the recent average. |
+    | `keltner_squeeze_breakout` | TTM-style squeeze (Bollinger inside Keltner) release + breakout. |
 
 === "Mean reversion / scalping"
 
@@ -44,6 +45,8 @@ via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
     | `vwap_reversion` | Fade deviations from rolling VWAP. |
     | `vwap_band_scalp` | Fade session-VWAP ± σ bands back toward VWAP (intraday scalp). |
     | `micro_pullback` | Buy shallow pullbacks within an established up-trend (fast/slow EMA). |
+    | `rsi2_reversion` | Connors RSI(2): buy deep oversold dips while above a long trend SMA. |
+    | `stoch_momentum` | Trend-aligned stochastic: %K/%D bull cross **above** the midline (rides momentum, not a reversal). |
 
 !!! tip "Scalping (5m / 15m)"
     The intraday set — `opening_range_breakout`, `vwap_band_scalp`,
