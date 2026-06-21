@@ -689,6 +689,26 @@ def test_promotion_gate(tmp_path):
     assert out2["live_trading_allowed"] is False   # not armed without YQ_ALLOW_LIVE
 
 
+def test_promotion_per_strategy_from_attribution(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    # baseline for macross with a backtested win-rate
+    state.set("expectations", {"macross:BTCUSDT:1d":
+                               {"sharpe": 1.0, "total_return": 0.2, "max_drawdown": -0.1,
+                                "win_rate": 0.6}})
+    # one attributed round-trip credited to macross (BUY voters -> SELL realized)
+    state.add_trade("BTCUSDT", "BUY", 1.0, 100.0, "paper", "filled", "",
+                    decision={"voters": {"macross": "BUY"}})
+    state.add_trade("BTCUSDT", "SELL", 1.0, 130.0, "paper", "filled", "",
+                    realized=30.0, decision={"voters": {"macross": "SELL"}})
+    out = ops.promotion_check(state, min_trades=1)
+    ps = {c["strategy"]: c for c in out["per_strategy"]}
+    assert "macross" in ps
+    assert ps["macross"]["round_trips"] == 1
+    assert ps["macross"]["paper_pnl"] == 30.0
+    assert ps["macross"]["ready"] is True       # 1 trade, +PnL, win-rate 1.0 ≥ 0.8×0.6
+    assert "macross" in out["ready_strategies"]
+
+
 def test_backtest_fee_exchange_applies_schedule(tmp_path):
     store = DuckDBStore(tmp_path / "store")
     n = 250

@@ -864,12 +864,20 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     except Exception as exc:
         state.log("cycle", f"order sync/reconcile failed: {exc}", level="warn")
 
+    # promotion readiness: grade paper vs baselines (notifies when ready to go live)
+    promotion = None
+    if state.get("expectations"):
+        try:
+            promotion = promotion_check(state)
+        except Exception as exc:
+            state.log("cycle", f"promotion check failed: {exc}", level="warn")
+
     if notify_signals and signals:
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
     return {"refreshed": refreshed, "signals": signals, "equity": equity,
             "decisions": decisions, "protection": protection, "inbound": inbound,
-            "synced": synced, "drift": drift}
+            "synced": synced, "drift": drift, "promotion": promotion}
 
 
 def collect_news(
@@ -1293,21 +1301,24 @@ def promotion_check(
     min_trades: int = 20,
     sharpe_floor: float = 0.7,
     max_dd_mult: float = 1.5,
+    win_rate_floor: float = 0.8,
 ) -> dict:
     """Is paper performance holding up to the backtest baseline well enough to go live?
 
-    The backtest → paper → live gate. For each recorded expectation (``yq expect``)
-    the realized **paper** record is graded against the baseline; a strategy is
-    *ready* only when all guards pass:
+    The backtest → paper → live gate. Two views:
 
-    - **sample** — at least ``min_trades`` closed round-trips (statistical weight);
-    - **edge held** — realized Sharpe ≥ ``sharpe_floor`` × the backtested Sharpe;
-    - **profitable** — realized total return is positive;
-    - **risk in line** — realized drawdown ≤ ``max_dd_mult`` × the backtested one.
+    *Account-level* ``checks`` — for each recorded expectation (``yq expect``), the
+    realized **paper** account is graded: enough closed trades, realized Sharpe ≥
+    ``sharpe_floor`` × backtested Sharpe, positive return, drawdown ≤
+    ``max_dd_mult`` × the backtested one.
 
-    Like :func:`decay_check` this is account-level, so it's most meaningful when one
-    strategy drives the book. Ready ≠ armed: live still needs ``YQ_ALLOW_LIVE=1``
-    plus per-order approval.
+    *Per-strategy* ``per_strategy`` — each baseline's strategy is graded on its own
+    attributed paper record (``yq attribution``): enough round-trips, positive
+    attributed PnL, and realized win-rate ≥ ``win_rate_floor`` × the backtested
+    win-rate. This isolates which strategy actually earns its keep when several
+    share the book (Sharpe/return aren't attributable, so they stay account-level).
+
+    Ready ≠ armed: live still needs ``YQ_ALLOW_LIVE=1`` plus approval (or auto mode).
     """
     from yammyquant.ops.trading import live_trading_allowed
 
@@ -1338,14 +1349,40 @@ def promotion_check(
             "closed_trades": n, "blockers": blockers,
         })
 
+    # per-strategy view, graded on each strategy's own attributed paper record
+    attr = {r["strategy"]: r for r in attribution(state)["by_strategy"]}
+    per_strategy = []
+    for key, exp in expectations.items():
+        strat = key.split(":")[0]
+        a = attr.get(strat)
+        if a is None:
+            continue                         # no attributed paper trades for it yet
+        rt, pnl, win = int(a["round_trips"]), float(a["pnl"]), a.get("win_rate")
+        exp_win = exp.get("win_rate") or 0.0
+        blockers = []
+        if rt < min_trades:
+            blockers.append(f"only {rt}/{min_trades} round-trips")
+        if pnl <= 0:
+            blockers.append(f"attributed PnL {round(pnl, 4)} not positive")
+        if exp_win > 0 and win is not None and win < win_rate_floor * exp_win:
+            blockers.append(f"win rate {win} < {win_rate_floor}×{exp_win}")
+        per_strategy.append({
+            "strategy": strat, "expectation": key, "ready": not blockers,
+            "round_trips": rt, "paper_pnl": round(pnl, 4),
+            "realized_win_rate": win, "expected_win_rate": exp_win, "blockers": blockers,
+        })
+
     ready = [c["expectation"] for c in checks if c["ready"]]
-    if ready:
+    ready_strats = [c["strategy"] for c in per_strategy if c["ready"]]
+    if ready or ready_strats:
         from yammyquant.ops.notify import notify
-        gate = "" if live_trading_allowed() else " (set YQ_ALLOW_LIVE=1 + approve to arm)"
-        notify(state, f"✅ ready to promote to live: {', '.join(ready)}{gate}", "info")
+        gate = "" if live_trading_allowed() else " (set YQ_ALLOW_LIVE=1 + arm to go live)"
+        names = ", ".join(ready + ready_strats)
+        notify(state, f"✅ ready to promote to live: {names}{gate}", "info")
     return {"trade_mode": state.get("trade_mode", "paper"),
             "live_trading_allowed": live_trading_allowed(),
-            "ready": ready, "checks": checks}
+            "ready": ready, "ready_strategies": ready_strats,
+            "checks": checks, "per_strategy": per_strategy}
 
 
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
@@ -1674,6 +1711,8 @@ def attribution(state: LiveState) -> dict:
             pnl = float(meta.get("realized") or 0.0)   # realized PnL lives in meta
             credit = entry_voters.pop(sym, None) or \
                 [n for n, v in voters.items() if v == "SELL"] or list(voters)
+            if not credit:
+                continue                     # no identifiable strategy (e.g. manual trade)
             share = pnl / len(credit)
             for name in credit:
                 row = by.setdefault(

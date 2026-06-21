@@ -534,6 +534,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="realized sharpe must clear this fraction of the backtest sharpe")
     p.add_argument("--max-dd-mult", type=float, default=1.5,
                    help="realized drawdown may not exceed this multiple of the backtest's")
+    p.add_argument("--win-rate-floor", type=float, default=0.8,
+                   help="per-strategy realized win-rate must clear this fraction of the backtest's")
 
     p = sub.add_parser("cancel", help="cancel a pending/resting (submitted) order")
     p.add_argument("trade_id", type=int)
@@ -967,7 +969,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.cmd == "promote":
         _print(ops.promotion_check(state, min_trades=args.min_trades,
                                    sharpe_floor=args.sharpe_floor,
-                                   max_dd_mult=args.max_dd_mult))
+                                   max_dd_mult=args.max_dd_mult,
+                                   win_rate_floor=args.win_rate_floor))
         return 0
 
     if args.cmd == "cancel":
