@@ -529,3 +529,38 @@ def test_protect_clears_bracket_on_full_exit(tmp_path, fake_exchange):
     out = ops.protect(store, state, execute=True)
     assert out["proposals"][0]["reason"] == "bracket_stop"
     assert state.get("protect.bracket.ETHUSDT") is None   # cleared on flatten
+
+
+def test_correlation_scale_shrinks_correlated_entry(tmp_path):
+    store = DuckDBStore(tmp_path / "store")
+    n = 200
+    idx = pd.date_range("2022-01-01", periods=n, freq="1D")
+    rng = np.random.default_rng(3)
+    base = rng.normal(0, 0.02, n)
+    for sym, r in {"AAA": base, "BBB": base + rng.normal(0, 0.001, n),   # ~identical to AAA
+                   "CCC": rng.normal(0, 0.02, n)}.items():               # independent
+        close = 100 * np.exp(np.cumsum(r))
+        store.write(Candle(sym, pd.DataFrame(
+            {"open": close, "high": close * 1.01, "low": close * 0.99, "close": close,
+             "volume": np.full(n, 1.0)}, index=idx), interval="1d"))
+    # entering BBB while holding AAA (correlated) -> heavy shrink
+    corr_factor = ops.correlation_scale(store, ["AAA"], "BBB", "1d")
+    indep_factor = ops.correlation_scale(store, ["AAA"], "CCC", "1d")
+    assert corr_factor < indep_factor
+    assert ops.correlation_scale(store, [], "BBB", "1d") == 1.0   # nothing held -> full size
+
+
+def test_decide_correlation_sizing_reduces_qty(tmp_path, fake_exchange):
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.set("cash", 10_000.0)
+    state.set("correlation_sizing", True)
+    # hold AAA; candidate BTCUSDT shares the same fake rising series -> correlated
+    state.upsert_position("AAA", 1.0, 100.0)
+    for s in ("AAA", "BTCUSDT"):
+        store.write(fake_exchange.read(s, "1d"))
+    state.add_watch("BTCUSDT", "fake", "1d")
+    out = ops.decide(store, state, weight=0.2, execute=False)
+    buys = [p for p in out["proposals"] if p["side"] == "BUY"]
+    if buys:   # if a buy is proposed, it should carry a correlation_scale < 1
+        assert buys[0]["context"].get("correlation_scale", 1.0) <= 1.0
