@@ -238,6 +238,7 @@ def backtest(
     fill_timing: str = "next_open",
     allow_short: bool = False,
     risk: Optional[dict] = None,
+    bootstrap: int = 0,
     start: Optional[str] = None,
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
@@ -247,6 +248,8 @@ def backtest(
     ``risk`` is an optional dict of :class:`RiskConfig` fields (sizing,
     stop_loss, take_profit, trailing_stop, breakeven_trigger, max_holding_bars,
     max_drawdown, ...) wiring the protective-exit / position-sizing layer.
+    ``bootstrap`` > 0 adds a bootstrapped Sharpe CI/p-value and the Probabilistic
+    Sharpe Ratio — "is this edge statistically real, or noise?".
     """
     candle = store.read(ticker, interval, start=start, end=end)
     strat = build_strategy(strategy, **(params or {}))
@@ -265,6 +268,13 @@ def backtest(
         tr = stats.get("total_return")
         stats["excess_return"] = (round(tr - bench, 4)
                                   if bench is not None and tr is not None else None)
+    if bootstrap and len(eq) > 2:
+        from yammyquant.metrics.performance import (
+            bootstrap_sharpe_ci, probabilistic_sharpe_ratio, _BARS_PER_YEAR)
+        rets = eq["equity"].pct_change().dropna()
+        ppy = _BARS_PER_YEAR.get(interval or "", 252)
+        stats.update(bootstrap_sharpe_ci(rets, ppy, n_boot=int(bootstrap)))
+        stats["psr"] = probabilistic_sharpe_ratio(rets)
     if state:
         state.log("backtest", f"backtest {strategy} on {ticker}/{interval}", **stats)
     return stats

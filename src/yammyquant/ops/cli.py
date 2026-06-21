@@ -295,6 +295,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--breakeven", type=float, help="gain that ratchets the stop to entry (breakeven)")
     p.add_argument("--max-holding-bars", type=int, help="time stop: exit after N bars")
     p.add_argument("--max-drawdown", type=float, help="equity drawdown kill switch (flatten + halt)")
+    p.add_argument("--bootstrap", type=int, default=0, metavar="N",
+                   help="bootstrap N resamples for a Sharpe CI/p-value + PSR (is the edge real?)")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -579,6 +581,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
                             allow_short=args.allow_short, risk=risk,
+                            bootstrap=args.bootstrap,
                             start=args.start, end=args.end, state=state))
         return 0
 

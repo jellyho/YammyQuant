@@ -161,6 +161,34 @@ def test_summary_includes_trade_analytics(sine_candle):
         assert key in res.stats
 
 
+def test_significance_strong_vs_noise():
+    import numpy as np
+    from yammyquant.metrics.performance import (
+        bootstrap_sharpe_ci, probabilistic_sharpe_ratio)
+
+    rng = np.random.default_rng(0)
+    # a clear positive edge: strongly positive mean relative to vol
+    strong = pd.Series(rng.normal(0.002, 0.005, 400))
+    ci = bootstrap_sharpe_ci(strong, periods_per_year=252, n_boot=500)
+    assert ci["sharpe_ci_low"] > 0                 # whole CI above zero
+    assert ci["sharpe_p_value"] < 0.05             # rarely <= 0 under resampling
+    assert probabilistic_sharpe_ratio(strong) > 0.9
+
+    # pure noise: mean ~ 0 -> CI straddles zero, PSR near 0.5
+    noise = pd.Series(rng.normal(0.0, 0.01, 400))
+    ci_n = bootstrap_sharpe_ci(noise, periods_per_year=252, n_boot=500)
+    assert ci_n["sharpe_ci_low"] < 0 < ci_n["sharpe_ci_high"]
+    assert 0.2 < probabilistic_sharpe_ratio(noise) < 0.8
+
+
+def test_significance_safe_on_short_series():
+    from yammyquant.metrics.performance import (
+        bootstrap_sharpe_ci, probabilistic_sharpe_ratio)
+    assert probabilistic_sharpe_ratio(pd.Series([0.01])) == 0.0
+    out = bootstrap_sharpe_ci(pd.Series([0.01, 0.02]), periods_per_year=252)
+    assert out["sharpe_p_value"] == 1.0
+
+
 def test_engine_shorts_through_full_loop():
     candle = _ohlc_candle()  # opens 100,110,120,130 (rising)
     # SELL on bar0 -> short opens at bar1 open (110); BUY on bar2 -> cover at bar3 open (130)

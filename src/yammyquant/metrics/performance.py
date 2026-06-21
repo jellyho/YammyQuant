@@ -47,6 +47,64 @@ def calmar(cagr: float, max_dd: float) -> float:
     return float(cagr / abs(max_dd)) if max_dd else 0.0
 
 
+def _phi(x: float) -> float:
+    """Standard normal CDF (no scipy dependency)."""
+    import math
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def probabilistic_sharpe_ratio(returns: pd.Series, sr_benchmark: float = 0.0) -> float:
+    """Probability the *true* Sharpe exceeds ``sr_benchmark`` (Bailey & López de Prado).
+
+    Works on per-period (non-annualized) returns and corrects the naive Sharpe
+    for sample length, skew and kurtosis — short, fat-tailed, negatively-skewed
+    records get penalized. ``sr_benchmark`` is a per-period Sharpe (0 = "is the
+    edge positive at all?"). Returns a probability in [0, 1].
+    """
+    r = pd.Series(returns).dropna()
+    n = len(r)
+    sd = r.std(ddof=1)
+    if n < 3 or sd == 0 or np.isnan(sd):
+        return 0.0
+    sr = r.mean() / sd                                   # per-period Sharpe
+    skew = float(r.skew())
+    # pandas kurt() is already excess kurtosis (normal -> 0); PSR wants raw kurtosis
+    kurt = float(r.kurt()) + 3.0
+    denom = np.sqrt(1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr ** 2)
+    if denom == 0 or np.isnan(denom):
+        return 0.0
+    z = (sr - sr_benchmark) * np.sqrt(n - 1) / denom
+    return round(float(_phi(z)), 4)
+
+
+def bootstrap_sharpe_ci(returns: pd.Series, periods_per_year: float,
+                        n_boot: int = 1000, alpha: float = 0.05,
+                        seed: Optional[int] = 0) -> dict:
+    """Bootstrap confidence interval + p-value for the annualized Sharpe.
+
+    Resamples the return series with replacement ``n_boot`` times, recomputing
+    Sharpe each time, and returns the ``(alpha/2, 1-alpha/2)`` percentile band
+    plus ``p_value`` = the fraction of resamples with Sharpe ≤ 0 (a one-sided
+    "could this be noise?" estimate).
+    """
+    r = pd.Series(returns).dropna().to_numpy()
+    out = {"sharpe_ci_low": 0.0, "sharpe_ci_high": 0.0, "sharpe_p_value": 1.0,
+           "n_boot": int(n_boot)}
+    if len(r) < 3:
+        return out
+    rng = np.random.default_rng(seed)
+    scale = np.sqrt(periods_per_year)
+    samples = np.empty(n_boot)
+    for i in range(n_boot):
+        draw = rng.choice(r, size=len(r), replace=True)
+        sd = draw.std(ddof=0)
+        samples[i] = scale * draw.mean() / sd if sd > 0 else 0.0
+    lo, hi = np.percentile(samples, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    out.update(sharpe_ci_low=round(float(lo), 3), sharpe_ci_high=round(float(hi), 3),
+               sharpe_p_value=round(float(np.mean(samples <= 0)), 4))
+    return out
+
+
 def expectancy(pnl: pd.Series) -> float:
     """Expected PnL per closed trade — the headline "is this edge positive?" stat.
 
