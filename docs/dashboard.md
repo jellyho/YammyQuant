@@ -40,6 +40,7 @@ flips between **live** and **reconnecting…**.
 | **Watchlist** | The universe for cycles — add/remove symbols. |
 | **Leave an instruction** | A box that writes to the operator's **inbox** — what Claude Code reads via `yq recall` / `yq inbox` next run. |
 | **Operator activity / Journal** | The live activity log and the cross-session journal. |
+| **Auto mode** | The hands-off-live status (`auto_trade` · `trade_mode` · `auto_approve` · `YQ_ALLOW_LIVE`) with a live **armed** badge and a toggle to arm/disarm `auto_approve` — see [Money safety](safety.md#auto-mode-hands-off-live-for-afk-scalping). |
 | **Fees & realism** | The active venue's real **maker/taker** fees plus the **slippage** applied to paper fills — what paper trades actually cost (paper mirrors live). |
 | **Data integrity** | Audit stored candles for gaps / duplicates / bad OHLC, per symbol & interval; a **stock sessions** toggle treats overnight/weekend gaps as expected closures. |
 | **Control center** | Edit blend/flags (`auto_trade`, `trade_mode`, `ensemble_rule/threshold`, `sentiment_gate`, `sizing`, `target_vol`, `slippage`, `exchange`) or any setting key; **run a cycle** or **send a status** push on demand. |

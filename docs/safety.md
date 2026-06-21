@@ -54,8 +54,14 @@ while unattended; a blocked order is rejected, not placed. Each auto-executed
 fill is still **notified** (Discord/Slack), `yq cycle` reconciles the book against
 the venue and settles resting orders every pass, and a failed placement is marked
 rejected rather than left dangling. `yq doctor` reports `auto_live_armed` and
-flags it as an issue so the state is never a surprise. Turn it off any time with
-`yq settings auto_approve=false`.
+flags it as an issue so the state is never a surprise.
+
+**Kill-switch.** When today's realized loss hits the `daily_loss_limit`, the next
+`yq cycle` **auto-disarms** auto mode (`auto_approve` → off) and notifies you —
+the loop stops opening new positions for you and waits for a conscious re-arm,
+rather than re-attempting rejected entries all day. Exits keep working (sells are
+never gated). Turn auto mode off any time with `yq settings auto_approve=false`,
+or from the **Auto mode** card in the dashboard (a toggle plus a live armed badge).
 
 !!! warning "Auto mode places real orders with no human in the loop"
     Only arm it once a strategy has earned it — validate in backtest, confirm in
