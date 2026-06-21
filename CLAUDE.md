@@ -63,6 +63,7 @@ yq sync                                     # poll & settle submitted/partial li
 yq cycle                                    # one maintenance cycle: refresh→scan→mark→notify
 yq schedule --interval 300                  # run cycles forever (or cron `yq cycle`)
 yq risk set max_open_positions=5 daily_loss_limit=200   # account risk guardrails
+yq settings slippage=0.001 sizing=volatility auto_trade=true   # cockpit settings (show: yq settings)
 yq report                                   # realized PnL, drawdown, per-symbol
 yq attribution                               # per-strategy PnL attribution (round-trips)
 yq reconcile                                # local positions vs exchange balances

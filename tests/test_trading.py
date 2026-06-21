@@ -26,6 +26,30 @@ def test_paper_sell_realizes(tm):
     assert tm.state.positions() == []
 
 
+def test_slippage_moves_market_fill_against_taker(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    state.set("slippage", 0.01)          # 1% slippage
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    # market BUY fills 1% above the quote -> 101
+    tm.submit("BTCUSDT", "BUY", 1.0, 100.0, order_type="market")
+    assert tm.cash == pytest.approx(9_899.0)
+    assert tm.state.positions()[0]["avg_price"] == pytest.approx(101.0)
+    # market SELL fills 1% below the quote -> 99
+    tm.submit("BTCUSDT", "SELL", 1.0, 100.0, order_type="market")
+    assert tm.cash == pytest.approx(9_998.0)
+
+
+def test_limit_orders_are_not_slipped(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    state.set("slippage", 0.01)
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    tm.submit("BTCUSDT", "BUY", 1.0, 100.0, order_type="limit")
+    assert tm.cash == pytest.approx(9_900.0)   # rests at the limit price, no slip
+    assert tm.state.positions()[0]["avg_price"] == pytest.approx(100.0)
+
+
 def test_insufficient_cash_rejected(tm):
     tm.cash = 50.0
     trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0)

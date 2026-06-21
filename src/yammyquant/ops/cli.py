@@ -471,6 +471,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     p = sub.add_parser("reconcile", help="compare local positions to exchange balances")
     p.add_argument("--exchange")
 
+    p = sub.add_parser("settings", help="view/set cockpit settings (sizing, slippage, auto_trade, ...)")
+    p.add_argument("args", nargs="*", help="key=value ... to set; omit to show all")
+
     p = sub.add_parser("risk", help="view/set the account risk policy")
     p.add_argument("action", choices=["show", "set"])
     p.add_argument("args", nargs="*", help="set: field=value ...")
@@ -816,6 +819,26 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "reconcile":
         _print(ops.reconcile(state, exchange=args.exchange))
+        return 0
+
+    if args.cmd == "settings":
+        def _coerce_setting(v: str):
+            low = v.lower()
+            if low in ("true", "false"):
+                return low == "true"
+            if low in ("none", "null", ""):
+                return None
+            try:
+                return int(v) if v.lstrip("-").isdigit() else float(v)
+            except ValueError:
+                return v
+        for assignment in args.args:
+            if "=" not in assignment:
+                print("usage: yq settings key=value ...  (e.g. slippage=0.001 sizing=volatility)")
+                return 1
+            key, value = assignment.split("=", 1)
+            state.set(key, _coerce_setting(value))
+        _print(state.settings())
         return 0
 
     if args.cmd == "risk":
