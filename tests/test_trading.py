@@ -94,6 +94,33 @@ def test_live_market_fill_uses_actual_price_qty_fee(tm, monkeypatch):
     assert meta["fill_qty"] == 0.8 and meta["fill_fee"] == 0.5
 
 
+def test_approve_does_not_replace_already_placed_order(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    tm.state.set_trade_meta(trade["id"], exchange_order_id="OID-existing")
+    calls = []
+    result = tm.approve(trade["id"], place_live=lambda t: calls.append(t) or {"id": "NEW"})
+    assert calls == []                            # idempotent: not re-placed
+    assert result["status"] == "submitted"        # left for sync to settle
+
+
+def test_live_order_passes_client_order_id(tm, monkeypatch):
+    monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
+    seen = {}
+
+    class _Ex:
+        name = "fake"
+        def create_order(self, **kwargs):
+            seen.update(kwargs)
+            return {"id": "OID1", "average": 100.0, "filled": 1.0}
+
+    monkeypatch.setattr("yammyquant.exchanges.get_exchange", lambda name=None, **k: _Ex())
+    monkeypatch.setattr("yammyquant.exchanges.default_exchange", lambda: "fake")
+    trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")
+    tm.approve(trade["id"])                        # uses real _place_live_order path
+    assert seen["client_order_id"] == f"yq-{trade['id']}"
+
+
 def test_live_placement_failure_rejects_not_dangling(tm, monkeypatch):
     monkeypatch.setenv("YQ_ALLOW_LIVE", "1")
     trade = tm.submit("BTCUSDT", "BUY", 1.0, 100.0, mode="live")

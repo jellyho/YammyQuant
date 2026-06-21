@@ -31,6 +31,12 @@ yq approve <id>                       # requires YQ_ALLOW_LIVE=1 in the env
 order submitted → yq sync settles partial/filled live orders
 ```
 
+A live **market** fill is booked at the venue's *actual* price/qty/fee (not what
+was requested), each order carries an idempotent `client_order_id` (`yq-<id>`) so a
+retry can't double-place, and `yq cycle` holds a single-flight lock so a manual run
+and the scheduler can't trade on top of each other. `yq reconcile` (run every live
+cycle) flags position **and** cash drift against the venue.
+
 ## Auto mode (hands-off live, for AFK scalping)
 
 Confirming every order is impractical for high-frequency intraday trading. **Auto

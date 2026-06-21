@@ -909,6 +909,18 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     from yammyquant.ops.notify import notify
     from yammyquant.ops.trading import TradeManager
 
+    # advisory single-flight lock: the state DB is shared by the CLI, the
+    # dashboard and the scheduler, so a manual run and a scheduled run can overlap
+    # and double-trade. Skip if a fresh lock is held; it self-heals after _stale.
+    import time
+    _LOCK, _STALE = "cycle.lock", 600.0
+    held = state.get(_LOCK)
+    now_t = time.time()
+    if held and (now_t - float(held)) < _STALE:
+        state.log("cycle", "skipped: another cycle is in progress")
+        return {"skipped": "cycle already running", "lock_age": round(now_t - float(held), 1)}
+    state.set(_LOCK, now_t)
+
     ex = get_exchange(exchange or default_exchange())
     enabled = enabled_strategies(state)
     refreshed, signals = [], []
@@ -992,6 +1004,7 @@ def run_cycle(store: DuckDBStore, state: LiveState, exchange: Optional[str] = No
     if notify_signals and signals:
         summary = ", ".join(f"{s['action']} {s['symbol']}({s['strategy']})" for s in signals[:5])
         notify(state, f"🔔 {len(signals)} signal(s): {summary}", "action")
+    state.set(_LOCK, 0)                          # release the single-flight lock
     return {"refreshed": refreshed, "signals": signals, "equity": equity,
             "decisions": decisions, "protection": protection, "inbound": inbound,
             "synced": synced, "drift": drift, "promotion": promotion,

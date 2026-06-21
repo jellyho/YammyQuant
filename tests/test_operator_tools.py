@@ -93,6 +93,17 @@ def test_run_cycle_refreshes_and_scans(tmp_path, fake_exchange):
     assert "BTCUSDT" in out["refreshed"]
     assert isinstance(out["signals"], list)
     assert len(store.read("BTCUSDT", "1d")) == 60  # data was written
+    assert state.get("cycle.lock") == 0            # lock released after the run
+
+
+def test_run_cycle_skips_when_locked(tmp_path, fake_exchange):
+    import time
+    store = DuckDBStore(tmp_path / "store")
+    state = LiveState(tmp_path / "s.db")
+    state.add_watch("BTCUSDT", "fake", "1d")
+    state.set("cycle.lock", time.time())           # a fresh lock is held
+    out = ops.run_cycle(store, state)
+    assert out.get("skipped") == "cycle already running"
 
 
 def test_report_realized_pnl(tmp_path):
