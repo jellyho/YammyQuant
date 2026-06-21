@@ -287,11 +287,17 @@ def backtest(
     stats = dict(result.stats)
     eq = result.equity_curve
     if len(eq):
-        _, bench = buy_hold_benchmark(candle, eq.index, float(eq["equity"].iloc[0]))
+        leg, bench = buy_hold_benchmark(candle, eq.index, float(eq["equity"].iloc[0]))
         stats["benchmark_return"] = bench
         tr = stats.get("total_return")
         stats["excess_return"] = (round(tr - bench, 4)
                                   if bench is not None and tr is not None else None)
+        # alpha/beta vs holding the same asset (market exposure + excess)
+        if leg is not None and len(eq) > 2:
+            from yammyquant.metrics.performance import alpha_beta, _BARS_PER_YEAR
+            ppy = _BARS_PER_YEAR.get(interval or "", 252)
+            ab = alpha_beta(eq["equity"].pct_change(), leg.pct_change(), ppy)
+            stats["alpha"], stats["beta"] = ab["alpha"], ab["beta"]
     if bootstrap and len(eq) > 2:
         from yammyquant.metrics.performance import (
             bootstrap_sharpe_ci, probabilistic_sharpe_ratio, _BARS_PER_YEAR)

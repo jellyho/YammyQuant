@@ -24,6 +24,36 @@ def max_drawdown(equity: pd.Series) -> float:
     return float(drawdown.min())
 
 
+def ulcer_index(equity: pd.Series) -> float:
+    """Ulcer Index — RMS of the drawdown series; penalizes deep *and* long
+    drawdowns (the "pain" of holding), unlike max-drawdown which is a single point."""
+    if equity is None or len(equity) == 0:
+        return 0.0
+    dd = (equity / equity.cummax() - 1.0) * 100.0     # percent below peak
+    return round(float(np.sqrt((dd ** 2).mean())), 4)
+
+
+def alpha_beta(strategy_returns: pd.Series, benchmark_returns: pd.Series,
+               periods_per_year: float) -> dict:
+    """Annualized alpha and beta of the strategy vs a benchmark return series.
+
+    ``beta`` is market exposure (cov/var); ``alpha`` is the annualized excess the
+    strategy adds beyond that exposure. Both 0.0 when there's too little overlap.
+    """
+    s = pd.Series(strategy_returns)
+    b = pd.Series(benchmark_returns)
+    aligned = pd.concat([s, b], axis=1).dropna()
+    if len(aligned) < 3:
+        return {"alpha": 0.0, "beta": 0.0}
+    sv, bv = aligned.iloc[:, 0].to_numpy(), aligned.iloc[:, 1].to_numpy()
+    var = float(np.var(bv, ddof=0))
+    if var == 0:
+        return {"alpha": 0.0, "beta": 0.0}
+    beta = float(np.cov(sv, bv, ddof=0)[0, 1] / var)
+    alpha = (float(sv.mean()) - beta * float(bv.mean())) * periods_per_year
+    return {"alpha": round(alpha, 4), "beta": round(beta, 3)}
+
+
 def sharpe(returns: pd.Series, periods_per_year: float) -> float:
     """Annualized Sharpe ratio (risk-free rate assumed 0)."""
     if returns.std(ddof=0) == 0 or returns.empty:
@@ -306,6 +336,9 @@ def summary(
         "sortino": round(sortino(returns, ppy), 3),
         "calmar": round(calmar(cagr, mdd), 3),
         "max_drawdown": round(mdd, 4),
+        "ulcer_index": ulcer_index(equity),
+        # recovery factor: total profit relative to the worst drawdown endured
+        "recovery_factor": round(total_return / abs(mdd), 3) if mdd else None,
         "var_95": value_at_risk(returns, 0.05),
         "cvar_95": expected_shortfall(returns, 0.05),
         "num_trades": int(len(trades)),
