@@ -286,6 +286,43 @@ def backtest(
     return stats
 
 
+def cost_sensitivity(
+    store: DuckDBStore,
+    ticker: str,
+    interval: str,
+    strategy: str,
+    params: Optional[dict] = None,
+    slippages: Optional[list] = None,
+    fee: float = 0.001,
+    cash: float = 10_000.0,
+    fill_timing: str = "next_open",
+    allow_short: bool = False,
+    state: Optional[LiveState] = None,
+) -> dict:
+    """Sweep slippage to see how fast the edge erodes under trading costs.
+
+    Re-runs the backtest at each slippage level and reports total return / Sharpe
+    / drawdown / trades, plus ``breakeven_slippage`` — the first level where total
+    return goes non-positive. A robust edge degrades gracefully; an overfit one
+    collapses at the first whiff of cost.
+    """
+    grid = slippages if slippages is not None else [0.0, 0.0005, 0.001, 0.002, 0.005]
+    rows = []
+    for s in grid:
+        r = backtest(store, ticker, interval, strategy, params, cash=cash, fee=fee,
+                     slippage=float(s), fill_timing=fill_timing, allow_short=allow_short)
+        rows.append({"slippage": float(s), "total_return": r.get("total_return"),
+                     "sharpe": r.get("sharpe"), "max_drawdown": r.get("max_drawdown"),
+                     "num_trades": r.get("num_trades")})
+    breakeven = next((row["slippage"] for row in rows
+                      if (row["total_return"] or 0) <= 0), None)
+    if state:
+        state.log("cost_sensitivity", f"cost sweep {strategy} on {ticker}/{interval}",
+                  breakeven_slippage=breakeven)
+    return {"strategy": strategy, "fee": fee, "rows": rows,
+            "breakeven_slippage": breakeven}
+
+
 def monthly_returns(equity) -> dict:
     """Calendar month-by-month returns from an equity series.
 
