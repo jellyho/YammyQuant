@@ -299,6 +299,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--max-drawdown", type=float, help="equity drawdown kill switch (flatten + halt)")
     p.add_argument("--bootstrap", type=int, default=0, metavar="N",
                    help="bootstrap N resamples for a Sharpe CI/p-value + PSR (is the edge real?)")
+    p.add_argument("--regime-trend", type=int, metavar="N",
+                   help="only enter with the trend: gate longs above an N-bar trend MA")
+    p.add_argument("--regime-htf", type=int, default=1, metavar="K",
+                   help="compute the regime on every K-th bar (higher-timeframe filter)")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -580,11 +584,13 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "trailing_stop": args.trailing_stop, "breakeven_trigger": args.breakeven,
                 "max_holding_bars": args.max_holding_bars, "max_drawdown": args.max_drawdown}
         risk = {k: v for k, v in risk.items() if v is not None} or None
+        regime = ({"trend_period": args.regime_trend, "htf_factor": args.regime_htf}
+                  if args.regime_trend else None)
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
                             allow_short=args.allow_short, risk=risk,
-                            bootstrap=args.bootstrap,
+                            bootstrap=args.bootstrap, regime=regime,
                             start=args.start, end=args.end, state=state))
         return 0
 
