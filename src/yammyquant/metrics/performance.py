@@ -233,26 +233,48 @@ def expectancy(pnl: pd.Series) -> float:
     return float(pnl.mean())
 
 
+def _fmt_duration(td: pd.Timedelta) -> str:
+    """Human-readable wall-clock duration, top two units (e.g. ``2h15m``, ``3d4h``)."""
+    secs = int(td.total_seconds())
+    if secs <= 0:
+        return "0m"
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
+    m, s = divmod(rem, 60)
+    if d:
+        return f"{d}d{h}h" if h else f"{d}d"
+    if h:
+        return f"{h}h{m}m" if m else f"{h}h"
+    if m:
+        return f"{m}m"
+    return f"{s}s"
+
+
 def trade_analytics(equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict:
     """Trade-level analytics: holding period, win/loss streaks, exposure, turnover.
 
     - ``avg_holding_bars`` — mean bars held per round-trip (entry until flat).
+    - ``avg_holding_time`` — the same as wall-clock duration (e.g. ``2h15m``),
+      so a 5m and a 1d strategy are comparable; intraday/scalping relevance.
+    - ``trades_per_day`` — completed round-trips per active calendar day (churn).
     - ``max_consecutive_wins`` / ``max_consecutive_losses`` — longest streaks of
       winning / losing closes (psychological + risk-of-ruin relevance).
     - ``exposure`` — fraction of bars with an open position (time in market).
     - ``turnover`` — total traded notional relative to ending equity.
     """
-    out = {"avg_holding_bars": None, "max_consecutive_wins": 0,
+    out = {"avg_holding_bars": None, "avg_holding_time": None, "trades_per_day": None,
+           "max_consecutive_wins": 0,
            "max_consecutive_losses": 0, "exposure": 0.0, "turnover": 0.0}
     if (equity_curve is None or equity_curve.empty
             or trades is None or trades.empty):
         return out
 
     n_bars = len(equity_curve)
+    idx = pd.DatetimeIndex(equity_curve.index)
     pos_of = {t: k for k, t in enumerate(equity_curve.index)}
 
     # round-trips from position_qty transitions through zero
-    holding, in_bars, entry_bar = [], 0, None
+    holding, durations, in_bars, entry_bar = [], [], 0, None
     for _, row in trades.iterrows():
         bar = pos_of.get(row["time"])
         if bar is None:
@@ -262,6 +284,7 @@ def trade_analytics(equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict:
             entry_bar = bar
         elif entry_bar is not None and not open_after:
             holding.append(bar - entry_bar)
+            durations.append(idx[bar] - idx[entry_bar])
             in_bars += bar - entry_bar
             entry_bar = None
     if entry_bar is not None:                       # still open at the end
@@ -282,8 +305,12 @@ def trade_analytics(equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict:
 
     notional = float((trades["price"] * trades["quantity"]).sum())
     end_eq = float(equity_curve["equity"].iloc[-1])
+    active_days = int(len(np.unique(idx.normalize()))) or 1   # distinct calendar days with data
     out.update(
         avg_holding_bars=round(float(np.mean(holding)), 2) if holding else None,
+        avg_holding_time=_fmt_duration(sum(durations, pd.Timedelta(0)) / len(durations))
+        if durations else None,
+        trades_per_day=round(len(holding) / active_days, 2) if holding else 0.0,
         max_consecutive_wins=mw,
         max_consecutive_losses=ml,
         exposure=round(in_bars / n_bars, 4) if n_bars else 0.0,

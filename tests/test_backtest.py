@@ -217,9 +217,29 @@ def test_trade_analytics_holding_streaks_exposure():
     ])
     a = trade_analytics(eq, trades)
     assert a["avg_holding_bars"] == 1.0          # (t2-t1) and (t4-t3) each 1 bar
+    assert a["avg_holding_time"] == "1d"         # 1 day per round-trip (wall-clock)
+    assert a["trades_per_day"] == round(2 / 5, 2)  # 2 round-trips over 5 active days
     assert a["exposure"] == round(2 / 5, 4)      # 2 of 5 bars in market
     assert a["max_consecutive_wins"] == 1
     assert a["max_consecutive_losses"] == 1
+
+
+def test_trade_analytics_intraday_holding_time():
+    from yammyquant.metrics.performance import trade_analytics
+
+    # 5-minute bars: enter, hold 3 bars (=15m), exit — same day
+    idx = pd.date_range("2023-01-02 09:00", periods=6, freq="5min")
+    eq = pd.DataFrame({"equity": [100, 100, 101, 102, 103, 103]}, index=idx)
+    trades = pd.DataFrame([
+        {"time": idx[1], "action": "BUY",  "price": 100, "quantity": 1,
+         "realized_pnl": 0.0, "closing": False, "position_qty": 1.0},
+        {"time": idx[4], "action": "SELL", "price": 103, "quantity": 1,
+         "realized_pnl": 3.0, "closing": True, "position_qty": 0.0},
+    ])
+    a = trade_analytics(eq, trades)
+    assert a["avg_holding_bars"] == 3.0
+    assert a["avg_holding_time"] == "15m"        # 3 × 5m, in real time units
+    assert a["trades_per_day"] == 1.0            # 1 round-trip on 1 active day
 
 
 def test_trade_analytics_empty_is_safe():
@@ -230,8 +250,8 @@ def test_trade_analytics_empty_is_safe():
 
 def test_summary_includes_trade_analytics(sine_candle):
     res = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
-    for key in ["avg_holding_bars", "max_consecutive_wins",
-                "max_consecutive_losses", "exposure", "turnover"]:
+    for key in ["avg_holding_bars", "avg_holding_time", "trades_per_day",
+                "max_consecutive_wins", "max_consecutive_losses", "exposure", "turnover"]:
         assert key in res.stats
 
 
