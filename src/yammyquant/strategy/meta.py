@@ -6,11 +6,15 @@ only take shorts below it). Exits always pass through, so you never get trapped.
 An optional higher-timeframe factor computes the regime on a coarser timeframe
 (e.g. a weekly trend filter on daily bars) — the classic "trade with the bigger
 trend" overlay, composable over any of the built-in strategies.
+
+:class:`SessionFilter` gates *entries* by calendar session — only enter on the
+allowed weekdays / hours (avoid weekends, illiquid hours, news windows). Exits
+always pass so positions aren't stranded outside the session.
 """
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional, Sequence
 
 import numpy as np
 
@@ -62,3 +66,49 @@ class RegimeFilter(Strategy):
         # suppress long entries against the trend; exits (SELL) always pass so a
         # position is never trapped by the regime gate
         return [o for o in orders if not (o.action == Action.BUY and not bullish)]
+
+
+class SessionFilter(Strategy):
+    """Only let ``base`` enter during the allowed calendar session.
+
+    Parameters
+    ----------
+    base:
+        The wrapped strategy whose entries are gated.
+    weekdays:
+        Allowed weekday numbers (Mon=0 … Sun=6); ``None`` = every day.
+    hours:
+        Allowed hours of the day (0–23, from the bar timestamp); ``None`` = all.
+
+    Entries (BUY) outside the session are suppressed; exits (SELL) always pass so
+    a position is never stranded outside trading hours.
+    """
+
+    def __init__(self, base: Strategy, weekdays: Optional[Sequence[int]] = None,
+                 hours: Optional[Sequence[int]] = None):
+        self.base = base
+        self.weekdays = set(weekdays) if weekdays is not None else None
+        self.hours = set(hours) if hours is not None else None
+        self.warmup = base.warmup
+
+    def reset(self) -> None:
+        self.base.reset()
+
+    def _in_session(self, window: Candle) -> bool:
+        ts = window.index[-1]
+        if self.weekdays is not None and ts.weekday() not in self.weekdays:
+            return False
+        if self.hours is not None and ts.hour not in self.hours:
+            return False
+        return True
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        if len(window) < self.base.warmup:
+            return []
+        orders = self.base.on_bar(window[-self.base.warmup:])
+        if not orders:
+            return []
+        if self._in_session(window):
+            return orders
+        # out of session: suppress entries, still allow exits
+        return [o for o in orders if o.action != Action.BUY]

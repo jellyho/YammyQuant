@@ -243,6 +243,7 @@ def backtest(
     risk: Optional[dict] = None,
     bootstrap: int = 0,
     regime: Optional[dict] = None,
+    session: Optional[dict] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
@@ -262,6 +263,9 @@ def backtest(
     if regime:
         from yammyquant.strategy.meta import RegimeFilter
         strat = RegimeFilter(strat, **{k: v for k, v in regime.items() if v is not None})
+    if session:
+        from yammyquant.strategy.meta import SessionFilter
+        strat = SessionFilter(strat, **{k: v for k, v in session.items() if v is not None})
     risk_cfg = None
     if risk:
         from yammyquant.backtest.risk import RiskConfig

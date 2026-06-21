@@ -304,6 +304,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="only enter with the trend: gate longs above an N-bar trend MA")
     p.add_argument("--regime-htf", type=int, default=1, metavar="K",
                    help="compute the regime on every K-th bar (higher-timeframe filter)")
+    p.add_argument("--session-days", type=int, nargs="+", metavar="D",
+                   help="only enter on these weekdays (Mon=0 … Sun=6)")
+    p.add_argument("--session-hours", type=int, nargs="+", metavar="H",
+                   help="only enter during these hours of day (0–23)")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -603,11 +607,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         risk = {k: v for k, v in risk.items() if v is not None} or None
         regime = ({"trend_period": args.regime_trend, "htf_factor": args.regime_htf}
                   if args.regime_trend else None)
+        session = ({"weekdays": args.session_days, "hours": args.session_hours}
+                   if (args.session_days or args.session_hours) else None)
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
                             allow_short=args.allow_short, risk=risk,
-                            bootstrap=args.bootstrap, regime=regime,
+                            bootstrap=args.bootstrap, regime=regime, session=session,
                             start=args.start, end=args.end, state=state))
         return 0
 
