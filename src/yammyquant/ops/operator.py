@@ -1066,6 +1066,12 @@ def decide(
                 qty = position_size(method, equity, price, target_w, candle=candle,
                                     trades=state.trades(limit=200),
                                     target_vol=float(state.get("target_vol", 0.5)))
+            # shrink the entry if it's correlated with the current book
+            if qty > 0 and state.get("correlation_sizing") and positions:
+                cfactor = correlation_scale(store, list(positions), sym, iv)
+                if cfactor < 1.0:
+                    qty = round(qty * cfactor, 8)
+                    context["correlation_scale"] = round(cfactor, 3)
             if qty > 0:
                 buyers = sum(v == "BUY" for v in votes)
                 reason = (f"entry signal — {rule} vote score {agg['score']} "
@@ -1448,6 +1454,39 @@ def diversified_weights(store: DuckDBStore, symbols, interval: str = "1d",
     if total <= 0:
         raise ValueError("no symbols with usable volatility")
     return {sym: round(float(w) / total, 4) for sym, w in raw.items()}
+
+
+def correlation_scale(store: DuckDBStore, held: list, symbol: str, interval: str,
+                      lookback: int = 60, floor: float = 0.25) -> float:
+    """Down-scale a new entry that's correlated with the current book.
+
+    Returns a factor in ``[floor, 1]`` = ``1 - mean correlation`` of ``symbol`` to
+    the already-held names (over ``lookback`` bars of stored data). A diversifier
+    keeps full size; a name that moves with the book is shrunk, so the operator
+    doesn't pile the same bet across correlated symbols. 1.0 when nothing is held
+    or data is insufficient.
+    """
+    import pandas as pd
+
+    others = [h for h in held if h and h != symbol]
+    if not others:
+        return 1.0
+    series = {}
+    for s in [symbol] + others:
+        try:
+            c = store.read(s, interval)
+        except Exception:
+            continue
+        r = pd.Series(c.close, index=pd.DatetimeIndex(c.index), dtype=float).pct_change()
+        if r.notna().sum() >= 2:
+            series[s] = r
+    if symbol not in series or len(series) < 2:
+        return 1.0
+    frame = pd.concat(series, axis=1).dropna().tail(lookback)
+    if symbol not in frame.columns or frame.shape[1] < 2 or len(frame) < 3:
+        return 1.0
+    avg_corr = float(frame.corr()[symbol].drop(symbol).mean())
+    return float(min(max(1.0 - avg_corr, floor), 1.0))
 
 
 def attribution(state: LiveState) -> dict:
