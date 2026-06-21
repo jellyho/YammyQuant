@@ -43,9 +43,12 @@ def test_walk_forward_reports_oos(sine_candle):
     out = walk_forward(sine_candle, MACross, grid, n_splits=3, metric="sharpe")
     assert out["n_folds"] >= 1
     assert "avg_out_of_sample" in out
+    assert "positive_folds" in out and out["positive_folds"] <= out["n_folds"]
+    assert "avg_oos_psr" in out
     for fold in out["folds"]:
         assert fold["best_params"]["fast"] < fold["best_params"]["slow"]
         assert "out_of_sample" in fold
+        assert 0.0 <= fold["oos_psr"] <= 1.0
 
 
 def test_walk_forward_rejects_tiny_data(sine_candle):

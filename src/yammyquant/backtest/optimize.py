@@ -111,6 +111,8 @@ def walk_forward(
     if fold < 2:
         raise ValueError(f"not enough data for {n_splits} walk-forward splits ({n} bars)")
 
+    from yammyquant.metrics.performance import probabilistic_sharpe_ratio
+
     folds = []
     for k in range(n_splits):
         train = candle[k * fold : (k + 1) * fold]
@@ -118,7 +120,11 @@ def walk_forward(
         if len(test) == 0:
             break
         opt = grid_search(train, strategy_cls, grid, metric, cash, fee, risk)
-        oos = Backtest(test, strategy_cls(**opt.best_params), cash=cash, fee=fee, risk=risk).run().stats
+        res = Backtest(test, strategy_cls(**opt.best_params), cash=cash, fee=fee, risk=risk).run()
+        oos = res.stats
+        rets = res.equity_curve["equity"].pct_change().dropna() if not res.equity_curve.empty \
+            else None
+        oos_psr = round(probabilistic_sharpe_ratio(rets), 4) if rets is not None else 0.0
         folds.append({
             "fold": k,
             "train_bars": len(train),
@@ -126,9 +132,13 @@ def walk_forward(
             "best_params": opt.best_params,
             "in_sample_score": round(opt.best_score, 4),
             "out_of_sample": oos,
+            "oos_psr": oos_psr,
         })
 
     oos_scores = [_score(f["out_of_sample"], metric) for f in folds if f["out_of_sample"]]
     avg_oos = round(sum(oos_scores) / len(oos_scores), 4) if oos_scores else None
-    return {"metric": metric, "n_folds": len(folds),
-            "avg_out_of_sample": avg_oos, "folds": folds}
+    # how many folds actually held up out-of-sample (positive return) + mean OOS PSR
+    positive = sum(1 for f in folds if (f["out_of_sample"].get("total_return") or 0) > 0)
+    avg_psr = round(sum(f["oos_psr"] for f in folds) / len(folds), 4) if folds else None
+    return {"metric": metric, "n_folds": len(folds), "avg_out_of_sample": avg_oos,
+            "positive_folds": positive, "avg_oos_psr": avg_psr, "folds": folds}
