@@ -371,3 +371,37 @@ def test_monte_carlo_empty_safe():
     from yammyquant.metrics.performance import monte_carlo
     out = monte_carlo(pd.Series([0.01]), n_sims=50)
     assert out["risk_of_ruin"] == 0.0
+
+
+def test_ulcer_index_and_recovery_factor(sine_candle):
+    res = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
+    assert "ulcer_index" in res.stats and res.stats["ulcer_index"] >= 0
+    assert "recovery_factor" in res.stats
+
+
+def test_ulcer_index_zero_for_monotonic():
+    import pandas as pd
+    from yammyquant.metrics.performance import ulcer_index
+    rising = pd.Series([100.0, 101, 102, 103, 104])   # never below peak
+    assert ulcer_index(rising) == 0.0
+
+
+def test_alpha_beta_tracks_benchmark():
+    import numpy as np
+    import pandas as pd
+    import pytest
+    from yammyquant.metrics.performance import alpha_beta
+    rng = np.random.default_rng(0)
+    bench = pd.Series(rng.normal(0.0, 0.01, 500))
+    # strategy = 0.5x the benchmark plus a small constant edge -> beta≈0.5, alpha>0
+    strat = 0.5 * bench + 0.0003
+    ab = alpha_beta(strat, bench, periods_per_year=252)
+    assert ab["beta"] == pytest.approx(0.5, abs=0.05)
+    assert ab["alpha"] > 0
+
+
+def test_alpha_beta_empty_safe():
+    import pandas as pd
+    from yammyquant.metrics.performance import alpha_beta
+    ab = alpha_beta(pd.Series([0.01]), pd.Series([0.01]), 252)
+    assert ab == {"alpha": 0.0, "beta": 0.0}
