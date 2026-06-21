@@ -505,15 +505,18 @@ def test_decide_sets_bracket_on_entry_and_protect_uses_it(tmp_path, fake_exchang
     state.set("cash", 10_000.0)
     state.add_watch("BTCUSDT", "fake", "1d")
     ProtectPolicy(stop_loss=0.05, take_profit=0.10).save(state)
-    # fake exchange rising series -> a BUY entry fills at last close (159)
+    # rising series -> a BUY entry; the fill uses the live price (120), not the
+    # stale last close, so entry and the protect "current price" stay consistent
     out = ops.decide(store, state, weight=0.2, execute=True, mode="paper")
     buys = [p for p in out["proposals"] if p["side"] == "BUY" and p.get("status") == "filled"]
     assert buys and "bracket" in buys[0]
     entry = buys[0]["price"]
+    assert entry == pytest.approx(120.0)
     bracket = state.get("BTCUSDT" and "protect.bracket.BTCUSDT")
     assert bracket["stop"] == pytest.approx(entry * 0.95)
     assert bracket["take"] == pytest.approx(entry * 1.10)
-    # protect should reference the snapshot (price 120 < stop ~151 -> bracket_stop)
+    # drop the live price below the bracket stop (114) -> protect fires bracket_stop
+    fake_exchange.last_price = lambda *a, **k: 100.0
     prot = ops.protect(store, state)
     assert prot["proposals"][0]["reason"] == "bracket_stop"
 
