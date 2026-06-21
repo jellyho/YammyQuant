@@ -258,6 +258,7 @@ def backtest(
     cash: float = 10_000.0,
     fee: float = 0.001,
     slippage: float = 0.0,
+    fee_exchange: Optional[str] = None,
     fill_timing: str = "next_open",
     allow_short: bool = False,
     borrow_fee: float = 0.0,
@@ -293,10 +294,20 @@ def backtest(
     if risk:
         from yammyquant.backtest.risk import RiskConfig
         risk_cfg = RiskConfig(**{k: v for k, v in risk.items() if v is not None})
+    # pick an exchange -> apply its real maker/taker schedule automatically
+    maker_fee = taker_fee = None
+    if fee_exchange:
+        from yammyquant.exchanges.fees import fee_schedule
+        sched = fee_schedule(fee_exchange)
+        maker_fee, taker_fee = sched.maker, sched.taker
     result = Backtest(candle, strat, cash=cash, fee=fee, slippage=slippage,
                       fill_timing=fill_timing, allow_short=allow_short,
-                      borrow_fee=borrow_fee, risk=risk_cfg).run()
+                      borrow_fee=borrow_fee, risk=risk_cfg,
+                      maker_fee=maker_fee, taker_fee=taker_fee).run()
     stats = dict(result.stats)
+    if fee_exchange:
+        stats["fee_exchange"] = fee_exchange
+        stats["maker_fee"], stats["taker_fee"] = maker_fee, taker_fee
     eq = result.equity_curve
     if len(eq):
         leg, bench = buy_hold_benchmark(candle, eq.index, float(eq["equity"].iloc[0]))

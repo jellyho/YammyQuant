@@ -282,6 +282,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--fee", type=float, default=0.001)
     p.add_argument("--slippage", type=float, default=0.0,
                    help="proportional slippage per fill (e.g. 0.0005)")
+    p.add_argument("--fee-exchange", metavar="NAME",
+                   help="apply this exchange's real maker/taker fees (binance/upbit/...)")
     p.add_argument("--fill-timing", choices=["next_open", "close"], default="next_open",
                    help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
     p.add_argument("--allow-short", action="store_true",
@@ -639,7 +641,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                    if (args.session_days or args.session_hours) else None)
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
-                            slippage=args.slippage, fill_timing=args.fill_timing,
+                            slippage=args.slippage, fee_exchange=args.fee_exchange,
+                            fill_timing=args.fill_timing,
                             allow_short=args.allow_short, borrow_fee=args.borrow_fee, risk=risk,
                             bootstrap=args.bootstrap, monte_carlo=args.monte_carlo, ruin=args.ruin,
                             regime=regime, session=session,

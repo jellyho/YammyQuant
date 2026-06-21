@@ -32,9 +32,22 @@ class BacktestBroker(Broker):
         Buys fill slightly higher, sells slightly lower.
     """
 
-    def __init__(self, fee: float = 0.001, slippage: float = 0.0):
+    def __init__(self, fee: float = 0.001, slippage: float = 0.0,
+                 maker_fee: Optional[float] = None, taker_fee: Optional[float] = None):
         self.fee = float(fee)
         self.slippage = float(slippage)
+        # when set, charge maker on resting limits and taker on market/stop fills
+        self.maker_fee = float(maker_fee) if maker_fee is not None else None
+        self.taker_fee = float(taker_fee) if taker_fee is not None else None
+
+    def _rate(self, order: Order) -> float:
+        """Fee rate for an order: maker for a resting LIMIT, taker otherwise."""
+        if self.maker_fee is None and self.taker_fee is None:
+            return self.fee
+        from yammyquant.backtest.order import OrderType
+        if order.type == OrderType.LIMIT:
+            return self.maker_fee if self.maker_fee is not None else self.fee
+        return self.taker_fee if self.taker_fee is not None else self.fee
 
     def execute(self, order: Order, ref_price: float, time: datetime) -> Optional[Fill]:
         """Fill a MARKET order at the engine-provided ``ref_price``.
@@ -56,6 +69,6 @@ class BacktestBroker(Broker):
             return None
         fill_price = price * (1 + self.slippage) if order.action == Action.BUY \
             else price * (1 - self.slippage)
-        fee = fill_price * order.quantity * self.fee
+        fee = fill_price * order.quantity * self._rate(order)
         return Fill(order=order, fill_price=fill_price, fill_quantity=order.quantity,
                     fee=fee, time=time)
