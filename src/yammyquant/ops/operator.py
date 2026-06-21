@@ -239,6 +239,7 @@ def backtest(
     allow_short: bool = False,
     risk: Optional[dict] = None,
     bootstrap: int = 0,
+    regime: Optional[dict] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     state: Optional[LiveState] = None,
@@ -250,9 +251,14 @@ def backtest(
     max_drawdown, ...) wiring the protective-exit / position-sizing layer.
     ``bootstrap`` > 0 adds a bootstrapped Sharpe CI/p-value and the Probabilistic
     Sharpe Ratio — "is this edge statistically real, or noise?".
+    ``regime`` (``{"trend_period": ..., "htf_factor": ...}``) wraps the strategy
+    in a :class:`RegimeFilter` so it only enters with the prevailing trend.
     """
     candle = store.read(ticker, interval, start=start, end=end)
     strat = build_strategy(strategy, **(params or {}))
+    if regime:
+        from yammyquant.strategy.meta import RegimeFilter
+        strat = RegimeFilter(strat, **{k: v for k, v in regime.items() if v is not None})
     risk_cfg = None
     if risk:
         from yammyquant.backtest.risk import RiskConfig
