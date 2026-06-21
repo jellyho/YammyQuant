@@ -928,6 +928,9 @@ def notify_status(state: LiveState) -> dict:
         f"realized PnL {rep.get('realized_pnl')}",
         f"positions {len(positions)}",
     ]
+    if rep.get("closed_trades"):
+        # edge health at a glance when there's a track record to summarize
+        parts.append(f"win {rep['win_rate']} · exp {rep['expectancy']}")
     if pending:
         parts.append(f"⏳ {len(pending)} pending approval(s)")
     message = "📊 status — " + " · ".join(str(p) for p in parts)

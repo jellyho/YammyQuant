@@ -60,3 +60,16 @@ def test_status_digest(tmp_path, monkeypatch):
     out = ops.notify_status(state)
     assert "status" in out["message"] and "positions 1" in out["message"]
     assert out["channels"] == []
+
+
+def test_status_digest_includes_edge_health(tmp_path, monkeypatch):
+    from yammyquant.ops.trading import TradeManager
+    monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    tm.submit("AAA", "BUY", 10, 100)
+    tm.submit("AAA", "SELL", 10, 120)   # +200, a closed round-trip exists
+    out = ops.notify_status(state)
+    assert "win" in out["message"] and "exp" in out["message"]
