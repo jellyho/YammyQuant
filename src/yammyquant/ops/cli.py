@@ -298,6 +298,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--atr-take", type=float, help="take-profit at N×ATR from entry")
     p.add_argument("--trailing-stop", type=float, help="trailing stop: give-back from the best price")
     p.add_argument("--breakeven", type=float, help="gain that ratchets the stop to entry (breakeven)")
+    p.add_argument("--scale-out", type=float, metavar="FRAC",
+                   help="close this fraction at take-profit; the rest rides the stops")
     p.add_argument("--max-holding-bars", type=int, help="time stop: exit after N bars")
     p.add_argument("--max-drawdown", type=float, help="equity drawdown kill switch (flatten + halt)")
     p.add_argument("--bootstrap", type=int, default=0, metavar="N",
@@ -609,6 +611,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "stop_loss": args.stop_loss, "take_profit": args.take_profit,
                 "atr_stop": args.atr_stop, "atr_take": args.atr_take,
                 "trailing_stop": args.trailing_stop, "breakeven_trigger": args.breakeven,
+                "scale_out": args.scale_out,
                 "max_holding_bars": args.max_holding_bars, "max_drawdown": args.max_drawdown}
         risk = {k: v for k, v in risk.items() if v is not None} or None
         regime = ({"trend_period": args.regime_trend, "htf_factor": args.regime_htf}

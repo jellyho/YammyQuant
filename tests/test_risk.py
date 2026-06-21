@@ -150,6 +150,33 @@ def test_atr_stop_exits_at_volatility_scaled_level():
     assert float(closes.iloc[0]["price"]) == pytest.approx(98.0, abs=0.3)
 
 
+def test_scale_out_takes_partial_at_target_then_rides():
+    import pandas as pd
+    from yammyquant.data.candle import Candle
+    from yammyquant.backtest.engine import Backtest as _BT
+    from test_backtest import _BuyOnceStrategy
+
+    # enter at bar1 open=100; bar2 spikes to 120 (>= +10% take), bar3 dips to 94 (<= -5% stop)
+    idx = pd.date_range("2023-01-01", periods=4, freq="1D")
+    df = pd.DataFrame(
+        {"open": [100, 100, 110, 108],
+         "high": [101, 102, 120, 109],
+         "low":  [99, 100, 108, 94],
+         "close": [100, 101, 112, 95],
+         "volume": [1.0] * 4},
+        index=idx,
+    )
+    candle = Candle("SO", df, interval="1d")
+    res = _BT(candle, _BuyOnceStrategy(), cash=10_000, fee=0.0, fill_timing="next_open",
+              risk=RiskConfig(take_profit=0.10, stop_loss=0.05, scale_out=0.5)).run()
+    closes = res.trades[res.trades["closing"]]
+    assert len(closes) == 2                       # half at the target, half at the stop
+    assert float(closes.iloc[0]["price"]) == pytest.approx(110.0)   # take 100*1.10
+    assert float(closes.iloc[0]["quantity"]) == pytest.approx(0.5)  # half the unit
+    assert float(closes.iloc[1]["price"]) == pytest.approx(95.0)    # stop 100*0.95
+    assert float(closes.iloc[1]["quantity"]) == pytest.approx(0.5)
+
+
 def test_time_stop_exits_after_n_bars(trend_candle):
     # a long entry on a steadily rising series, forced out after 3 bars
     from yammyquant.backtest.engine import Backtest as _BT
