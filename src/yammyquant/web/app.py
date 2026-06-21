@@ -326,6 +326,35 @@ def create_app(state_path: str = "yammyquant_state.db", store_path: str = "data_
         policy.save(state)
         return asdict(policy)
 
+    @app.get("/api/fees")
+    def get_fees():
+        """Active venue's real maker/taker fees + the slippage applied to paper fills.
+
+        Surfaces the realism config so the operator can see exactly what paper
+        trades cost — paper mirrors live (same venue fees + slippage).
+        """
+        from yammyquant.exchanges import get_exchange, default_exchange
+        name = state.get("exchange") or default_exchange()
+        out = {"exchange": name, "slippage": float(state.get("slippage", 0.0))}
+        try:
+            out["fees"] = get_exchange(name).fees()
+        except Exception as e:
+            out["fees"] = None
+            out["error"] = str(e)
+        return _json_safe(out)
+
+    @app.get("/api/integrity")
+    def get_integrity(ticker: str | None = None, interval: str | None = None,
+                      sessions: bool = False):
+        """Audit stored candles for gaps/dups/bad-OHLC. ``sessions=true`` treats
+        overnight/weekend gaps as expected closures (stocks), not missing data."""
+        from yammyquant.ops import operator as ops
+        try:
+            return _json_safe(ops.integrity(store(), ticker, interval,
+                                            continuous=not sessions))
+        except Exception as e:
+            raise HTTPException(502, f"integrity failed: {e}")
+
     @app.get("/api/report")
     def get_report():
         """

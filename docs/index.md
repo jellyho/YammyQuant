@@ -62,6 +62,21 @@ Claude Code (operator)  ──drives──▶  yq CLI toolbelt
 3. **Record decisions** as trades (paper by default; live orders queue for human
    approval) and as **journal** entries for the next session.
 
+### From idea to live, with the same costs at every stage
+
+The pipeline is **backtest → paper → live**, and execution realism carries
+through all three so a result that survives one stage is meaningful at the next:
+
+- **Per-exchange fees.** Pick a venue and its real maker/taker schedule is applied
+  automatically — `yq backtest … --fee-exchange binance`, paper trades through
+  `TradeManager(exchange=…)`, and live reads the account's fee tier from the API.
+  You never hand-set fees.
+- **Live prices for paper.** Paper trades fill at the exchange's real-time price
+  (not the last candle close) and incur a configurable `slippage` — so paper
+  mirrors live execution, not an idealized fill.
+- **Session-aware data.** `yq integrity --sessions` knows stocks close overnight
+  and on weekends (crypto is 24h), so it flags only genuine intraday gaps.
+
 ## Why it's different
 
 Compared to freqtrade / Jesse / NautilusTrader and the LLM-agent repos

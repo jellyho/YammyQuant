@@ -27,6 +27,8 @@ via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
     | `donchian_breakout` | Break of the N-bar high/low channel. |
     | `bollinger_breakout` | Close breaking outside the Bollinger Bands. |
     | `keltner_breakout` | Break of the Keltner channel (EMA ± ATR). |
+    | `opening_range_breakout` | Break of the day's opening range (intraday; optional end-of-day flatten). |
+    | `volume_spike_breakout` | Breakout confirmed by a volume spike vs the recent average. |
 
 === "Mean reversion / scalping"
 
@@ -40,6 +42,15 @@ via `yq optimize <sym> <interval> <name>` (each ships a default parameter grid).
     | `cci_reversion` | CCI reversal at ±threshold. |
     | `mfi_reversion` | Money-Flow-Index (volume RSI) reversal. |
     | `vwap_reversion` | Fade deviations from rolling VWAP. |
+    | `vwap_band_scalp` | Fade session-VWAP ± σ bands back toward VWAP (intraday scalp). |
+    | `micro_pullback` | Buy shallow pullbacks within an established up-trend (fast/slow EMA). |
+
+!!! tip "Scalping (5m / 15m)"
+    The intraday set — `opening_range_breakout`, `vwap_band_scalp`,
+    `volume_spike_breakout`, `micro_pullback` — targets shorter timeframes.
+    Pair them with a **session filter** (trade only chosen weekdays/hours), the
+    session-resetting `session_vwap` indicator, and `yq integrity --sessions` so
+    overnight gaps in stock data don't read as missing bars.
 
 ## Ensembling — blend strategies & signals
 
@@ -92,7 +103,7 @@ All strategies build on a dependency-free indicator library, callable directly:
 
 | Family | Indicators |
 |---|---|
-| Moving averages | `sma` `ema` `wma` `hma` `dema` `tema` `vwma` `vwap` |
+| Moving averages | `sma` `ema` `wma` `hma` `dema` `tema` `vwma` `vwap` `session_vwap` |
 | Momentum / oscillators | `rsi` `macd` `ppo` `roc` `momentum` `trix` `stoch` `stoch_rsi` `williams_r` `cci` `mfi` |
 | Volatility / channels | `atr` `tr` `natr` `stddev` `zscore` `bbands` `bbwidth` `keltner` `donchian` `supertrend` `psar` `adx` |
 | Volume | `obv` `cmf` `vwma` `mfi` |
@@ -109,6 +120,20 @@ Multi-output indicators (`macd`, `stoch`, `stoch_rsi`, `bbands`, `adx`,
 `keltner`, `donchian`, `supertrend`) return a `DataFrame`; the rest return a
 `Series` aligned to the candle index.
 
+## Meta-strategies — wrap any strategy
+
+Two wrappers add a gate around a base strategy without changing it:
+
+| Wrapper | What it does |
+|---|---|
+| `RegimeFilter` | Only take the base strategy's entries when a higher-timeframe trend agrees (trend-regime gate). |
+| `SessionFilter` | Only trade on configured weekdays / hours — flatten outside the session (for intraday/scalping). |
+
+```bash
+yq backtest BTCUSDT 1d macross --regime-trend 50 --regime-htf 4     # regime gate
+yq backtest 005930 5m vwap_band_scalp --session-days 0-4 --session-hours 9-15
+```
+
 ## Backtesting
 
 ```python
@@ -117,6 +142,23 @@ result = Backtest(candle, MACross(5, 20), cash=10_000, fee=0.001).run()
 print(result)   # Sharpe, Sortino, Calmar, max drawdown, CAGR, win rate, ...
 ```
 
+### Execution realism
+
+Backtests can model the same frictions as live, so results don't flatter the
+strategy:
+
+```bash
+yq backtest BTCUSDT 1d macross --fee-exchange binance   # that venue's maker/taker
+yq backtest BTCUSDT 1d macross --slippage 0.001 --fill-timing next_open
+yq backtest BTCUSDT 1d macross --allow-short --borrow-fee 0.0001   # shorting + carry
+yq cost BTCUSDT 1d macross                               # how sensitive the edge is to cost
+```
+
+`--fee-exchange` applies that venue's real maker/taker schedule (limit orders pay
+maker, market orders pay taker); `--fill-timing next_open` fills at the next bar's
+open (no look-ahead). The same per-exchange fees + slippage carry into paper and
+live, so a backtest, a paper run, and live all cost the same.
+
 ## Risk layer (backtests)
 
 ```python
@@ -124,12 +166,21 @@ from yammyquant.backtest.engine import Backtest
 from yammyquant.backtest.risk import RiskConfig
 
 Backtest(candle, strategy, risk=RiskConfig(
-    sizing="volatility",   # volatility-targeted position sizing
+    sizing="volatility",      # volatility-targeted position sizing (or kelly/fraction)
     stop_loss=0.05,
     take_profit=0.10,
-    max_drawdown=0.20,     # drawdown kill-switch
+    atr_stop=2.0,             # ATR-multiple stop (adapts to volatility)
+    trailing_stop=0.08,       # lock in gains as price advances
+    breakeven_trigger=0.04,   # move the stop to entry once this far in profit
+    scale_out=0.5,            # take half off at the take-profit, let the rest run
+    max_holding_bars=20,      # time stop
+    max_drawdown=0.20,        # drawdown kill-switch
 ))
 ```
+
+The same protective exits run on **live/paper** open positions via `yq protect`
+(stop / take / trailing / ATR / scale-out), and `yq decide` snapshots an OCO
+bracket on each filled entry so `protect` manages the exit.
 
 ## Account risk policy (live & paper)
 
