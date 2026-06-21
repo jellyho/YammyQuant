@@ -100,7 +100,8 @@ async function loadReport() {
   $("report").innerHTML =
     cell("equity", fmt(d.equity_now)) + cell("total return", d.total_return) +
     cell("realized PnL", fmt(d.realized_pnl)) + cell("max DD", d.max_drawdown) +
-    cell("sharpe", d.sharpe) + cell("win rate", d.win_rate) +
+    cell("sharpe", d.sharpe) + cell("sortino", d.sortino) +
+    cell("win rate", d.win_rate) + cell("expectancy", fmt(d.expectancy)) +
     cell("closed", d.closed_trades) + cell("cash", fmt(d.cash));
 }
 $("refreshReport").onclick = loadReport;
@@ -557,8 +558,10 @@ async function loadAttribution() {
   const rows = (await r.json()).by_strategy || [];
   $("attribution").querySelector("tbody").innerHTML = rows.map(s => `<tr>
     <td>${s.strategy}</td><td>${s.round_trips}</td>
-    <td class="${s.pnl >= 0 ? 'buy' : 'sell'}">${fmt(s.pnl)}</td></tr>`).join("")
-    || `<tr><td colspan="3" class="muted">no closed round-trips yet</td></tr>`;
+    <td class="${s.pnl >= 0 ? 'buy' : 'sell'}">${fmt(s.pnl)}</td>
+    <td>${s.win_rate ?? "–"}</td><td>${fmt(s.expectancy)}</td>
+    <td>${s.profit_factor ?? "–"}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="muted">no closed round-trips yet</td></tr>`;
 }
 $("loadAttr").onclick = loadAttribution;
 

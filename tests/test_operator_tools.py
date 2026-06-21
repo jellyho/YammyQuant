@@ -100,6 +100,24 @@ def test_report_realized_pnl(tmp_path):
     assert rep["realized_by_symbol"]["AAA"] == pytest.approx(200.0)
 
 
+def test_report_expectancy_and_avgs(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    tm.submit("AAA", "BUY", 10, 100)
+    tm.submit("AAA", "SELL", 10, 120)               # +200 realized (win)
+    tm.submit("BBB", "BUY", 10, 100)
+    tm.submit("BBB", "SELL", 10, 90)                # -100 realized (loss)
+    rep = ops.report(state)
+    assert rep["closed_trades"] == 2
+    assert rep["win_rate"] == pytest.approx(0.5)
+    assert rep["avg_win"] == pytest.approx(200.0)
+    assert rep["avg_loss"] == pytest.approx(-100.0)
+    # expectancy == mean realized PnL per trade == (200 - 100) / 2
+    assert rep["expectancy"] == pytest.approx(50.0)
+    assert "sortino" in rep
+
+
 def test_decide_proposes_buy_dry_run(tmp_path, fake_exchange):
     store = DuckDBStore(tmp_path / "store")
     state = LiveState(tmp_path / "s.db")
@@ -194,6 +212,27 @@ def test_attribution_credits_entry_voters(tmp_path):
     assert attr["macross"]["pnl"] == pytest.approx(15.0)
     assert attr["supertrend"]["pnl"] == pytest.approx(15.0)
     assert attr["macross"]["round_trips"] == 1
+    # single winning round-trip -> 100% win rate, expectancy == per-trip credit
+    assert attr["macross"]["win_rate"] == pytest.approx(1.0)
+    assert attr["macross"]["expectancy"] == pytest.approx(15.0)
+
+
+def test_attribution_win_rate_and_expectancy(tmp_path):
+    state = LiveState(tmp_path / "s.db")
+    tm = TradeManager(state, fee=0.0)
+    tm.cash = 10_000.0
+    ctx = {"voters": {"macross": "BUY"}}
+    tm.submit("AAA", "BUY", 1.0, 100, context=ctx)
+    tm.submit("AAA", "SELL", 1.0, 130, context={"voters": {"macross": "SELL"}})  # +30 win
+    tm.submit("AAA", "BUY", 1.0, 100, context=ctx)
+    tm.submit("AAA", "SELL", 1.0, 90, context={"voters": {"macross": "SELL"}})   # -10 loss
+    row = ops.attribution(state)["by_strategy"][0]
+    assert row["strategy"] == "macross"
+    assert row["round_trips"] == 2
+    assert row["pnl"] == pytest.approx(20.0)
+    assert row["win_rate"] == pytest.approx(0.5)
+    assert row["expectancy"] == pytest.approx(10.0)   # (30 - 10) / 2
+    assert row["profit_factor"] == pytest.approx(3.0)  # gross win 30 / gross loss 10
 
 
 def test_risk_parity_weights_inverse_vol(tmp_path):

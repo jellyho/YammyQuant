@@ -29,8 +29,17 @@ def test_volatility_breakout_runs(sine_candle):
 def test_expanded_metrics_present(sine_candle):
     result = Backtest(sine_candle, MACross(5, 20), cash=10_000.0).run()
     for key in ["sortino", "calmar", "annual_volatility", "avg_win", "avg_loss",
-                "best_trade", "worst_trade"]:
+                "best_trade", "worst_trade", "expectancy"]:
         assert key in result.stats
+
+
+def test_expectancy_is_mean_pnl():
+    import pandas as pd
+    from yammyquant.metrics.performance import expectancy
+
+    assert expectancy(pd.Series(dtype=float)) == 0.0
+    # 2 wins (+200, +100) and 1 loss (-90) -> mean = 70
+    assert expectancy(pd.Series([200.0, 100.0, -90.0])) == 70.0
 
 
 def test_not_enough_data_raises(sine_candle):

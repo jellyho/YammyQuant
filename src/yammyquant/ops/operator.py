@@ -870,7 +870,9 @@ def decay_check(state: LiveState, tolerance: float = 0.5) -> dict:
 def report(state: LiveState, interval: Optional[str] = None) -> dict:
     """Performance report from recorded equity + trades (realized PnL, drawdown…)."""
     import pandas as pd
-    from yammyquant.metrics.performance import max_drawdown, sharpe, _BARS_PER_YEAR
+    from yammyquant.metrics.performance import (
+        max_drawdown, sharpe, sortino, expectancy, _BARS_PER_YEAR,
+    )
 
     eqrows = state.equity_curve()
     equity = pd.Series([r["equity"] for r in eqrows], dtype=float)
@@ -887,6 +889,7 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
             by_symbol[t["ticker"]] = round(by_symbol.get(t["ticker"], 0.0) + r, 4)
     wins = [r for r in realized if r > 0]
     losses = [r for r in realized if r < 0]
+    pnl = pd.Series(realized, dtype=float)
 
     out = {
         "equity_start": round(float(equity.iloc[0]), 2) if len(equity) else None,
@@ -895,10 +898,14 @@ def report(state: LiveState, interval: Optional[str] = None) -> dict:
                         if len(equity) > 1 and equity.iloc[0] else 0.0,
         "max_drawdown": round(max_drawdown(equity), 4) if len(equity) else 0.0,
         "sharpe": round(sharpe(rets, ppy), 3),
+        "sortino": round(sortino(rets, ppy), 3),
         "realized_pnl": round(sum(realized), 4),
         "closed_trades": len(realized),
         "win_rate": round(len(wins) / len(realized), 4) if realized else 0.0,
         "profit_factor": round(sum(wins) / abs(sum(losses)), 3) if losses else None,
+        "expectancy": round(expectancy(pnl), 4) if realized else 0.0,
+        "avg_win": round(sum(wins) / len(wins), 4) if wins else 0.0,
+        "avg_loss": round(sum(losses) / len(losses), 4) if losses else 0.0,
         "realized_by_symbol": by_symbol,
         "open_positions": state.positions(),
         "cash": state.get("cash", 0.0),
@@ -921,6 +928,9 @@ def notify_status(state: LiveState) -> dict:
         f"realized PnL {rep.get('realized_pnl')}",
         f"positions {len(positions)}",
     ]
+    if rep.get("closed_trades"):
+        # edge health at a glance when there's a track record to summarize
+        parts.append(f"win {rep['win_rate']} · exp {rep['expectancy']}")
     if pending:
         parts.append(f"⏳ {len(pending)} pending approval(s)")
     message = "📊 status — " + " · ".join(str(p) for p in parts)
@@ -1068,13 +1078,25 @@ def attribution(state: LiveState) -> dict:
             pnl = float(meta.get("realized") or 0.0)   # realized PnL lives in meta
             credit = entry_voters.pop(sym, None) or \
                 [n for n, v in voters.items() if v == "SELL"] or list(voters)
+            share = pnl / len(credit)
             for name in credit:
-                row = by.setdefault(name, {"strategy": name, "round_trips": 0, "pnl": 0.0})
+                row = by.setdefault(
+                    name, {"strategy": name, "round_trips": 0, "pnl": 0.0, "_pnls": []})
                 row["round_trips"] += 1
-                row["pnl"] += pnl / len(credit)
+                row["pnl"] += share
+                row["_pnls"].append(share)   # per-round-trip credit, for win_rate/expectancy
     ranked = sorted(by.values(), key=lambda d: -d["pnl"])
     for row in ranked:
+        pnls = row.pop("_pnls")
+        wins = [p for p in pnls if p > 0]
+        losses = [p for p in pnls if p < 0]
+        gross_loss = -sum(losses)
         row["pnl"] = round(row["pnl"], 4)
+        # which strategies actually carry a positive edge, not just total PnL
+        row["win_rate"] = round(len(wins) / len(pnls), 4) if pnls else 0.0
+        row["expectancy"] = round(row["pnl"] / len(pnls), 4) if pnls else 0.0
+        # None (not inf) when there are no losing round-trips — keeps it JSON-safe
+        row["profit_factor"] = round(sum(wins) / gross_loss, 3) if gross_loss else None
     return {"by_strategy": ranked}
 
 
