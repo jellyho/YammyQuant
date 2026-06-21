@@ -29,6 +29,9 @@ class RiskConfig:
     -------------------------------------------------------------
     - ``stop_loss``   — fractional loss from entry that forces an exit (0.05 = 5%)
     - ``take_profit`` — fractional gain from entry that forces an exit
+    - ``atr_stop`` / ``atr_take`` — volatility-scaled stop/take placed ``N × ATR``
+      from the entry price (``atr_lookback`` bars). Adapts the stop distance to
+      each market's noise instead of a flat percentage.
     - ``trailing_stop`` — fractional give-back from the best price seen since
       entry (the high-water mark) that forces an exit; locks in open profit as
       the trade runs
@@ -48,6 +51,9 @@ class RiskConfig:
     max_position_fraction: float = 1.0
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
+    atr_stop: Optional[float] = None
+    atr_take: Optional[float] = None
+    atr_lookback: int = 14
     trailing_stop: Optional[float] = None
     breakeven_trigger: Optional[float] = None
     max_holding_bars: Optional[int] = None

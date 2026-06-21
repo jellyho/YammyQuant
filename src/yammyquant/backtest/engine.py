@@ -127,6 +127,11 @@ class Backtest:
         pending: list[Order] = []  # orders decided last bar, awaiting this bar's open
         self._entry_bar = {}       # ticker -> bar index the open position was entered
         self._hwm = {}             # ticker -> high-water mark since entry (max high / min low)
+        self._atr_stop_px = {}     # ticker -> absolute ATR stop level set at entry
+        self._atr_take_px = {}     # ticker -> absolute ATR take-profit level set at entry
+        self._atr = None
+        if self.risk is not None and (self.risk.config.atr_stop or self.risk.config.atr_take):
+            self._atr = candle.ind.atr(self.risk.config.atr_lookback).to_numpy()
 
         for i in range(self.lookback - 1, n):
             window = candle[i - self.lookback + 1 : i + 1]
@@ -195,6 +200,13 @@ class Backtest:
         hwm = self._hwm.get(ticker, avg)
         # priority: fixed stop/take, then trailing stop, then breakeven, then time stop
         exit_px = self.risk.exit_price(avg, bar_high, bar_low, is_short=is_short)
+        if exit_px is None:                              # volatility-scaled ATR stop / take
+            sp = self._atr_stop_px.get(ticker)
+            tp = self._atr_take_px.get(ticker)
+            if sp is not None and (bar_high >= sp if is_short else bar_low <= sp):
+                exit_px = sp
+            elif tp is not None and (bar_low <= tp if is_short else bar_high >= tp):
+                exit_px = tp
         if exit_px is None:
             exit_px = self.risk.trailing_exit(hwm, bar_high, bar_low, is_short=is_short)
         if exit_px is None:
@@ -214,9 +226,26 @@ class Backtest:
             if ticker not in self._entry_bar:
                 self._entry_bar[ticker] = i
                 self._hwm[ticker] = pos.avg_price
+                self._set_atr_levels(ticker, pos, i)
         else:
             self._entry_bar.pop(ticker, None)
             self._hwm.pop(ticker, None)
+            self._atr_stop_px.pop(ticker, None)
+            self._atr_take_px.pop(ticker, None)
+
+    def _set_atr_levels(self, ticker: str, pos, i: int) -> None:
+        """Fix volatility-scaled stop/take levels from the ATR at entry."""
+        if self._atr is None:
+            return
+        a = float(self._atr[i]) if i < len(self._atr) else float("nan")
+        if a != a or a <= 0:                       # NaN during warmup or no range
+            return
+        c = self.risk.config
+        sign = -1 if pos.is_short else 1
+        if c.atr_stop:
+            self._atr_stop_px[ticker] = pos.avg_price - sign * c.atr_stop * a
+        if c.atr_take:
+            self._atr_take_px[ticker] = pos.avg_price + sign * c.atr_take * a
 
     def _update_hwm(self, ticker: str, bar_high: float, bar_low: float) -> None:
         pos = self.portfolio.position(ticker)

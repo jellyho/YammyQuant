@@ -291,6 +291,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--risk-fraction", type=float, help="fraction of equity per entry (sizing=fraction)")
     p.add_argument("--stop-loss", type=float, help="fractional stop-loss from entry (0.05 = 5%%)")
     p.add_argument("--take-profit", type=float, help="fractional take-profit from entry")
+    p.add_argument("--atr-stop", type=float, help="stop at N×ATR from entry (volatility-scaled)")
+    p.add_argument("--atr-take", type=float, help="take-profit at N×ATR from entry")
     p.add_argument("--trailing-stop", type=float, help="trailing stop: give-back from the best price")
     p.add_argument("--breakeven", type=float, help="gain that ratchets the stop to entry (breakeven)")
     p.add_argument("--max-holding-bars", type=int, help="time stop: exit after N bars")
@@ -574,6 +576,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                   if v is not None}
         risk = {"sizing": args.sizing, "risk_fraction": args.risk_fraction,
                 "stop_loss": args.stop_loss, "take_profit": args.take_profit,
+                "atr_stop": args.atr_stop, "atr_take": args.atr_take,
                 "trailing_stop": args.trailing_stop, "breakeven_trigger": args.breakeven,
                 "max_holding_bars": args.max_holding_bars, "max_drawdown": args.max_drawdown}
         risk = {k: v for k, v in risk.items() if v is not None} or None
