@@ -418,3 +418,58 @@ class VWAPReversion(Strategy):
         if dev_now > self.threshold and dev_prev <= self.threshold:
             return [Order(Action.SELL, window.ticker, self.size, price, time)]
         return []
+
+
+class OpeningRangeBreakout(Strategy):
+    """Intraday opening-range breakout — a 5m/15m scalping classic.
+
+    Each calendar day the first ``opening_bars`` bars define an opening range.
+    After the range is set, break above its high goes long; a drop back below the
+    range low exits, and the position is flattened at the next day's open
+    (intraday only — no overnight hold). Works on any session-bearing intraday
+    series; degenerate on daily bars (each bar is its own "day").
+    """
+
+    warmup = 1
+
+    def __init__(self, opening_bars: int = 6, size: float = 1.0):
+        if opening_bars < 1:
+            raise ValueError("opening_bars must be >= 1")
+        self.opening_bars = int(opening_bars)
+        self.size = size
+        self.reset()
+
+    def reset(self) -> None:
+        self._day = None
+        self._hi = self._lo = None
+        self._count = 0
+        self._side = "FLAT"
+
+    def on_bar(self, window: Candle) -> List[Order]:
+        ts = window.index[-1]
+        day = ts.normalize() if hasattr(ts, "normalize") else ts
+        price = float(window.close[-1])
+        hi, lo = float(window.high[-1]), float(window.low[-1])
+
+        # new session: flatten any carry, reset the opening range
+        if day != self._day:
+            close_long = self._side == "LONG"
+            self._day, self._hi, self._lo, self._count, self._side = day, hi, lo, 1, "FLAT"
+            if close_long:
+                return [Order(Action.SELL, window.ticker, self.size, price, ts)]
+            return []
+
+        # still building the opening range
+        if self._count < self.opening_bars:
+            self._hi, self._lo = max(self._hi, hi), min(self._lo, lo)
+            self._count += 1
+            return []
+
+        # range set: breakout long / break-back exit
+        if self._side == "FLAT" and price > self._hi:
+            self._side = "LONG"
+            return [Order(Action.BUY, window.ticker, self.size, price, ts)]
+        if self._side == "LONG" and price < self._lo:
+            self._side = "FLAT"
+            return [Order(Action.SELL, window.ticker, self.size, price, ts)]
+        return []

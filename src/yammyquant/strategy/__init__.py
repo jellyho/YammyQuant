@@ -21,6 +21,7 @@ from yammyquant.strategy.builtin import (
     CCIReversion,
     MFIReversion,
     VWAPReversion,
+    OpeningRangeBreakout,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "CCIReversion",
     "MFIReversion",
     "VWAPReversion",
+    "OpeningRangeBreakout",
 ]
