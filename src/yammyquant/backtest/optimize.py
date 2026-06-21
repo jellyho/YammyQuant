@@ -38,6 +38,7 @@ class OptimizeResult:
     best_score: float
     metric: str
     results: list[dict]  # [{params, score, stats}], sorted best-first
+    dsr: float | None = None  # deflated Sharpe of the winner (overfit guard)
 
 
 def grid_search(
@@ -66,7 +67,24 @@ def grid_search(
         raise ValueError("no valid parameter combinations were evaluated")
     results.sort(key=lambda r: r["score"], reverse=True)
     best = results[0]
-    return OptimizeResult(best["params"], best["score"], metric, results)
+    dsr = _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk)
+    return OptimizeResult(best["params"], best["score"], metric, results, dsr=dsr)
+
+
+def _deflated_sharpe(candle, strategy_cls, best, results, cash, fee, risk):
+    """Deflated Sharpe of the winning params, correcting for the number of trials."""
+    if len(results) < 2:
+        return None
+    from yammyquant.metrics.performance import deflated_sharpe_ratio, _BARS_PER_YEAR
+    try:
+        eq = Backtest(candle, strategy_cls(**best["params"]), cash=cash, fee=fee,
+                      risk=risk).run().equity_curve
+        rets = eq["equity"].pct_change().dropna()
+        ppy = _BARS_PER_YEAR.get(candle.interval or "", 252)
+        trial_sharpes = [r["stats"].get("sharpe") for r in results]
+        return round(deflated_sharpe_ratio(rets, trial_sharpes, ppy), 4)
+    except Exception:
+        return None
 
 
 def walk_forward(

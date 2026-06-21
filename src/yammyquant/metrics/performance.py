@@ -105,6 +105,34 @@ def bootstrap_sharpe_ci(returns: pd.Series, periods_per_year: float,
     return out
 
 
+def deflated_sharpe_ratio(returns: pd.Series, trial_sharpes: list,
+                          periods_per_year: float) -> float:
+    """Probability the best of ``N`` trials is genuinely > 0 (Bailey & López de Prado).
+
+    When you search many parameter sets, the best Sharpe is inflated by luck. The
+    DSR is the PSR evaluated against the *expected maximum* Sharpe under the null
+    of no skill, given the number of trials and the spread of their Sharpes — so
+    it deflates the winner by how hard you looked. Returns a probability in
+    [0, 1]; well below 0.95 means the "best" params are likely overfit.
+    """
+    import math
+    from statistics import NormalDist
+
+    sr = [float(s) for s in trial_sharpes if s is not None and not np.isnan(s)]
+    n = len(sr)
+    if n < 2:
+        return probabilistic_sharpe_ratio(returns)
+    pp = [s / np.sqrt(periods_per_year) for s in sr]      # per-period Sharpes
+    sd = float(np.std(pp, ddof=1))
+    if sd == 0:
+        return probabilistic_sharpe_ratio(returns)
+    gamma = 0.5772156649015329                             # Euler–Mascheroni
+    nd = NormalDist()
+    e_max = sd * ((1 - gamma) * nd.inv_cdf(1 - 1.0 / n)
+                  + gamma * nd.inv_cdf(1 - 1.0 / (n * math.e)))
+    return probabilistic_sharpe_ratio(returns, sr_benchmark=e_max)
+
+
 def expectancy(pnl: pd.Series) -> float:
     """Expected PnL per closed trade — the headline "is this edge positive?" stat.
 
