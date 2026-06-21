@@ -94,6 +94,30 @@ def test_trailing_stop_fires_after_runup():
     assert float(closes.iloc[0]["price"]) == pytest.approx(117.0)
 
 
+def test_atr_stop_exits_at_volatility_scaled_level():
+    import pandas as pd
+    from yammyquant.backtest.order import Action
+    from yammyquant.data.candle import Candle
+    from yammyquant.backtest.engine import Backtest as _BT
+    from tests.test_backtest import _ScriptedStrategy
+
+    # flat ~1.0 true range so ATR≈1.0; enter only after ATR has warmed up
+    n = 20
+    idx = pd.date_range("2023-01-01", periods=n, freq="1D")
+    df = pd.DataFrame({"open": [100.0] * n, "high": [101.0] * n, "low": [100.0] * n,
+                       "close": [100.5] * n, "volume": [1.0] * n}, index=idx)
+    df.iloc[-1, df.columns.get_loc("low")] = 90.0   # final bar dips through the stop
+    candle = Candle("ATRX", df, interval="1d")
+    # BUY on the 7th bar -> entry at bar 8 open, well past the 5-bar ATR warmup
+    script = [None] * 6 + [Action.BUY]
+    res = _BT(candle, _ScriptedStrategy(script), cash=10_000, fee=0.0,
+              fill_timing="next_open", risk=RiskConfig(atr_stop=2.0, atr_lookback=5)).run()
+    closes = res.trades[res.trades["closing"]]
+    assert len(closes) == 1
+    # entry at 100, ATR≈1.0 -> 2×ATR stop ≈ 98
+    assert float(closes.iloc[0]["price"]) == pytest.approx(98.0, abs=0.3)
+
+
 def test_time_stop_exits_after_n_bars(trend_candle):
     # a long entry on a steadily rising series, forced out after 3 bars
     from yammyquant.backtest.engine import Backtest as _BT
