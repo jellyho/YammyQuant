@@ -430,6 +430,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--price", type=float, help="fill price; omit to use the live exchange price")
     p.add_argument("--exchange", help="venue for live price + fees (default: configured default)")
     p.add_argument("--mode", choices=["paper", "live"], default="paper")
+    p.add_argument("--type", dest="order_type", choices=["market", "limit"], default="market",
+                   help="order type; a live limit (with --price) rests until filled/canceled")
     p.add_argument("--rationale", default="")
 
     p = sub.add_parser("approve", help="approve a pending trade")
@@ -777,7 +779,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         price = args.price if args.price is not None else float(ex.last_price(args.ticker))
         tm = TradeManager(state, exchange=ex.name)   # real-time price + that venue's fees
         _print(tm.submit(args.ticker, args.side, args.quantity, price,
-                         args.mode, args.rationale))
+                         args.mode, args.rationale, order_type=args.order_type))
         return 0
 
     if args.cmd == "approve":

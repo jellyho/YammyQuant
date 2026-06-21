@@ -97,3 +97,11 @@ A Discord webhook (`DISCORD_WEBHOOK_URL`) and/or Slack (`SLACK_WEBHOOK_URL`) fir
 `yq notify --status` — when a live order needs approval,
 a risk rejection happens, or a cycle finds signals — so you stay in the loop while
 the operator runs unattended.
+
+## Verifying a venue before real trading
+
+Before letting a strategy trade real money, confirm the live order path
+(`create_order` → `order_status` → `cancel_order`) against your account with the
+[**Live exchange testing**](live-testing.md) walkthrough — its core is a resting
+limit order far from the market that you place, poll, then cancel, exercising the
+whole path with near-zero fill risk.
