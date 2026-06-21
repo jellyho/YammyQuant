@@ -107,6 +107,23 @@ def test_report_endpoint(client):
     assert "realized_pnl" in c.get("/api/report").json()
 
 
+def test_fees_endpoint(client):
+    c, state = client
+    state.set("exchange", "binance")
+    state.set("slippage", 0.001)
+    body = c.get("/api/fees").json()
+    assert body["exchange"] == "binance"
+    assert body["slippage"] == 0.001
+    assert body["fees"]["maker"] == 0.001 and body["fees"]["taker"] == 0.001
+
+
+def test_integrity_endpoint(client):
+    c, _ = client
+    body = c.get("/api/integrity", params={"ticker": "BTCUSDT", "interval": "1d"}).json()
+    assert "series" in body and body["series"][0]["ticker"] == "BTCUSDT"
+    assert "session_breaks" in body["series"][0]
+
+
 def test_news_in_snapshot(client):
     c, state = client
     state.add_news("BTC rallies", url="http://a", symbol="BTCUSDT", sentiment=0.6, source="t")

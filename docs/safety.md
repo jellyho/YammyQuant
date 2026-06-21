@@ -12,6 +12,13 @@ Paper trades fill immediately against a simulated book. This is the default mode
 for `yq trade` and `yq decide`, so you can run the whole loop — collect, scan,
 decide, mark, report — without any real money at risk.
 
+Paper is built to **mirror live**, not flatter it: paper orders fill at the
+exchange's **real-time price** (omit `--price` and it uses the live quote), pay
+that venue's **real maker/taker fees**, and incur a configurable **slippage**
+(`yq settings slippage=0.001`). So the intended pipeline — *backtest → paper →
+live* — costs the same at every stage, and a strategy that survives paper is a
+sound live candidate.
+
 ## Live flow
 
 ```

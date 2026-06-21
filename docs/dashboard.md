@@ -40,7 +40,9 @@ flips between **live** and **reconnecting…**.
 | **Watchlist** | The universe for cycles — add/remove symbols. |
 | **Leave an instruction** | A box that writes to the operator's **inbox** — what Claude Code reads via `yq recall` / `yq inbox` next run. |
 | **Operator activity / Journal** | The live activity log and the cross-session journal. |
-| **Control center** | Edit blend/flags (`auto_trade`, `trade_mode`, `ensemble_rule/threshold`, `sentiment_gate`, `exchange`) or any setting key; **run a cycle** or **send a status** push on demand. |
+| **Fees & realism** | The active venue's real **maker/taker** fees plus the **slippage** applied to paper fills — what paper trades actually cost (paper mirrors live). |
+| **Data integrity** | Audit stored candles for gaps / duplicates / bad OHLC, per symbol & interval; a **stock sessions** toggle treats overnight/weekend gaps as expected closures. |
+| **Control center** | Edit blend/flags (`auto_trade`, `trade_mode`, `ensemble_rule/threshold`, `sentiment_gate`, `sizing`, `target_vol`, `slippage`, `exchange`) or any setting key; **run a cycle** or **send a status** push on demand. |
 | **Manual trade** | Submit a paper/live order straight from the dashboard. |
 | **Targets & rebalance** | Set portfolio target weights (or **risk parity** = inverse-vol auto-weights) and **rebalance** toward them. |
 | **Plugins** | The operator-authored strategies/indicators currently loaded (+ any load errors). |

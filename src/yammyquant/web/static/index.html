@@ -163,6 +163,28 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><h2>Fees &amp; realism</h2><button id="refreshFees" class="ghost">refresh</button></div>
+      <div id="fees" class="report"></div>
+      <p class="muted">Paper trades fill at the live price and pay this venue's real maker/taker fees plus slippage — so paper mirrors live.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Data integrity</h2>
+        <span>
+          <input id="integTicker" placeholder="symbol (all)" style="max-width:120px" />
+          <input id="integInterval" placeholder="interval" style="max-width:70px" />
+          <label style="font-size:11px;color:var(--muted)"><input id="integSessions" type="checkbox" /> stock sessions</label>
+          <button id="integRun" class="ghost">audit</button>
+        </span>
+      </div>
+      <table id="integrity"><thead><tr>
+        <th>symbol</th><th>interval</th><th>bars</th><th>gaps</th><th>session breaks</th>
+        <th>dups</th><th>bad OHLC</th><th>ok</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <section class="card">
       <div class="card-head">
         <h2>Control center</h2>
         <span>

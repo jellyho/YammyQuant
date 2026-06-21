@@ -106,6 +106,43 @@ async function loadReport() {
 }
 $("refreshReport").onclick = loadReport;
 
+// ---- fees & realism ------------------------------------------------------
+async function loadFees() {
+  const r = await fetch("/api/fees"); if (!r.ok) return;
+  const d = await r.json();
+  const cell = (k, v) => `<div class="stat"><span>${k}</span><b>${v ?? "–"}</b></div>`;
+  const f = d.fees || {};
+  $("fees").innerHTML =
+    cell("exchange", d.exchange) +
+    cell("maker", f.maker != null ? (f.maker * 100).toFixed(4) + "%" : "–") +
+    cell("taker", f.taker != null ? (f.taker * 100).toFixed(4) + "%" : "–") +
+    cell("slippage", d.slippage != null ? (d.slippage * 100).toFixed(4) + "%" : "–") +
+    (d.error ? cell("note", escapeHtml(d.error)) : "");
+}
+$("refreshFees").onclick = loadFees;
+
+// ---- data integrity ------------------------------------------------------
+async function loadIntegrity() {
+  const ticker = $("integTicker").value.trim().toUpperCase();
+  const interval = $("integInterval").value.trim();
+  const sessions = $("integSessions").checked;
+  const q = new URLSearchParams();
+  if (ticker) q.set("ticker", ticker);
+  if (interval) q.set("interval", interval);
+  if (sessions) q.set("sessions", "true");
+  const r = await fetch("/api/integrity?" + q.toString());
+  const d = await r.json();
+  if (!r.ok) { alert(d.detail || "integrity failed"); return; }
+  $("integrity").querySelector("tbody").innerHTML = (d.series || []).map(s => `<tr>
+    <td>${s.ticker}</td><td>${s.interval}</td><td>${s.bars ?? "–"}</td>
+    <td class="${s.gaps ? 'sell' : ''}">${s.gaps ?? "–"}</td>
+    <td class="muted">${s.session_breaks ?? 0}</td>
+    <td>${s.duplicates ?? "–"}</td><td>${s.bad_ohlc ?? "–"}</td>
+    <td>${s.ok ? "✓" : "✗"}</td></tr>`).join("")
+    || `<tr><td colspan="8" class="muted">no stored candles</td></tr>`;
+}
+$("integRun").onclick = loadIntegrity;
+
 function renderDecisions(proposals) {
   $("decisions").querySelector("tbody").innerHTML = (proposals || []).map(p => `<tr>
     <td class="${p.side.toLowerCase()}">${p.side}</td><td>${p.symbol}</td>
@@ -253,7 +290,7 @@ function drawEquity(eq) {
 
 // ---- control center ------------------------------------------------------
 const CONTROL_FIELDS = ["auto_trade", "trade_mode", "ensemble_rule",
-  "ensemble_threshold", "sentiment_gate", "sizing", "target_vol", "exchange"];
+  "ensemble_threshold", "sentiment_gate", "sizing", "target_vol", "slippage", "exchange"];
 
 function parseVal(v) {
   if (v === "") return null;
@@ -580,6 +617,7 @@ connect();
 loadChart();
 loadRisk();
 loadReport();
+loadFees();
 loadControl();
 loadPlugins();
 loadPluginFiles();
