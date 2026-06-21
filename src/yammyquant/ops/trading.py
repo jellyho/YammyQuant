@@ -201,6 +201,15 @@ class TradeManager:
                     trade_id=trade_id,
                 )
                 return self.state.get_trade(trade_id)
+            # idempotency: if this trade already carries a venue order id, it was
+            # already placed (status update may have been lost mid-crash) — don't
+            # place a second order; let sync_orders settle the existing one.
+            meta0 = trade.get("meta") if isinstance(trade.get("meta"), dict) else {}
+            if meta0.get("exchange_order_id"):
+                self.state.set_trade_status(trade_id, "submitted")
+                self.state.log("trade", f"LIVE #{trade_id} already placed "
+                               f"({meta0['exchange_order_id']}); not re-placing", trade_id=trade_id)
+                return self.state.get_trade(trade_id)
             placer = place_live or self._place_live_order
             try:
                 result = placer(trade)
@@ -373,4 +382,5 @@ class TradeManager:
             ticker=trade["ticker"], side=trade["side"],
             quantity=trade["quantity"], price=trade.get("price"),
             order_type=meta.get("order_type", "market"),
+            client_order_id=meta.get("client_order_id") or f"yq-{trade['id']}",
         )

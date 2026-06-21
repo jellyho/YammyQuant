@@ -62,12 +62,15 @@ class BinanceExchange(Exchange):
         return self.client.get_account()
 
     def create_order(self, ticker: str, side: str, quantity: float,
-                     price: Optional[float] = None, order_type: str = "limit") -> dict:
+                     price: Optional[float] = None, order_type: str = "limit",
+                     client_order_id: Optional[str] = None) -> dict:
         kwargs = {"symbol": ticker, "side": side.upper(),
                   "type": "MARKET" if order_type == "market" else "LIMIT",
                   "quantity": quantity}
         if kwargs["type"] == "LIMIT":
             kwargs.update(price=str(price), timeInForce="GTC")
+        if client_order_id:                       # idempotency: venue dedupes on this
+            kwargs["newClientOrderId"] = client_order_id
         return self.client.create_order(**kwargs)
 
     def order_status(self, order_id: str, ticker: str) -> dict:

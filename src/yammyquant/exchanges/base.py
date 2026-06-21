@@ -86,7 +86,8 @@ class Exchange(ABC):
         raise NotImplementedError(f"{self.name} adapter does not implement balances()")
 
     def create_order(self, ticker: str, side: str, quantity: float,
-                     price: Optional[float] = None, order_type: str = "limit") -> dict:
+                     price: Optional[float] = None, order_type: str = "limit",
+                     client_order_id: Optional[str] = None) -> dict:
         raise NotImplementedError(f"{self.name} adapter does not implement create_order()")
 
     def order_status(self, order_id: str, ticker: str) -> dict:
