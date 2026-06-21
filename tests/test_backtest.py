@@ -22,6 +22,24 @@ class _BuyOnceStrategy(Strategy):
         return [Order(Action.BUY, window.ticker, quantity=1.0)]
 
 
+class _ScriptedStrategy(Strategy):
+    """Emits a scripted action per call index (None = hold)."""
+
+    warmup = 1
+
+    def __init__(self, script):
+        self._script = script
+
+    def reset(self):
+        self._i = 0
+
+    def on_bar(self, window):
+        i = getattr(self, "_i", 0)
+        self._i = i + 1
+        act = self._script[i] if i < len(self._script) else None
+        return [Order(act, window.ticker, quantity=1.0)] if act else []
+
+
 def _ohlc_candle():
     # open and close differ each bar so a fill price reveals which bar/field filled
     idx = pd.date_range("2023-01-01", periods=4, freq="1D")
@@ -63,6 +81,61 @@ def test_fill_timing_rejects_bad_value():
         pass
     else:
         raise AssertionError("expected ValueError for bad fill_timing")
+
+
+# -- shorting --------------------------------------------------------------
+
+def test_portfolio_short_round_trip_realizes_pnl():
+    from yammyquant.backtest.portfolio import Portfolio
+    from yammyquant.backtest.order import Order, Action, Fill
+
+    p = Portfolio(cash=1_000.0, fee=0.0, allow_short=True)
+    # open a short: SELL 1 @ 100 -> qty -1, cash +100
+    p.apply_fill(Fill(Order(Action.SELL, "X", 1.0), fill_price=100.0, fill_quantity=1.0))
+    assert p.position("X").is_short and p.position("X").quantity == -1.0
+    assert p.cash == 1_100.0
+    # price drops to 90 -> short is in profit; equity = cash + (-1)*90 = 1010
+    p.mark(None, {"X": 90.0})
+    assert p.equity() == 1_010.0
+    # cover: BUY 1 @ 90 -> realized +10, flat
+    p.apply_fill(Fill(Order(Action.BUY, "X", 1.0), fill_price=90.0, fill_quantity=1.0))
+    assert not p.position("X").is_open
+    cover = p.trades.iloc[-1]
+    assert bool(cover["closing"]) and cover["realized_pnl"] == 10.0
+
+
+def test_long_only_rejects_short_sell():
+    from yammyquant.backtest.portfolio import Portfolio
+    from yammyquant.backtest.order import Order, Action, Fill
+
+    p = Portfolio(cash=1_000.0, fee=0.0, allow_short=False)
+    ok = p.apply_fill(Fill(Order(Action.SELL, "X", 1.0), fill_price=100.0, fill_quantity=1.0))
+    assert ok is False and not p.position("X").is_open
+
+
+def test_short_stop_loss_triggers_above_entry():
+    from yammyquant.backtest.risk import RiskConfig, RiskManager
+
+    rm = RiskManager(RiskConfig(stop_loss=0.05, take_profit=0.10))
+    # short entered at 100: stop is ABOVE (105), checked against bar high
+    assert rm.exit_price(100.0, bar_high=106.0, bar_low=99.0, is_short=True) == 105.0
+    # take-profit BELOW (90), checked against bar low
+    assert rm.exit_price(100.0, bar_high=101.0, bar_low=89.0, is_short=True) == 90.0
+    # nothing triggered
+    assert rm.exit_price(100.0, bar_high=101.0, bar_low=99.0, is_short=True) is None
+
+
+def test_engine_shorts_through_full_loop():
+    candle = _ohlc_candle()  # opens 100,110,120,130 (rising)
+    # SELL on bar0 -> short opens at bar1 open (110); BUY on bar2 -> cover at bar3 open (130)
+    strat = _ScriptedStrategy([Action.SELL, None, Action.BUY])
+    res = Backtest(candle, strat, cash=10_000.0, fee=0.0,
+                   fill_timing="next_open", allow_short=True).run()
+    assert (res.trades["action"] == "SELL").sum() == 1
+    cover = res.trades[res.trades["closing"]].iloc[-1]
+    # rising market -> short loses: covered at 130 vs shorted at 110 -> -20
+    assert float(cover["realized_pnl"]) == -20.0
+    assert res.stats["num_closed"] == 1
 
 
 def test_macross_runs_and_trades(sine_candle):

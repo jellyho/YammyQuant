@@ -282,6 +282,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                    help="proportional slippage per fill (e.g. 0.0005)")
     p.add_argument("--fill-timing", choices=["next_open", "close"], default="next_open",
                    help="fill strategy orders at next bar's open (realistic, default) or signal-bar close")
+    p.add_argument("--allow-short", action="store_true",
+                   help="permit short positions (SELL when flat opens a short, BUY covers)")
     p.add_argument("--start")
     p.add_argument("--end")
 
@@ -553,6 +555,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print(ops.backtest(DuckDBStore(args.store), args.ticker, args.interval,
                             args.strategy, params, args.cash, args.fee,
                             slippage=args.slippage, fill_timing=args.fill_timing,
+                            allow_short=args.allow_short,
                             start=args.start, end=args.end, state=state))
         return 0
 

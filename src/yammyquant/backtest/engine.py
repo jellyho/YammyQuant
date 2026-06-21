@@ -89,6 +89,7 @@ class Backtest:
         broker: Broker | None = None,
         risk: "RiskConfig | None" = None,
         fill_timing: str = "next_open",
+        allow_short: bool = False,
     ):
         if fill_timing not in ("next_open", "close"):
             raise ValueError(f"fill_timing must be 'next_open' or 'close', got {fill_timing!r}")
@@ -96,7 +97,8 @@ class Backtest:
         self.strategy = strategy
         self.lookback = lookback or strategy.warmup
         self.fill_timing = fill_timing
-        self.portfolio = Portfolio(cash=cash, fee=fee)
+        self.allow_short = bool(allow_short)
+        self.portfolio = Portfolio(cash=cash, fee=fee, allow_short=allow_short)
         self.broker = broker or BacktestBroker(fee=fee, slippage=slippage)
         self.risk = None
         if risk is not None:
@@ -175,24 +177,37 @@ class Backtest:
         pos = self.portfolio.position(ticker)
         if not pos.is_open:
             return
-        exit_px = self.risk.exit_price(pos.avg_price, bar_high, bar_low)
+        exit_px = self.risk.exit_price(pos.avg_price, bar_high, bar_low, is_short=pos.is_short)
         if exit_px is not None:
-            self._sell(ticker, pos.quantity, exit_px, time)
+            self._close(ticker, exit_px, time)
 
     def _flatten(self, ticker: str, price: float, time) -> None:
-        pos = self.portfolio.position(ticker)
-        if pos.is_open:
-            self._sell(ticker, pos.quantity, price, time)
+        self._close(ticker, price, time)
 
-    def _sell(self, ticker: str, quantity: float, price: float, time) -> None:
-        order = Order(Action.SELL, ticker, quantity, price, time)
+    def _close(self, ticker: str, price: float, time) -> None:
+        """Flatten an open position — SELL a long, BUY back a short."""
+        pos = self.portfolio.position(ticker)
+        if not pos.is_open:
+            return
+        action = Action.SELL if pos.is_long else Action.BUY
+        order = Order(action, ticker, abs(pos.quantity), price, time)
         fill = self.broker.execute(order, ref_price=price, time=time)
         if fill is not None:
             self.portfolio.apply_fill(fill)
 
     def _size_order(self, order, ref_price: float, close, i: int) -> None:
-        """Resize a BUY entry per the risk policy (no-op for sizing='off'/SELL)."""
-        if self.risk is None or order.action != Action.BUY:
+        """Resize an *entry* per the risk policy (no-op for sizing='off' / exits).
+
+        Sizes a long entry (BUY while flat/long) or, when shorting is enabled, a
+        short entry (SELL while flat/short). Exits keep the order's own quantity.
+        """
+        if self.risk is None:
+            return
+        pos = self.portfolio.position(order.ticker)
+        opening_long = order.action == Action.BUY and pos.quantity >= -1e-12
+        opening_short = (order.action == Action.SELL and self.allow_short
+                         and pos.quantity <= 1e-12)
+        if not (opening_long or opening_short):
             return
         lookback = self.risk.config.vol_lookback
         recent = None
