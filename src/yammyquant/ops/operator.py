@@ -535,7 +535,7 @@ def protect(store: DuckDBStore, state: LiveState, exchange: Optional[str] = None
         return out
 
     ex = get_exchange(exchange or default_exchange())
-    tm = TradeManager(state)
+    tm = TradeManager(state, exchange=ex.name)
     mode = mode or ("live" if state.get("trade_mode") == "live" else "paper")
 
     for pos in state.positions():
@@ -1029,7 +1029,7 @@ def decide(
     from yammyquant.ops.risk_policy import AccountRiskPolicy
 
     ex = get_exchange(exchange or default_exchange())
-    tm = TradeManager(state)
+    tm = TradeManager(state, exchange=ex.name)
     policy = AccountRiskPolicy.load(state)
     target_w = weight if weight is not None else (policy.max_symbol_weight or 0.1)
     equity = tm._equity_estimate()
@@ -1155,7 +1155,7 @@ def rebalance(
         return {"orders": [], "note": "no targets set (yq target set SYM=weight)"}
 
     ex = get_exchange(exchange or default_exchange())
-    tm = TradeManager(state)
+    tm = TradeManager(state, exchange=ex.name)
     positions = {p["ticker"]: p for p in state.positions()}
     prices = {}
     for sym in set(targets) | set(positions):
@@ -1595,7 +1595,7 @@ def sync_orders(state: LiveState, exchange: Optional[str] = None) -> dict:
     from yammyquant.ops.trading import TradeManager
 
     ex = get_exchange(exchange or default_exchange())
-    tm = TradeManager(state)
+    tm = TradeManager(state, exchange=ex.name)
     updated = []
     for trade in state.open_orders():
         meta = trade.get("meta") if isinstance(trade.get("meta"), dict) else {}
